@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { spawn } from "child_process";
 import path from "path";
 import crossSpawn from "cross-spawn";
-import { getClaudePath, isClaudeAvailable } from "@/lib/claude-path";
+import {
+  type AgentEvent,
+  type EngineId,
+  findEnginePath,
+  getEngine,
+  killTree,
+} from "@/lib/agents";
 import { buildSystemPrompt } from "@/lib/chat-system-prompt";
 import { getBrand } from "@/lib/brand";
 import { getCarousel } from "@/lib/carousels";
@@ -20,39 +26,13 @@ function isWindowsStartupFailure(code: number | null): boolean {
   return process.platform === "win32" && code !== null && code >>> 0 >= 0xc0000000;
 }
 
-// child.kill() on Windows leaves the CLI's own children (bash, curl) orphaned,
-// and enough orphans starve the machine into the startup failure above.
-// ponytail: taskkill shells out; a job object would be tidier if this gets hot.
-function killTree(child: { pid?: number; kill: () => boolean }) {
-  if (process.platform === "win32" && child.pid) {
-    try {
-      spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], {
-        stdio: "ignore",
-      }).on("error", () => {});
-      return;
-    } catch {
-      // fall through to plain kill
-    }
-  }
-  child.kill();
-}
-
 export async function POST(request: NextRequest) {
-  if (!isClaudeAvailable()) {
-    return NextResponse.json(
-      {
-        error:
-          "Claude CLI not found. Install from https://docs.anthropic.com/en/docs/claude-code or set CLAUDE_CLI_PATH in .env.local",
-      },
-      { status: 503 }
-    );
-  }
-
   let body: {
     message?: string;
     sessionId?: string;
     carouselId?: string;
     stylePresetId?: string;
+    engine?: EngineId;
     attachments?: Array<{ url?: string; name?: string }>;
   };
   try {
@@ -62,6 +42,17 @@ export async function POST(request: NextRequest) {
   }
 
   const { message, sessionId, carouselId, stylePresetId, attachments } = body;
+
+  const engine = getEngine(body.engine);
+  const enginePath = findEnginePath(engine);
+  if (!enginePath) {
+    return NextResponse.json(
+      {
+        error: `${engine.label} CLI not found. Install it or set ${engine.envVar} in .env.local`,
+      },
+      { status: 503 }
+    );
+  }
 
   const safeAttachments = Array.isArray(attachments)
     ? attachments
@@ -104,34 +95,15 @@ export async function POST(request: NextRequest) {
   const brand = await getBrand();
   const carousel = carouselId ? await getCarousel(carouselId) : null;
   const stylePreset = stylePresetId ? await getPreset(stylePresetId) : null;
-  const systemPrompt = buildSystemPrompt(brand, carousel, stylePreset);
+  const systemPrompt = buildSystemPrompt(brand, carousel, stylePreset, engine.id);
 
-  const claudePath = getClaudePath();
   const abortController = new AbortController();
 
-  const args = [
-    "-p",
-    promptText,
-    "--output-format",
-    "stream-json",
-    "--include-partial-messages",
-    "--verbose",
-    "--append-system-prompt",
+  const { args, stdin } = engine.buildLaunch({
+    prompt: promptText,
     systemPrompt,
-    "--allowedTools",
-    "Bash",
-    "WebFetch",
-    "Read",
-    "--max-budget-usd",
-    // A full carousel runs ~250k tokens; 1.00 dies mid-build.
-    process.env.CHAT_MAX_BUDGET_USD || "5.00",
-    "--name",
-    "carrusel-chat",
-  ];
-
-  if (sessionId) {
-    args.push("--resume", sessionId);
-  }
+    sessionId,
+  });
 
   const encoder = new TextEncoder();
 
@@ -165,7 +137,7 @@ export async function POST(request: NextRequest) {
       };
 
       const isWindowsShim =
-        process.platform === "win32" && /\.(cmd|bat)$/i.test(claudePath);
+        process.platform === "win32" && /\.(cmd|bat)$/i.test(enginePath);
       const spawner = isWindowsShim ? crossSpawn : spawn;
 
       let buffer = "";
@@ -174,9 +146,10 @@ export async function POST(request: NextRequest) {
 
       const launch = (attempt: number) => {
         let childProcess: ReturnType<typeof spawn>;
+        const parse = engine.createParser();
 
         try {
-          childProcess = spawner(claudePath, args, {
+          childProcess = spawner(enginePath, args, {
             cwd: process.cwd(),
             signal: abortController.signal,
             stdio: ["pipe", "pipe", "pipe"],
@@ -188,12 +161,12 @@ export async function POST(request: NextRequest) {
           childProcess.stdin?.on("error", () => {});
           childProcess.stdout?.on("error", () => {});
           childProcess.stderr?.on("error", () => {});
-          // Close stdin — we don't send input to the subprocess
+          if (stdin) childProcess.stdin?.write(stdin);
           childProcess.stdin?.end();
         } catch (err) {
           const e = err as NodeJS.ErrnoException;
-          console.error(`[chat] failed to spawn Claude CLI ${JSON.stringify({
-            claudePath,
+          console.error(`[chat] failed to spawn ${engine.label} CLI ${JSON.stringify({
+            enginePath,
             platform: process.platform,
             code: e?.code,
             message: e?.message,
@@ -201,9 +174,9 @@ export async function POST(request: NextRequest) {
           send(
             encoder.encode(
               `event: error\ndata: ${JSON.stringify({
-                error: "Failed to start Claude CLI",
+                error: `Failed to start ${engine.label} CLI`,
                 code: e?.code,
-                path: claudePath,
+                path: enginePath,
                 message: e?.message,
               })}\n\n`
             )
@@ -212,6 +185,16 @@ export async function POST(request: NextRequest) {
           return;
         }
 
+        const emit = (line: string) => {
+          for (const event of parse(line)) {
+            if (event.type === "session") {
+              resolvedSessionId = event.id;
+              continue;
+            }
+            send(encoder.encode(toSse(event)));
+          }
+        };
+
         childProcess.stdout?.on("data", (chunk: Buffer) => {
           sawOutput = true;
           buffer += chunk.toString();
@@ -219,15 +202,7 @@ export async function POST(request: NextRequest) {
           buffer = lines.pop() ?? "";
 
           for (const line of lines) {
-            if (!line.trim()) continue;
-            try {
-              const event = JSON.parse(line);
-              handleEvent(event, send, encoder, (id) => {
-                resolvedSessionId = id;
-              });
-            } catch {
-              // skip unparseable lines
-            }
+            if (line.trim()) emit(line);
           }
         });
 
@@ -247,8 +222,8 @@ export async function POST(request: NextRequest) {
         childProcess.on("error", (err) => {
           clearTimeout(timeout);
           const e = err as NodeJS.ErrnoException;
-          console.error(`[chat] Claude subprocess error ${JSON.stringify({
-            claudePath,
+          console.error(`[chat] ${engine.label} subprocess error ${JSON.stringify({
+            enginePath,
             platform: process.platform,
             code: e?.code,
             syscall: e?.syscall,
@@ -281,27 +256,18 @@ export async function POST(request: NextRequest) {
           // Windows refused to start the process — nothing ran, so retry once.
           if (attempt === 0 && !sawOutput && isWindowsStartupFailure(code)) {
             console.warn(
-              `[chat] Windows failed to start Claude CLI (0x${(code as number >>> 0).toString(16)}), retrying once`
+              `[chat] Windows failed to start ${engine.label} CLI (0x${(code as number >>> 0).toString(16)}), retrying once`
             );
             setTimeout(() => launch(attempt + 1), 250);
             return;
           }
 
           // process remaining buffer
-          if (buffer.trim()) {
-            try {
-              const event = JSON.parse(buffer);
-              handleEvent(event, send, encoder, (id) => {
-                resolvedSessionId = id;
-              });
-            } catch {
-              // skip
-            }
-          }
+          if (buffer.trim()) emit(buffer);
 
           if (code && code !== 0) {
-            console.error(`[chat] Claude subprocess exited non-zero ${JSON.stringify({
-              claudePath,
+            console.error(`[chat] ${engine.label} subprocess exited non-zero ${JSON.stringify({
+              enginePath,
               platform: process.platform,
               exitCode: code,
               stderr: stderrBuf,
@@ -311,8 +277,8 @@ export async function POST(request: NextRequest) {
                 encoder.encode(
                   `event: error\ndata: ${JSON.stringify({
                     error: isWindowsStartupFailure(code)
-                      ? `Windows no pudo iniciar el Claude CLI (0x${(code >>> 0).toString(16)}). Suele ser falta de memoria o demasiados procesos abiertos: cerrá apps, reiniciá el dev server desde una terminal normal y probá de nuevo.`
-                      : `Claude CLI exited with code ${code}`,
+                      ? `Windows no pudo iniciar el ${engine.label} CLI (0x${(code >>> 0).toString(16)}). Suele ser falta de memoria o demasiados procesos abiertos: cerrá apps, reiniciá el dev server desde una terminal normal y probá de nuevo.`
+                      : `${engine.label} CLI exited with code ${code}`,
                     exitCode: code,
                     stderr: stderrBuf || undefined,
                   })}\n\n`
@@ -358,66 +324,13 @@ export async function POST(request: NextRequest) {
   });
 }
 
-function handleEvent(
-  event: Record<string, unknown>,
-  send: (payload: Uint8Array) => void,
-  encoder: TextEncoder,
-  onSessionId: (id: string) => void
-) {
-  // Extract session ID from init event
-  if (
-    event.type === "system" &&
-    event.subtype === "init" &&
-    event.session_id
-  ) {
-    onSessionId(event.session_id as string);
-    return;
+/** Normalized agent event → the SSE frame the chat client already understands. */
+function toSse(event: Exclude<AgentEvent, { type: "session" }>): string {
+  if (event.type === "error") {
+    return `event: error\ndata: ${JSON.stringify({
+      error: event.error,
+      subtype: event.subtype,
+    })}\n\n`;
   }
-
-  // Extract streaming text tokens
-  if (event.type === "assistant" && event.message) {
-    const msg = event.message as Record<string, unknown>;
-    if (msg.type === "message" && Array.isArray(msg.content)) {
-      for (const block of msg.content) {
-        const b = block as Record<string, unknown>;
-        if (b.type === "text" && typeof b.text === "string") {
-          send(
-            encoder.encode(
-              `data: ${JSON.stringify({ type: "token", text: b.text })}\n\n`
-            )
-          );
-        }
-      }
-    }
-    return;
-  }
-
-  // Extract result with session ID
-  if (event.type === "result") {
-    if (event.session_id) {
-      onSessionId(event.session_id as string);
-    }
-    if (event.is_error || (event.subtype && event.subtype !== "success")) {
-      send(
-        encoder.encode(
-          `event: error\ndata: ${JSON.stringify({
-            error:
-              typeof event.result === "string" && event.result
-                ? event.result
-                : `Claude CLI stopped: ${event.subtype}`,
-            subtype: event.subtype,
-          })}\n\n`
-        )
-      );
-      return;
-    }
-    if (typeof event.result === "string" && event.result) {
-      send(
-        encoder.encode(
-          `data: ${JSON.stringify({ type: "result", text: event.result })}\n\n`
-        )
-      );
-    }
-    return;
-  }
+  return `data: ${JSON.stringify(event)}\n\n`;
 }

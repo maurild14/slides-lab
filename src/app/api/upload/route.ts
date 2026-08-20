@@ -107,9 +107,12 @@ export async function POST(request: Request) {
       });
     }
 
-    // Process image through Sharp: strip EXIF, enforce sRGB, max 1080px, convert to PNG
+    // Process image through Sharp: strip EXIF, enforce sRGB, convert to PNG.
+    // The cap is 1080x1920 (the tallest slide) rather than a 1080 square, so a
+    // full-bleed 4:5 or 9:16 image survives at native size instead of being
+    // shrunk to fit inside 1080x1080.
     const processed = await sharp(Buffer.from(arrayBuffer))
-      .resize(1080, 1080, { fit: "inside", withoutEnlargement: true })
+      .resize(1080, 1920, { fit: "inside", withoutEnlargement: true })
       .toColorspace("srgb")
       .png()
       .toBuffer();

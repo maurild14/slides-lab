@@ -95,7 +95,7 @@ npm run setup        # installs deps + seeds /data/
 npm run dev          # starts http://localhost:3000
 ```
 
-You won't get the AI chat without Claude Code installed (the in-app agent shells out to the `claude` CLI), but the editor and export still work for static slides.
+The AI chat needs at least one agent CLI installed — [Claude Code](https://docs.anthropic.com/en/docs/claude-code) or [Codex](https://developers.openai.com/codex/cli). Without either, the editor and export still work for static slides.
 
 ---
 
@@ -105,23 +105,32 @@ You won't get the AI chat without Claude Code installed (the in-app agent shells
 - **Generate slides by chatting**: "Make me a 5-slide carousel about productivity habits — bold sans-serif, dark mode, accent red." Watch them stream in.
 - **Iterate per slide**: "Make slide 3 more minimal", "Change the accent to teal", "Swap the hook for something punchier."
 - **Three Instagram aspect ratios** ready to go: 1:1 (1080×1080), 4:5 (1080×1350), 9:16 (1080×1920).
-- **Brand config** — name, color palette, fonts, logo, style keywords. Claude reads it before every generation so output stays on-brand.
+- **AI image generation, built in** — with Codex as the engine, the agent generates illustrations, textures and hand-drawn elements on its own when a slide calls for one, billed to your ChatGPT plan. No API key, no third-party service. What counts as "calls for one" lives in [`docs/imagegen-policy.md`](./docs/imagegen-policy.md) — plain markdown you can edit, no code, no restart.
+- **Canvas editing** — prompt an image from the right-hand panel, then drag it onto the slide. Alignment guides snap it to centers, safe margins and neighbouring elements; resize from any corner; nudge with arrow keys.
+- **Brand config** — name, color palette, fonts, logo, style keywords. The agent reads it before every generation so output stays on-brand.
 - **Templates** — save any carousel as a template, reuse it for the next one.
-- **Reference images** — drop in screenshots of carousels you love. Claude studies them to match style.
+- **Reference images** — drop in screenshots of carousels you love. The agent studies them to match style.
 - **Drag to reorder** slides via dnd-kit. Undo per-slide if a tweak goes sideways (version history per slide).
 - **Safe-zone overlay** to verify nothing important crops behind Instagram's UI.
 - **Fullscreen preview** for the final review.
 - **One-click export** — Puppeteer screenshots each slide HTML at the exact pixel dimensions Instagram expects, zips them, downloads.
 - **Captions + hashtags** generator built into the editor.
-- **All local** — slides, brand, uploads, exports all live in `/data/` and `/public/uploads/`. Nothing is sent to a cloud you don't control. The only network call is when Claude Code talks to Anthropic.
+- **All local** — slides, brand, uploads, exports all live in `/data/` and `/public/uploads/`. Nothing is sent to a cloud you don't control. The only network calls are the agent CLI talking to its own provider.
 
 ---
 
 ## 💬 How the AI agent works
 
-The in-app agent is the **Claude CLI** spawned as a subprocess from `/api/chat` with `--allowedTools Bash WebFetch`. Messages stream back to the browser via Server-Sent Events.
+The in-app agent is an **agent CLI spawned as a subprocess** from `/api/chat`. Messages stream back to the browser via Server-Sent Events. Two engines are supported, and you switch between them from the dropdown at the top of the chat panel:
 
-When you ask for a slide, Claude:
+| Engine | Runs as | Image generation |
+|---|---|---|
+| **Claude** | `claude -p` with `--allowedTools Bash WebFetch Read` | via `POST /api/images/generate` |
+| **Codex** | `codex exec --json` sandboxed to the workspace | built-in `image_gen` tool |
+
+Each engine keeps its own conversation, so switching mid-carousel starts a fresh thread rather than confusing the other one.
+
+When you ask for a slide, the agent:
 
 1. Reads your brand config + active carousel state from the system prompt
 2. Writes the slide as a complete HTML/CSS string
@@ -213,7 +222,8 @@ flowchart LR
 **Why these choices:**
 
 - **Local-first, single-user.** The whole app is a localhost web app talking to local files. No cloud, no auth, no database.
-- **Claude CLI as the agent.** Lets us reuse the user's existing Claude Code authentication, capabilities, and context. The subprocess gets `Bash` (to `curl` the slide-write endpoints) and `WebFetch` (for research while designing).
+- **An agent CLI as the agent.** Lets us reuse whatever the user already pays for — no API keys of our own, no cloud account. The subprocess gets shell access (to `curl` the slide-write endpoints) and web access (for research while designing), and nothing else.
+- **Images from the agent's own subscription.** Codex ships `image_gen` (gpt-image-2) built in and bills it to the user's ChatGPT plan, so image generation needs no third-party service and no `OPENAI_API_KEY`.
 - **Slides as HTML.** Claude already writes great HTML/CSS — way more flexible than canvas, way easier to debug than a JSON DSL. The same HTML powers preview *and* export, so what you see is what you ship.
 - **Sandboxed iframes.** No `<script>` tags allowed (enforced by the iframe `sandbox=""` attribute). Slides can't run code or escape their box.
 - **JSON file storage with async-mutex + atomic writes.** No SQLite, no Postgres. Reads and writes go through [`src/lib/data.ts`](./src/lib/data.ts) with proper locking, and writes are tmp-file + rename to avoid torn JSON.
@@ -231,7 +241,8 @@ For more, see [`CLAUDE.md`](./CLAUDE.md) — the architecture doc tuned for AI a
 | Styling      | [Tailwind CSS v4](https://tailwindcss.com) (CSS-first config in `globals.css`)    |
 | UI primitives| [Radix UI](https://www.radix-ui.com), [lucide-react](https://lucide.dev)          |
 | Drag/drop    | [@dnd-kit](https://dndkit.com)                                                    |
-| AI agent     | [Claude CLI](https://docs.anthropic.com/en/docs/claude-code) subprocess           |
+| AI agent     | [Claude CLI](https://docs.anthropic.com/en/docs/claude-code) or [Codex CLI](https://developers.openai.com/codex/cli) subprocess |
+| Image gen    | Codex built-in `image_gen` (gpt-image-2), no API key                              |
 | Image export | [Puppeteer](https://pptr.dev), [Sharp](https://sharp.pixelplumbing.com)           |
 | Zipping      | [Archiver](https://github.com/archiverjs/node-archiver)                           |
 | Storage      | JSON files + [async-mutex](https://github.com/DirtyHairy/async-mutex)             |
@@ -270,7 +281,8 @@ slides-lab/
 │   │   ├── slide-html.ts            ← wrapSlideHtml() — the rendering contract
 │   │   ├── carousels.ts             ← carousel + slide CRUD with version history
 │   │   ├── data.ts                  ← JSON storage with async-mutex + atomic writes
-│   │   ├── claude-path.ts           ← portable Claude CLI discovery
+│   │   ├── agents.ts                ← engine registry: discovery, args, stream parsing
+│   │   ├── canvas-utils.ts          ← slide/screen coordinate math + snapping
 │   │   └── ...
 │   └── types/                ← shared TypeScript types
 ├── CLAUDE.md                 ← architecture doc for AI assistants working on this code
@@ -287,10 +299,11 @@ slides-lab/
 
 ### Environment variables (`.env.local`)
 
-Created automatically by `scripts/setup.mjs` if it can find your Claude CLI. You can override:
+Created automatically by `scripts/setup.mjs`, which looks for both engines. You can override either:
 
 ```bash
 CLAUDE_CLI_PATH=/path/to/claude   # set if `which claude` doesn't find it
+CODEX_CLI_PATH=/path/to/codex     # set if `which codex` doesn't find it
 ```
 
 On Windows, run `where claude` in PowerShell to find the path (typically `C:\Users\<you>\AppData\Roaming\npm\claude.cmd`), then set `CLAUDE_CLI_PATH` in `.env.local`.

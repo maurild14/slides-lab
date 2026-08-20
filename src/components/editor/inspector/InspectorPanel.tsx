@@ -30,12 +30,20 @@ import {
   TextAreaField,
   ToggleGroup,
 } from "./InspectorFields";
+import { ImagePanel } from "./ImagePanel";
+import { isFloating } from "@/lib/canvas-utils";
+import type { AspectRatio } from "@/types/carousel";
 
 interface InspectorPanelProps {
   isOpen: boolean;
   enabled: boolean;
   onClose: () => void;
   selectedElement: HTMLElement | null;
+  aspectRatio: AspectRatio;
+  /** False when no installed engine can generate images. */
+  canGenerate: boolean;
+  /** Begin dragging a generated image toward the slide. */
+  onImageDragStart: (url: string) => void;
   /** Bumped externally whenever the iframe reloads (clears stale reads). */
   iframeReadyTick: number;
   /** Notify parent that the slide HTML changed and should be saved. */
@@ -59,6 +67,9 @@ export function InspectorPanel({
   enabled,
   onClose,
   selectedElement,
+  aspectRatio,
+  canGenerate,
+  onImageDragStart,
   iframeReadyTick,
   onMutate,
   onUndo,
@@ -99,6 +110,13 @@ export function InspectorPanel({
       borderRadius: readPx(selectedElement, "borderRadius", win),
       src: (selectedElement as HTMLImageElement).src || "",
       alt: (selectedElement as HTMLImageElement).alt || "",
+      isFloating: isFloating(selectedElement),
+      left: selectedElement.offsetLeft,
+      top: selectedElement.offsetTop,
+      width: selectedElement.offsetWidth,
+      height: selectedElement.offsetHeight,
+      opacity: Math.round((Number.parseFloat(cs.opacity) || 1) * 100),
+      zIndex: Number.parseInt(selectedElement.style.zIndex || cs.zIndex, 10) || 0,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedElement, tick]);
@@ -170,14 +188,22 @@ export function InspectorPanel({
             title="Edit mode is off"
             hint="Enable Edit in the toolbar to start clicking elements on the slide."
           />
-        ) : !props ? (
-          <EmptyState
-            icon={<MousePointerClick className="h-5 w-5" />}
-            title="Nothing selected"
-            hint="Click any text, image, or shape on the slide to edit it."
-          />
         ) : (
           <>
+            {/* Always available while editing — it needs no selection */}
+            <ImagePanel
+              aspectRatio={aspectRatio}
+              canGenerate={canGenerate}
+              onDragStart={onImageDragStart}
+            />
+            {!props ? (
+              <EmptyState
+                icon={<MousePointerClick className="h-5 w-5" />}
+                title="Nothing selected"
+                hint="Click any text, image, or shape on the slide to edit it."
+              />
+            ) : (
+              <>
             {/* Selection header */}
             <div className="px-3 py-2.5 border-b border-border">
               <div className="flex items-center gap-2">
@@ -423,6 +449,95 @@ export function InspectorPanel({
                 />
               </Row>
             </Section>
+
+            {/* Position — only meaningful for freely placed layers */}
+            {props.isFloating && (
+              <Section title="Position">
+                <Row label="X / Y">
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <NumberField
+                      value={props.left}
+                      step={1}
+                      suffix="px"
+                      onChange={(n) =>
+                        mutate(() => {
+                          if (selectedElement)
+                            selectedElement.style.left = `${n}px`;
+                        })
+                      }
+                    />
+                    <NumberField
+                      value={props.top}
+                      step={1}
+                      suffix="px"
+                      onChange={(n) =>
+                        mutate(() => {
+                          if (selectedElement)
+                            selectedElement.style.top = `${n}px`;
+                        })
+                      }
+                    />
+                  </div>
+                </Row>
+                <Row label="W / H">
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <NumberField
+                      value={props.width}
+                      min={8}
+                      step={1}
+                      suffix="px"
+                      onChange={(n) =>
+                        mutate(() => {
+                          if (selectedElement)
+                            selectedElement.style.width = `${n}px`;
+                        })
+                      }
+                    />
+                    <NumberField
+                      value={props.height}
+                      min={8}
+                      step={1}
+                      suffix="px"
+                      onChange={(n) =>
+                        mutate(() => {
+                          if (selectedElement)
+                            selectedElement.style.height = `${n}px`;
+                        })
+                      }
+                    />
+                  </div>
+                </Row>
+                <Row label="Opacity">
+                  <NumberField
+                    value={props.opacity}
+                    min={0}
+                    max={100}
+                    step={5}
+                    suffix="%"
+                    onChange={(n) =>
+                      mutate(() => {
+                        if (selectedElement)
+                          selectedElement.style.opacity = String(n / 100);
+                      })
+                    }
+                  />
+                </Row>
+                <Row label="Layer" hint="Stacking order (z-index)">
+                  <NumberField
+                    value={props.zIndex}
+                    step={1}
+                    onChange={(n) =>
+                      mutate(() => {
+                        if (selectedElement)
+                          selectedElement.style.zIndex = String(n);
+                      })
+                    }
+                  />
+                </Row>
+              </Section>
+            )}
+              </>
+            )}
           </>
         )}
       </div>

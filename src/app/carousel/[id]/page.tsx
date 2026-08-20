@@ -15,8 +15,18 @@ import { ExportButton } from "@/components/editor/ExportButton";
 import { CaptionPanel } from "@/components/editor/CaptionPanel";
 import { FullscreenPreview } from "@/components/editor/FullscreenPreview";
 import { InspectorPanel } from "@/components/editor/inspector/InspectorPanel";
+import { SlideCanvas } from "@/components/editor/SlideCanvas";
 import { stripInspectorAttrs } from "@/lib/inspector-utils";
 import type { Carousel, AspectRatio } from "@/types/carousel";
+import { DIMENSIONS } from "@/types/carousel";
+import type { EngineStatus } from "@/lib/agents";
+
+// Assume both engines work until /api/chat/check answers, so the panel doesn't
+// flash an "install a CLI" empty state on every page load.
+const OPTIMISTIC_ENGINES: EngineStatus[] = [
+  { id: "claude", label: "Claude", available: true, supportsImagegen: false },
+  { id: "codex", label: "Codex", available: true, supportsImagegen: true },
+];
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -28,7 +38,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
   const [carousel, setCarousel] = useState<Carousel | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
-  const [claudeAvailable, setClaudeAvailable] = useState(true);
+  const [engines, setEngines] = useState<EngineStatus[]>(OPTIMISTIC_ENGINES);
   const [chatOpen, setChatOpen] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showSafeZones, setShowSafeZones] = useState(false);
@@ -38,6 +48,10 @@ export default function CarouselEditorPage({ params }: PageProps) {
     null
   );
   const [iframeReadyTick, setIframeReadyTick] = useState(0);
+  const [dragImageUrl, setDragImageUrl] = useState<string | null>(null);
+  // Bumped on every slide mutation so the inspector re-reads the element it
+  // is showing — a canvas drag changes position behind its back otherwise.
+  const [mutationTick, setMutationTick] = useState(0);
   const [isSavingSlide, setIsSavingSlide] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -52,6 +66,10 @@ export default function CarouselEditorPage({ params }: PageProps) {
 
   // Ref for focusing chat input when + button is clicked
   const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const canGenerateImages = engines.some(
+    (e) => e.available && e.supportsImagegen
+  );
 
   const fetchCarousel = useCallback(async () => {
     try {
@@ -85,10 +103,10 @@ export default function CarouselEditorPage({ params }: PageProps) {
       await fetchCarousel();
       try {
         const res = await fetch("/api/chat/check");
-        const data: { available?: boolean } = await res.json();
-        if (data.available === false) setClaudeAvailable(false);
+        const data: { engines?: EngineStatus[] } = await res.json();
+        if (data.engines?.length) setEngines(data.engines);
       } catch {
-        // assume available
+        // keep the optimistic list; the chat request will surface the truth
       }
     };
     load();
@@ -209,6 +227,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
   }, [carousel, activeSlide, id]);
 
   const handleSlideMutate = useCallback(() => {
+    setMutationTick((n) => n + 1);
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       persistCurrentSlide();
@@ -329,7 +348,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
           <div className="oc-fade w-80 border-r border-border shrink-0 flex flex-col bg-surface">
             <ChatPanel
               carouselId={id}
-              claudeAvailable={claudeAvailable}
+              engines={engines}
               referenceImages={carousel.referenceImages || []}
               onStreamStart={handleStreamStart}
               onStreamEnd={handleStreamEnd}
@@ -440,12 +459,27 @@ export default function CarouselEditorPage({ params }: PageProps) {
               enabled={editMode}
               onClose={handleToggleEditMode}
               selectedElement={selectedElement}
-              iframeReadyTick={iframeReadyTick}
+              aspectRatio={carousel.aspectRatio}
+              canGenerate={canGenerateImages}
+              onImageDragStart={setDragImageUrl}
+              iframeReadyTick={iframeReadyTick + mutationTick}
               onMutate={handleSlideMutate}
               onUndo={handleInspectorUndo}
               saving={isSavingSlide}
             />
           </div>
+
+          <SlideCanvas
+            iframeRef={iframeRef}
+            dimensions={DIMENSIONS[carousel.aspectRatio]}
+            active={editMode}
+            selectedElement={selectedElement}
+            onSelectElement={setSelectedElement}
+            dragUrl={dragImageUrl}
+            onDragResolved={() => setDragImageUrl(null)}
+            onMutate={handleSlideMutate}
+            iframeReadyTick={iframeReadyTick}
+          />
 
           {/* Caption panel */}
           <CaptionPanel

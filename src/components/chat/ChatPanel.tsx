@@ -4,8 +4,10 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput, type ChatAttachment } from "./ChatInput";
 import { ReferenceImages } from "./ReferenceImages";
+import { EngineSelector } from "./EngineSelector";
 import { AlertCircle, Plug } from "lucide-react";
 import type { ReferenceImage } from "@/types/carousel";
+import type { EngineId, EngineStatus } from "@/lib/agents";
 
 interface Message {
   id: string;
@@ -17,7 +19,7 @@ interface Message {
 interface ChatPanelProps {
   carouselId: string;
   referenceImages?: ReferenceImage[];
-  claudeAvailable: boolean;
+  engines: EngineStatus[];
   onStreamStart?: () => void;
   onStreamEnd?: () => void;
   chatInputRef?: React.RefObject<HTMLTextAreaElement | null>;
@@ -25,7 +27,7 @@ interface ChatPanelProps {
 
 export function ChatPanel({
   carouselId,
-  claudeAvailable,
+  engines,
   referenceImages = [],
   onStreamStart,
   onStreamEnd,
@@ -34,21 +36,42 @@ export function ChatPanel({
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [engine, setEngine] = useState<EngineId>("claude");
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Load session ID and chat history from localStorage
+  // Sessions are per engine: a Claude session id means nothing to Codex.
+  const sessionKey = `chat-session-${carouselId}-${engine}`;
+  const anyEngineAvailable = engines.some((e) => e.available);
+
+  // Load chat history and the engine chosen for this carousel
   useEffect(() => {
-    const storedSession = localStorage.getItem(`chat-session-${carouselId}`);
-    if (storedSession) setSessionId(storedSession);
     try {
       const storedMessages = localStorage.getItem(`chat-messages-${carouselId}`);
       if (storedMessages) setMessages(JSON.parse(storedMessages));
     } catch {
       // ignore corrupted data
     }
+    const storedEngine = localStorage.getItem(`chat-engine-${carouselId}`);
+    if (storedEngine === "claude" || storedEngine === "codex") {
+      setEngine(storedEngine);
+    }
   }, [carouselId]);
+
+  // Follow the engine's own session when it (or the carousel) changes
+  useEffect(() => {
+    setSessionId(localStorage.getItem(sessionKey));
+  }, [sessionKey]);
+
+  const handleEngineChange = useCallback(
+    (next: EngineId) => {
+      setEngine(next);
+      localStorage.setItem(`chat-engine-${carouselId}`, next);
+    },
+    [carouselId]
+  );
 
   // Persist messages to localStorage
   const persistMessages = useCallback(
@@ -66,8 +89,8 @@ export function ChatPanel({
     setMessages([]);
     setSessionId(null);
     localStorage.removeItem(`chat-messages-${carouselId}`);
-    localStorage.removeItem(`chat-session-${carouselId}`);
-  }, [carouselId]);
+    localStorage.removeItem(sessionKey);
+  }, [carouselId, sessionKey]);
 
   const handleStopGenerating = useCallback(() => {
     abortRef.current?.abort();
@@ -113,6 +136,7 @@ export function ChatPanel({
             message,
             sessionId,
             carouselId,
+            engine,
             attachments,
           }),
           signal: abortRef.current.signal,
@@ -132,6 +156,55 @@ export function ChatPanel({
         let accumulated = "";
         let buffer = "";
 
+        // Every SSE frame we emit is a `data:` line — the `event:` line only
+        // labels it. One branch handles them all; splitting on the event name
+        // is what made the sessionId handler unreachable before.
+        const handleLine = (line: string) => {
+          if (!line.startsWith("data: ")) return;
+          let data: Record<string, unknown>;
+          try {
+            data = JSON.parse(line.slice(6));
+          } catch {
+            return;
+          }
+
+          if (typeof data.sessionId === "string" && data.sessionId) {
+            setSessionId(data.sessionId);
+            localStorage.setItem(sessionKey, data.sessionId);
+          }
+
+          if (typeof data.error === "string") {
+            // server-side failures arrive as `event: error`; without this
+            // the chat just goes silent and looks stuck
+            setError(
+              typeof data.stderr === "string"
+                ? `${data.error} — ${data.stderr}`
+                : data.error
+            );
+            return;
+          }
+
+          if (data.type === "status" && typeof data.text === "string") {
+            setStatus(data.text);
+            return;
+          }
+
+          if (
+            (data.type === "token" || data.type === "result") &&
+            typeof data.text === "string"
+          ) {
+            // `result` restates the whole turn; `token` appends to it.
+            accumulated =
+              data.type === "result" ? data.text : accumulated + data.text;
+            setStatus(null);
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId ? { ...m, content: accumulated } : m
+              )
+            );
+          }
+        };
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -140,78 +213,11 @@ export function ChatPanel({
           const lines = buffer.split("\n");
           buffer = lines.pop() ?? "";
 
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                if (data.type === "token" && typeof data.text === "string") {
-                  accumulated += data.text;
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantId
-                        ? { ...m, content: accumulated }
-                        : m
-                    )
-                  );
-                } else if (typeof data.error === "string") {
-                  // server-side failures arrive as `event: error`; without this
-                  // the chat just goes silent and looks stuck
-                  setError(
-                    data.stderr ? data.error + " — " + data.stderr : data.error
-                  );
-                } else if (data.type === "result" && typeof data.text === "string") {
-                  accumulated = data.text; // result is the final complete text
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantId
-                        ? { ...m, content: accumulated }
-                        : m
-                    )
-                  );
-                }
-              } catch {
-                // skip unparseable
-              }
-            } else if (line.startsWith("event: done")) {
-              // Next line has the done data
-            } else if (
-              line.startsWith("data: ") &&
-              line.includes("sessionId")
-            ) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                if (data.sessionId) {
-                  setSessionId(data.sessionId);
-                  localStorage.setItem(
-                    `chat-session-${carouselId}`,
-                    data.sessionId
-                  );
-                }
-              } catch {
-                // skip
-              }
-            }
-          }
+          for (const line of lines) handleLine(line);
         }
 
-        // Parse any remaining buffer for the done event
         if (buffer.trim()) {
-          for (const line of buffer.split("\n")) {
-            if (line.startsWith("data: ")) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                if (data.sessionId) {
-                  setSessionId(data.sessionId);
-                  localStorage.setItem(
-                    `chat-session-${carouselId}`,
-                    data.sessionId
-                  );
-                }
-              } catch {
-                // skip
-              }
-            }
-          }
+          for (const line of buffer.split("\n")) handleLine(line);
         }
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
@@ -225,6 +231,7 @@ export function ChatPanel({
         );
       } finally {
         setIsStreaming(false);
+        setStatus(null);
         abortRef.current = null;
         // Persist messages after stream completes
         setMessages((prev) => {
@@ -234,46 +241,81 @@ export function ChatPanel({
         onStreamEnd?.();
       }
     },
-    [isStreaming, sessionId, carouselId, onStreamStart, onStreamEnd, persistMessages]
+    [
+      isStreaming,
+      sessionId,
+      sessionKey,
+      engine,
+      carouselId,
+      onStreamStart,
+      onStreamEnd,
+      persistMessages,
+    ]
   );
 
-  if (!claudeAvailable) {
+  if (!anyEngineAvailable) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-6 text-center">
         <Plug className="h-10 w-10 text-muted-foreground mb-3" />
-        <h3 className="font-semibold text-sm mb-1">Connect Claude CLI</h3>
-        <p className="text-xs text-muted-foreground max-w-[200px]">
-          Install Claude CLI to enable AI-powered carousel creation.{" "}
+        <h3 className="font-semibold text-sm mb-1">Conectá un motor de IA</h3>
+        <p className="text-xs text-muted-foreground max-w-[220px] mb-3">
+          Necesitás al menos una CLI instalada para crear carruseles con IA.
+        </p>
+        <ul className="text-xs text-muted-foreground space-y-1.5 text-left">
+          {engines.map((e) => (
+            <li key={e.id}>
+              <span className="font-medium text-foreground">{e.label}</span>
+              {e.reason ? ` — ${e.reason}` : ""}
+            </li>
+          ))}
+        </ul>
+        <div className="flex gap-3 mt-4 text-xs">
           <a
             href="https://docs.anthropic.com/en/docs/claude-code"
             target="_blank"
             rel="noopener noreferrer"
             className="text-accent underline"
           >
-            Install guide
+            Instalar Claude
           </a>
-        </p>
+          <a
+            href="https://developers.openai.com/codex/cli"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent underline"
+          >
+            Instalar Codex
+          </a>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="h-full flex flex-col">
-      <div className="px-4 py-3 border-b border-border flex items-start justify-between">
-        <div>
-          <h2 className="text-sm font-semibold">AI Assistant</h2>
-          <p className="text-xs text-muted-foreground">
-            Describe the carousel you want to create
-          </p>
+      <div className="px-4 py-3 border-b border-border">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-sm font-semibold">AI Assistant</h2>
+            <p className="text-xs text-muted-foreground">
+              Describe the carousel you want to create
+            </p>
+          </div>
+          {messages.length > 0 && (
+            <button
+              onClick={handleClearChat}
+              className="text-[10px] text-muted-foreground hover:text-destructive transition-colors px-1.5 py-0.5 rounded"
+            >
+              Clear
+            </button>
+          )}
         </div>
-        {messages.length > 0 && (
-          <button
-            onClick={handleClearChat}
-            className="text-[10px] text-muted-foreground hover:text-destructive transition-colors px-1.5 py-0.5 rounded"
-          >
-            Clear
-          </button>
-        )}
+        <EngineSelector
+          engines={engines}
+          value={engine}
+          onChange={handleEngineChange}
+          disabled={isStreaming}
+        />
       </div>
 
       <ReferenceImages
@@ -311,6 +353,19 @@ export function ChatPanel({
           </div>
         )}
       </div>
+
+      {isStreaming && status && (
+        <div
+          className="px-4 py-1.5 border-t border-border flex items-center gap-2 text-[11px] text-muted-foreground"
+          aria-live="polite"
+        >
+          <span
+            className="h-1.5 w-1.5 rounded-full bg-accent shrink-0 animate-pulse"
+            aria-hidden
+          />
+          <span className="truncate font-mono">{status}</span>
+        </div>
+      )}
 
       <ChatInput
         onSend={handleSend}

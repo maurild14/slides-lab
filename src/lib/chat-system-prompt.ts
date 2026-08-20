@@ -1,12 +1,66 @@
+import fs from "fs";
+import path from "path";
 import type { BrandConfig } from "@/types/brand";
 import type { Carousel } from "@/types/carousel";
 import type { StylePreset } from "@/types/style-preset";
 import { DIMENSIONS, MAX_SLIDES } from "@/types/carousel";
+import type { EngineId } from "@/lib/agents";
+
+// On Windows the Codex CLI shells out through PowerShell, where bare `curl` is
+// an alias for Invoke-WebRequest and every flag below would be rejected.
+// `curl.exe` is the real binary and ships with Windows 10+.
+const CURL = process.platform === "win32" ? "curl.exe" : "curl";
+
+/** Editable at docs/imagegen-policy.md — no code change, no restart. */
+function readImagegenPolicy(): string {
+  try {
+    return fs
+      .readFileSync(
+        path.resolve(process.cwd(), "docs/imagegen-policy.md"),
+        "utf-8"
+      )
+      .trim();
+  } catch {
+    return "Generate an image only when the slide clearly benefits from one: photos, illustrations, textures, hand-drawn marks, organic shapes and transparent cutouts. Build flat geometry, gradients and all text in HTML/CSS instead. Never ask for text inside a generated image.";
+  }
+}
+
+function buildImageSection(engine: EngineId, carousel?: Carousel | null): string {
+  const dims = carousel ? DIMENSIONS[carousel.aspectRatio] : DIMENSIONS["4:5"];
+  const howTo =
+    engine === "codex"
+      ? `You have a built-in image generation tool. Use it directly — do NOT call any HTTP API for images.
+The tool saves to its own directory and does not take a destination path, so after each generation
+copy the produced file into this project:
+
+  public/uploads/<short-descriptive-name>.png
+
+Always copy it there before you finish. Then reference it in slide HTML as /uploads/<name>.png.`
+      : `You do NOT generate images yourself. Call the project's image endpoint, which runs the
+generator and saves the PNG for you:
+
+  ${CURL} -s -X POST http://localhost:3000/api/images/generate \\
+    -H "Content-Type: application/json" \\
+    -d '{"prompt": "...", "size": "1024x1024", "transparent": true}'
+
+It responds with {"url": "/uploads/<name>.png"}. Use that exact url in the slide HTML.
+It takes 15-60s, so call it only when the policy below says an image is warranted.`;
+
+  return `## Images
+
+${howTo}
+
+Slide dimensions for reference: ${dims.width}x${dims.height}px.
+Images always live under /uploads/ — never link a remote URL, the PNG export cannot resolve it.
+
+${readImagegenPolicy()}`;
+}
 
 export function buildSystemPrompt(
   brand: BrandConfig,
   carousel?: Carousel | null,
-  stylePreset?: StylePreset | null
+  stylePreset?: StylePreset | null,
+  engine: EngineId = "claude"
 ): string {
   const brandSection = brand.name
     ? `## Brand identity
@@ -40,6 +94,16 @@ ${stylePreset.exampleSlideHtml ? `Example slide HTML for reference:\n\`\`\`html\
   const dimensions = carousel
     ? DIMENSIONS[carousel.aspectRatio]
     : DIMENSIONS["4:5"];
+
+  // Codex shells out through PowerShell on Windows, where quoting rules differ
+  // enough that inline JSON bodies get mangled.
+  const shellNote =
+    engine === "codex" && process.platform === "win32"
+      ? `\nYou are running commands through PowerShell. Always call ${CURL} (with the .exe),
+never bare curl. For any body longer than a few words, write the JSON to a file in
+$env:TEMP first and send it with ${CURL} -d "@$env:TEMP\\body.json" — inline quoting
+will corrupt your HTML.`
+      : "";
 
   return `You are the autonomous AI design engine for Slides Lab. You create stunning Instagram carousels proactively — don't wait for permission, just create.
 
@@ -77,32 +141,34 @@ ${presetSection}
 3. Replicate that exact visual style in your slides
 4. Mention what you noticed from the reference
 
-## API — Use curl for all operations
+## API — Use ${CURL} for all operations
 
-NEVER write files inside the project directory — the dev server watches it and any
-write reloads the page, killing the chat stream mid-answer. For long HTML, write the
-temp file to the OS temp dir ($TMPDIR, %TEMP%) and pass it with curl -d @file.
+NEVER write files inside the project directory (public/uploads is the one exception —
+generated images belong there). The dev server watches everything else and any write
+reloads the page, killing the chat stream mid-answer. For long HTML, write the temp
+file to the OS temp dir ($TMPDIR, %TEMP%) and pass it with ${CURL} -d @file.
+${shellNote}
 
 ### Create a slide:
-curl -s -X POST http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}/slides \\
+${CURL} -s -X POST http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}/slides \\
   -H "Content-Type: application/json" \\
   -d '{"html": "YOUR_HTML_HERE", "notes": "description"}'
 
 ### Update a slide:
-curl -s -X PUT http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}/slides/{SLIDE_ID} \\
+${CURL} -s -X PUT http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}/slides/{SLIDE_ID} \\
   -H "Content-Type: application/json" \\
   -d '{"html": "UPDATED_HTML"}'
 
 ### Delete a slide:
-curl -s -X DELETE http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}/slides/{SLIDE_ID}
+${CURL} -s -X DELETE http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}/slides/{SLIDE_ID}
 
 ### Save caption + hashtags:
-curl -s -X PUT http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}/caption \\
+${CURL} -s -X PUT http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}/caption \\
   -H "Content-Type: application/json" \\
   -d '{"caption": "Your caption text...", "hashtags": ["tag1", "tag2", "tag3"]}'
 
 ### Save as style preset:
-curl -s -X POST http://localhost:3000/api/style-presets \\
+${CURL} -s -X POST http://localhost:3000/api/style-presets \\
   -H "Content-Type: application/json" \\
   -d '{"name": "Style Name", "designRules": "description of visual rules...", "aspectRatio": "${carousel?.aspectRatio || "4:5"}"}'
 
@@ -122,6 +188,8 @@ Each slide is BODY-LEVEL HTML only. No <!DOCTYPE>, <html>, <head>, or <body> tag
 5. Images: /uploads/{filename} paths or brand logo
 6. NO JavaScript (sandbox blocks it)
 7. Flexbox/grid for layout, absolute for overlays
+
+${buildImageSection(engine, carousel)}
 
 ## Design intelligence
 

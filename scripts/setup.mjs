@@ -19,17 +19,23 @@ function runSync(cmd, args, opts = {}) {
   }
 }
 
-function tryProbeClaude() {
+function tryProbe(bin) {
   const isWin = process.platform === "win32";
   const cmd = isWin ? "where" : "which";
   try {
-    const r = crossSpawn.sync(cmd, ["claude"], {
+    const r = crossSpawn.sync(cmd, [bin], {
       encoding: "utf-8",
       timeout: 2000,
     });
     if (r.status === 0 && r.stdout) {
-      const first = r.stdout.split(/\r?\n/).find((l) => l.trim());
-      if (first && fs.existsSync(first.trim())) return first.trim();
+      const hits = r.stdout
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter((l) => l && fs.existsSync(l));
+      // Windows `where` lists the extensionless bash shim first; it is not
+      // runnable by CreateProcess, so prefer a real .cmd/.exe.
+      if (isWin) return hits.find((h) => /\.(cmd|bat|exe)$/i.test(h)) ?? hits[0] ?? null;
+      return hits[0] ?? null;
     }
   } catch {
     // ignore
@@ -37,12 +43,9 @@ function tryProbeClaude() {
   return null;
 }
 
-function findClaudePath() {
-  if (
-    process.env.CLAUDE_CLI_PATH &&
-    fs.existsSync(process.env.CLAUDE_CLI_PATH)
-  ) {
-    return process.env.CLAUDE_CLI_PATH;
+function findCliPath(bin, envVar) {
+  if (process.env[envVar] && fs.existsSync(process.env[envVar])) {
+    return process.env[envVar];
   }
 
   const home = os.homedir();
@@ -54,16 +57,17 @@ function findClaudePath() {
     const localAppData =
       process.env.LOCALAPPDATA ?? path.join(home, "AppData", "Local");
     candidates.push(
-      path.join(appData, "npm", "claude.cmd"),
-      path.join(appData, "npm", "claude.exe"),
-      path.join(localAppData, "Programs", "claude", "claude.exe")
+      path.join(home, ".local", "bin", `${bin}.exe`),
+      path.join(appData, "npm", `${bin}.cmd`),
+      path.join(appData, "npm", `${bin}.exe`),
+      path.join(localAppData, "Programs", bin, `${bin}.exe`)
     );
   } else {
     candidates.push(
-      path.join(home, ".local/bin/claude"),
-      "/usr/local/bin/claude",
-      "/opt/homebrew/bin/claude",
-      path.join(home, ".npm-global/bin/claude")
+      path.join(home, ".local/bin", bin),
+      `/usr/local/bin/${bin}`,
+      `/opt/homebrew/bin/${bin}`,
+      path.join(home, ".npm-global/bin", bin)
     );
   }
 
@@ -71,7 +75,7 @@ function findClaudePath() {
     if (fs.existsSync(c)) return c;
   }
 
-  return tryProbeClaude();
+  return tryProbe(bin);
 }
 
 function seedDataFiles() {
@@ -103,7 +107,6 @@ function seedDataFiles() {
     },
     "carousels.json": { carousels: [] },
     "templates.json": { templates: [] },
-    "staged-actions.json": { actions: [] },
     "style-presets.json": { presets: [] },
   };
 
@@ -116,7 +119,7 @@ function seedDataFiles() {
   }
 }
 
-function writeEnvLocal(claudePath) {
+function upsertEnvVar(key, value) {
   const envPath = path.join(ROOT, ".env.local");
   let existing = "";
   try {
@@ -125,13 +128,13 @@ function writeEnvLocal(claudePath) {
     // file doesn't exist yet
   }
 
+  // Drop blank lines too: this runs once per engine per setup, and keeping
+  // them accumulates a growing gap at the top of the file.
   const lines = existing
     .split(/\r?\n/)
-    .filter((line) => !line.startsWith("CLAUDE_CLI_PATH="));
+    .filter((line) => line.trim() && !line.startsWith(`${key}=`));
 
-  lines.push(`CLAUDE_CLI_PATH=${claudePath}`);
-
-  while (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
+  lines.push(`${key}=${value}`);
 
   fs.writeFileSync(envPath, lines.join("\n") + "\n", "utf-8");
 }
@@ -150,20 +153,44 @@ async function main() {
   seedDataFiles();
   log("");
 
-  log("🔍 Looking for Claude CLI...");
-  const claudePath = findClaudePath();
-  if (claudePath) {
-    log(`  ✅ Found Claude CLI at: ${claudePath}`);
-    writeEnvLocal(claudePath);
-  } else {
-    log("  ⚠️  Claude CLI not found.");
-    log("  The app will run without AI features.");
-    log(
-      "  To enable AI: install Claude CLI from https://docs.anthropic.com/en/docs/claude-code"
-    );
-    log("  Then set CLAUDE_CLI_PATH in .env.local");
+  log("🔍 Looking for AI engines...");
+
+  const engines = [
+    {
+      bin: "claude",
+      label: "Claude CLI",
+      envVar: "CLAUDE_CLI_PATH",
+      install: "https://docs.anthropic.com/en/docs/claude-code",
+    },
+    {
+      bin: "codex",
+      label: "Codex CLI",
+      envVar: "CODEX_CLI_PATH",
+      install: "npm i -g @openai/codex && codex login",
+      note: "adds native image generation",
+    },
+  ];
+
+  let found = 0;
+  for (const engine of engines) {
+    const cliPath = findCliPath(engine.bin, engine.envVar);
+    if (cliPath) {
+      found++;
+      log(`  ✅ ${engine.label}: ${cliPath}`);
+      upsertEnvVar(engine.envVar, cliPath);
+    } else {
+      log(
+        `  ○  ${engine.label} not found${engine.note ? ` (${engine.note})` : ""}`
+      );
+      log(`     Install: ${engine.install}`);
+    }
+  }
+
+  if (found === 0) {
+    log("");
+    log("  ⚠️  No AI engine found — the app runs, but chat is disabled.");
     if (process.platform === "win32") {
-      log("  On Windows, run `where claude` to find the path (likely ...\\npm\\claude.cmd).");
+      log("  On Windows, run `where claude` to find the path (likely ...\npm\claude.cmd).");
     }
   }
   log("");

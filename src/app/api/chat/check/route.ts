@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
-import { isClaudeAvailable } from "@/lib/claude-path";
+import { listEngineStatus } from "@/lib/agents";
 
 export async function GET() {
-  return NextResponse.json({ available: isClaudeAvailable() });
+  const engines = listEngineStatus();
+  return NextResponse.json({
+    engines,
+    // kept so an older client still renders something sane
+    available: engines.some((e) => e.available),
+  });
 }
