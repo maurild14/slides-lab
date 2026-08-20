@@ -13,7 +13,6 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6.svg?style=flat-square)](https://www.typescriptlang.org)
 [![Tailwind v4](https://img.shields.io/badge/Tailwind-v4-38bdf8.svg?style=flat-square)](https://tailwindcss.com)
 
-![Dashboard](./docs/screenshots/dashboard.png)
 
 </div>
 
