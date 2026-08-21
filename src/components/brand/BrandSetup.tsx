@@ -93,7 +93,7 @@ export function BrandSetup({ open, onComplete, initialBrand }: BrandSetupProps) 
             </div>
             <div>
               <h2 className="text-lg font-bold">Set Up Your Brand</h2>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 Step {step + 1} of {STEPS.length}: {STEPS[step]}
               </p>
             </div>
@@ -129,7 +129,7 @@ export function BrandSetup({ open, onComplete, initialBrand }: BrandSetupProps) 
                   autoFocus
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 This helps the AI maintain your brand identity across all
                 carousels.
               </p>
@@ -228,7 +228,7 @@ export function BrandSetup({ open, onComplete, initialBrand }: BrandSetupProps) 
               <label className="text-sm font-medium">
                 Choose your brand style
               </label>
-              <p className="text-xs text-muted-foreground mt-1 mb-3">
+              <p className="text-label text-muted-foreground mt-1 mb-3">
                 Select keywords that describe your visual identity
               </p>
               <div className="flex flex-wrap gap-2">
@@ -241,7 +241,7 @@ export function BrandSetup({ open, onComplete, initialBrand }: BrandSetupProps) 
                         : [...brand.styleKeywords, keyword];
                       setBrand({ ...brand, styleKeywords: keywords });
                     }}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                    className={`px-3 py-1.5 rounded-full text-label font-medium transition-colors border ${
                       brand.styleKeywords.includes(keyword)
                         ? "bg-accent text-accent-foreground border-accent"
                         : "bg-transparent text-foreground border-border hover:border-muted-foreground"

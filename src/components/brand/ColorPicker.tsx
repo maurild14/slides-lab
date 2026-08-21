@@ -25,13 +25,13 @@ export function ColorPicker({ label, value, onChange }: ColorPickerProps) {
         />
       </div>
       <div className="flex-1">
-        <label className="text-xs font-medium text-muted-foreground">
+        <label className="text-label font-medium text-muted-foreground">
           {label}
         </label>
         <Input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-8 text-xs font-mono mt-0.5"
+          className="h-8 text-label font-mono mt-0.5"
           placeholder="#000000"
         />
       </div>

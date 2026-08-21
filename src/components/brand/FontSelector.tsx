@@ -25,7 +25,7 @@ export function FontSelector({ label, value, onChange }: FontSelectorProps) {
 
   return (
     <div>
-      <label className="text-xs font-medium text-muted-foreground">
+      <label className="text-label font-medium text-muted-foreground">
         {label}
       </label>
       <select

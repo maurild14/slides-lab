@@ -23,20 +23,20 @@ export function TemplateCard({ template, onUse, onDelete }: TemplateCardProps) {
             className="w-full h-full"
           />
         ) : (
-          <div className="h-full flex items-center justify-center text-muted-foreground/30 text-xs">
+          <div className="h-full flex items-center justify-center text-muted-foreground/30 text-label">
             Empty
           </div>
         )}
       </div>
       <h3 className="font-semibold text-sm truncate">{template.name}</h3>
-      <p className="text-xs text-muted-foreground mt-0.5 truncate">
+      <p className="text-label text-muted-foreground mt-0.5 truncate">
         {template.slides.length} slide{template.slides.length !== 1 ? "s" : ""} &middot; {template.aspectRatio}
       </p>
       <div className="flex items-center gap-2 mt-3">
         <Button
           variant="accent"
           size="sm"
-          className="flex-1 text-xs"
+          className="flex-1 text-label"
           onClick={() => onUse(template.id)}
         >
           Use Template

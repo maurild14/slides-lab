@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, use } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Trash2, Grid3X3, Bookmark, Maximize2, Pencil } from "lucide-react";
+import { Trash2, Grid3X3, Bookmark, Maximize2 } from "lucide-react";
 import { TopBar } from "@/components/layout/TopBar";
-import { Button } from "@/components/ui/button";
+import { Button, IconButton } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { ChatPanel } from "@/components/chat/ChatPanel";
+import { BrandSetup } from "@/components/brand/BrandSetup";
+import { ToolRail, type RailTab } from "@/components/editor/rail/ToolRail";
+import { LayersPanel } from "@/components/editor/LayersPanel";
 import { CarouselPreview } from "@/components/editor/CarouselPreview";
 import { SlideFilmstrip } from "@/components/editor/SlideFilmstrip";
 import { AspectRatioSelector } from "@/components/editor/AspectRatioSelector";
@@ -15,9 +17,17 @@ import { ExportButton } from "@/components/editor/ExportButton";
 import { CaptionPanel } from "@/components/editor/CaptionPanel";
 import { FullscreenPreview } from "@/components/editor/FullscreenPreview";
 import { InspectorPanel } from "@/components/editor/inspector/InspectorPanel";
+import type { SectionFocus } from "@/components/editor/inspector/InspectorFields";
 import { SlideCanvas } from "@/components/editor/SlideCanvas";
-import { stripInspectorAttrs } from "@/lib/inspector-utils";
-import type { Carousel, AspectRatio } from "@/types/carousel";
+import { CanvasToolbar } from "@/components/editor/CanvasToolbar";
+import { ContextToolbar } from "@/components/editor/ContextToolbar";
+import { useCanvasCommands } from "@/components/editor/canvas-commands";
+import { useSlideEditor } from "@/components/editor/use-slide-editor";
+import { clampZoom, getSlideRoot, zoomPanAt } from "@/lib/canvas-utils";
+import type { DragPayload } from "@/lib/slide-elements";
+import type { BrandConfig } from "@/types/brand";
+import { DEFAULT_BRAND, withBrandDefaults } from "@/types/brand";
+import type { Carousel, AspectRatio, Slide } from "@/types/carousel";
 import { DIMENSIONS } from "@/types/carousel";
 import type { EngineStatus } from "@/lib/agents";
 
@@ -39,24 +49,39 @@ export default function CarouselEditorPage({ params }: PageProps) {
   const [notFound, setNotFound] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
   const [engines, setEngines] = useState<EngineStatus[]>(OPTIMISTIC_ENGINES);
-  const [chatOpen, setChatOpen] = useState(true);
+  const [railTab, setRailTab] = useState<RailTab | null>("ai");
+  const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
+  const [showBrandSetup, setShowBrandSetup] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingIds, setGeneratingIds] = useState<string[]>([]);
   const [showSafeZones, setShowSafeZones] = useState(false);
   const [showFullscreen, setShowFullscreen] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [selectedElement, setSelectedElement] = useState<HTMLElement | null>(
-    null
-  );
+  const [selection, setSelection] = useState<HTMLElement[]>([]);
   const [iframeReadyTick, setIframeReadyTick] = useState(0);
-  const [dragImageUrl, setDragImageUrl] = useState<string | null>(null);
-  // Bumped on every slide mutation so the inspector re-reads the element it
-  // is showing — a canvas drag changes position behind its back otherwise.
-  const [mutationTick, setMutationTick] = useState(0);
-  const [isSavingSlide, setIsSavingSlide] = useState(false);
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [dragItem, setDragItem] = useState<DragPayload | null>(null);
+  const [slideDocument, setSlideDocument] = useState<Document | null>(null);
+  /**
+   * Which advanced section the floating toolbar asked for. The counter is what
+   * makes asking twice in a row re-open a section the user just collapsed.
+   */
+  const [advanced, setAdvanced] = useState<SectionFocus>(null);
 
-  // Confirm dialog state
+  // Zoom and pan live in one object so a single functional update can move
+  // both together: zooming about the cursor changes the pan, and computing it
+  // from separately-rendered values drops deltas during a fast wheel burst.
+  const [view, setView] = useState<{
+    zoom: number | null; // null means "whatever fits the viewport"
+    pan: { x: number; y: number };
+  }>({ zoom: null, pan: { x: 0, y: 0 } });
+  const [fitScale, setFitScale] = useState(0);
+  const fitRef = useRef(0);
+
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
+  /** Slide HTML as it stood when the current generation run started. */
+  const genBaseRef = useRef<Record<string, string> | null>(null);
+
   const [confirmState, setConfirmState] = useState<{
     open: boolean;
     title: string;
@@ -64,12 +89,47 @@ export default function CarouselEditorPage({ params }: PageProps) {
     onConfirm: () => void;
   }>({ open: false, title: "", description: "", onConfirm: () => {} });
 
-  // Ref for focusing chat input when + button is clicked
-  const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const canGenerateImages = engines.some((e) => e.available && e.supportsImagegen);
+  const dimensions = DIMENSIONS[carousel?.aspectRatio ?? "4:5"];
+  const activeSlideId = carousel?.slides[activeSlide]?.id ?? null;
+  const slideLocked = activeSlideId !== null && generatingIds.includes(activeSlideId);
 
-  const canGenerateImages = engines.some(
-    (e) => e.available && e.supportsImagegen
+  const clearSelection = useCallback(() => setSelection([]), []);
+
+  const openAdvanced = useCallback(
+    (section: string) =>
+      setAdvanced((prev) => ({ section, n: (prev?.n ?? 0) + 1 })),
+    []
   );
+
+  const editor = useSlideEditor({
+    carouselId: id,
+    slides: carousel?.slides ?? [],
+    activeSlide,
+    iframeRef,
+    onRestore: clearSelection,
+  });
+
+  // One object identity per render is enough; the children only read from it.
+  const slides = useMemo<Slide[]>(
+    () =>
+      (carousel?.slides ?? []).map((s) => {
+        const html = editor.htmlFor(s);
+        return html === s.html ? s : { ...s, html };
+      }),
+    [carousel?.slides, editor]
+  );
+
+  const commands = useCanvasCommands({
+    iframeRef,
+    selection,
+    onSelectionChange: setSelection,
+    onCommit: editor.commit,
+    dimensions,
+    enabled: !slideLocked,
+  });
+
+  /* ------------------------------------------------------------- loading */
 
   const fetchCarousel = useCallback(async () => {
     try {
@@ -78,26 +138,45 @@ export default function CarouselEditorPage({ params }: PageProps) {
         setNotFound(true);
         return;
       }
-      if (res.ok) {
-        const data = await res.json();
-        setCarousel((prev) => {
-          // If new slides were added during generation, jump to the latest slide
-          if (prev && data.slides.length > prev.slides.length) {
-            setActiveSlide(data.slides.length - 1);
-          } else {
-            setActiveSlide((prevIdx) =>
-              data.slides.length === 0 ? 0 : Math.min(prevIdx, data.slides.length - 1)
-            );
-          }
-          return data;
-        });
+      if (!res.ok) return;
+      const data: Carousel = await res.json();
+
+      // While the agent runs, work out which slides it actually touched: those
+      // get locked and reloaded, the rest stay editable.
+      const base = genBaseRef.current;
+      if (base) {
+        const touched = data.slides
+          .filter((s) => base[s.id] === undefined || base[s.id] !== s.html)
+          .map((s) => s.id);
+        if (touched.length > 0) {
+          // Same list every poll while the agent works on one slide; keeping
+          // the old array avoids a re-render on each tick.
+          setGeneratingIds((prev) =>
+            prev.length === touched.length && prev.every((v, i) => v === touched[i])
+              ? prev
+              : touched
+          );
+          editor.dropLocal(touched);
+        }
       }
+
+      setCarousel((prev) => {
+        // If new slides arrived during generation, follow the agent to the
+        // newest one; otherwise just keep the index in range.
+        if (prev && data.slides.length > prev.slides.length) {
+          setActiveSlide(data.slides.length - 1);
+        } else {
+          setActiveSlide((idx) =>
+            data.slides.length === 0 ? 0 : Math.min(idx, data.slides.length - 1)
+          );
+        }
+        return data;
+      });
     } catch {
       // ignore network errors
     }
-  }, [id]);
+  }, [id, editor]);
 
-  // Initial data load
   useEffect(() => {
     const load = async () => {
       await fetchCarousel();
@@ -108,39 +187,120 @@ export default function CarouselEditorPage({ params }: PageProps) {
       } catch {
         // keep the optimistic list; the chat request will surface the truth
       }
+      try {
+        setBrand(withBrandDefaults(await (await fetch("/api/brand")).json()));
+      } catch {
+        // the defaults are a usable palette on their own
+      }
     };
     load();
-  }, [fetchCarousel]);
+    // Deliberately once: fetchCarousel changes identity on every editor render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
-  // Poll for carousel updates while AI is generating slides
+  // Poll for carousel updates while the AI is writing slides.
+  const fetchRef = useRef(fetchCarousel);
+  useEffect(() => {
+    fetchRef.current = fetchCarousel;
+  }, [fetchCarousel]);
   useEffect(() => {
     if (!isGenerating) return;
-    const interval = setInterval(() => {
-      fetchCarousel();
-    }, 500);
+    const interval = setInterval(() => fetchRef.current(), 500);
     return () => clearInterval(interval);
-  }, [isGenerating, fetchCarousel]);
+  }, [isGenerating]);
+
+  /* ---------------------------------------------------------- zoom & pan */
+
+  const onFitScale = useCallback((value: number) => {
+    fitRef.current = value;
+    setFitScale(value);
+  }, []);
+
+  const applyZoom = useCallback(
+    (resolve: (from: number) => number, focus?: { x: number; y: number }) => {
+      setView((v) => {
+        const from = v.zoom ?? fitRef.current;
+        if (from <= 0) return v;
+        const to = clampZoom(resolve(from), fitRef.current || from);
+        return {
+          zoom: to,
+          pan: focus
+            ? zoomPanAt(v.pan, focus, dimensions.width, dimensions.height, from, to)
+            : v.pan,
+        };
+      });
+    },
+    [dimensions]
+  );
+
+  const zoomTo = useCallback(
+    (next: number, focus?: { x: number; y: number }) => applyZoom(() => next, focus),
+    [applyZoom]
+  );
+  const zoomBy = useCallback(
+    (factor: number, focus?: { x: number; y: number }) =>
+      applyZoom((from) => from * factor, focus),
+    [applyZoom]
+  );
+  const panBy = useCallback(
+    (dx: number, dy: number) =>
+      setView((v) => ({ ...v, pan: { x: v.pan.x + dx, y: v.pan.y + dy } })),
+    []
+  );
+  const panTo = useCallback(
+    (pan: { x: number; y: number }) => setView((v) => ({ ...v, pan })),
+    []
+  );
+  const fitToScreen = useCallback(
+    () => setView({ zoom: null, pan: { x: 0, y: 0 } }),
+    []
+  );
+
+  // A new slide, or a new shape of slide, starts from a clean view.
+  const [viewContext, setViewContext] = useState({
+    slide: activeSlideId,
+    ratio: carousel?.aspectRatio,
+  });
+  if (
+    viewContext.slide !== activeSlideId ||
+    viewContext.ratio !== carousel?.aspectRatio
+  ) {
+    setViewContext({ slide: activeSlideId, ratio: carousel?.aspectRatio });
+    setSelection([]);
+    setView({ zoom: null, pan: { x: 0, y: 0 } });
+  }
+
+  /* ----------------------------------------------------------- mutations */
+
+  const changeSlide = useCallback(
+    async (index: number) => {
+      if (index === activeSlide) return;
+      // The edit-mode toggle used to be the moment work reached the server.
+      // Changing slide is now one of the explicit replacements.
+      await editor.flush();
+      setActiveSlide(index);
+    },
+    [activeSlide, editor]
+  );
 
   const handleAspectChange = async (ratio: AspectRatio) => {
     if (!carousel) return;
+    await editor.flush();
     const res = await fetch(`/api/carousels/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ aspectRatio: ratio }),
     });
-    if (res.ok) {
-      const updated = await res.json();
-      setCarousel(updated);
-    }
+    if (res.ok) setCarousel(await res.json());
   };
 
   const handleDeleteSlide = (slideId: string) => {
     if (!carousel) return;
-    const slideIndex = carousel.slides.findIndex((s) => s.id === slideId);
+    const index = carousel.slides.findIndex((s) => s.id === slideId);
     setConfirmState({
       open: true,
-      title: `Delete slide ${slideIndex + 1}?`,
-      description: "This action cannot be undone.",
+      title: `¿Eliminar el slide ${index + 1}?`,
+      description: "No se puede deshacer desde acá.",
       onConfirm: async () => {
         const res = await fetch(`/api/carousels/${id}/slides/${slideId}`, {
           method: "DELETE",
@@ -152,20 +312,25 @@ export default function CarouselEditorPage({ params }: PageProps) {
 
   const handleUndoSlide = useCallback(
     async (slideId: string) => {
+      setSelection([]);
       const res = await fetch(`/api/carousels/${id}/slides/${slideId}/undo`, {
         method: "POST",
       });
-      if (res.ok) await fetchCarousel();
+      if (res.ok) {
+        editor.dropLocal([slideId]);
+        await fetchCarousel();
+        setIframeReadyTick((n) => n + 1);
+      }
     },
-    [id, fetchCarousel]
+    [id, fetchCarousel, editor]
   );
 
   const handleDeleteCarousel = useCallback(() => {
     if (!carousel) return;
     setConfirmState({
       open: true,
-      title: `Delete "${carousel.name}"?`,
-      description: "This will permanently delete the carousel and all its slides.",
+      title: `¿Eliminar "${carousel.name}"?`,
+      description: "Se borran el carrusel y todos sus slides, para siempre.",
       onConfirm: async () => {
         const res = await fetch(`/api/carousels/${id}`, { method: "DELETE" });
         if (res.ok) router.push("/");
@@ -173,17 +338,130 @@ export default function CarouselEditorPage({ params }: PageProps) {
     });
   }, [carousel, id, router]);
 
+  /* --------------------------------------------- writing into the slide */
+
+  const slideDoc = useCallback((): Document | null => {
+    try {
+      return iframeRef.current?.contentDocument ?? null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  /** Write one CSS property across the selection as a single undo step. */
+  const applyStyle = useCallback(
+    (property: string, value: string) => {
+      if (selection.length === 0 || slideLocked) return;
+      for (const el of selection) {
+        el.style.setProperty(
+          property.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`),
+          value
+        );
+      }
+      editor.commit();
+    },
+    [selection, slideLocked, editor]
+  );
+
+  const replaceSlideHtml = useCallback(
+    (html: string) => {
+      const doc = slideDoc();
+      if (!doc?.body || slideLocked) return;
+      setSelection([]);
+      doc.body.innerHTML = html;
+      setIframeReadyTick((n) => n + 1);
+      editor.commit();
+    },
+    [slideDoc, slideLocked, editor]
+  );
+
+  const setSlideBackground = useCallback(
+    (css: string) => {
+      const doc = slideDoc();
+      if (!doc?.body || slideLocked) return;
+      getSlideRoot(doc).style.background = css;
+      editor.commit();
+    },
+    [slideDoc, slideLocked, editor]
+  );
+
+  const replaceImage = useCallback(
+    (url: string) => {
+      const el = selection.length === 1 ? selection[0] : null;
+      if (!el || el.tagName.toLowerCase() !== "img" || slideLocked) return;
+      (el as HTMLImageElement).src = url;
+      editor.commit();
+    },
+    [selection, slideLocked, editor]
+  );
+
+  // Read back from the DOM rather than holding a copy: the agent and the
+  // undo stack both write here, and a mirrored value would go stale.
+  const slideBackground = useMemo(() => {
+    void editor.mutationTick;
+    void iframeReadyTick;
+    const doc = slideDoc();
+    if (!doc?.body) return "";
+    const root = getSlideRoot(doc);
+    return root.style.backgroundColor || root.style.background || "";
+  }, [slideDoc, editor.mutationTick, iframeReadyTick]);
+
+  const swatches = useMemo(
+    () => [
+      { color: brand.colors.primary, name: "Primario" },
+      { color: brand.colors.secondary, name: "Secundario" },
+      { color: brand.colors.accent, name: "Acento" },
+      { color: brand.colors.background, name: "Fondo" },
+      { color: brand.colors.surface, name: "Superficie" },
+    ],
+    [brand.colors]
+  );
+
+  const brandFonts = useMemo(
+    () => [brand.fonts.heading, brand.fonts.body],
+    [brand.fonts]
+  );
+
+  const saveBrand = useCallback(async (input: BrandConfig) => {
+    const next = withBrandDefaults(input);
+    setBrand(next);
+    await fetch("/api/brand", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(next),
+    }).catch(() => {
+      // the panel already shows the new value; a failed write retries on the
+      // next change rather than reverting under the user
+    });
+  }, []);
+
+  /* ------------------------------------------------------ AI integration */
+
+  const handleBeforeSend = useCallback(async () => {
+    // Hand the agent a slide that already contains the manual edits, so its
+    // rewrite builds on them instead of racing them.
+    await editor.flush();
+    genBaseRef.current = Object.fromEntries(
+      (carousel?.slides ?? []).map((s) => [s.id, s.html])
+    );
+  }, [editor, carousel?.slides]);
+
   const handleStreamStart = useCallback(() => {
     setIsGenerating(true);
+    setSelection([]);
   }, []);
 
   const handleStreamEnd = useCallback(() => {
     setIsGenerating(false);
-    fetchCarousel();
-  }, [fetchCarousel]);
+    genBaseRef.current = null;
+    setGeneratingIds([]);
+    setIframeReadyTick((n) => n + 1);
+    fetchRef.current();
+  }, []);
 
   const handleReorderSlides = useCallback(
     async (slideIds: string[]) => {
+      await editor.flush();
       await fetch(`/api/carousels/${id}/slides`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -191,118 +469,53 @@ export default function CarouselEditorPage({ params }: PageProps) {
       });
       await fetchCarousel();
     },
-    [id, fetchCarousel]
+    [id, fetchCarousel, editor]
   );
 
   const handleAddSlideRequest = useCallback(() => {
-    setChatOpen(true);
-    // Focus chat input after a tick (to let panel render)
-    setTimeout(() => {
-      chatInputRef.current?.focus();
-    }, 100);
+    setRailTab("ai");
+    setTimeout(() => chatInputRef.current?.focus(), 100);
   }, []);
 
-  // ---- Inline editor: debounced save of mutated slide HTML ----
-  // We deliberately don't update local carousel state on save — the iframe
-  // DOM is the source of truth while editing, and the server already has
-  // the canonical copy. Touching state would change `slide.html`, re-render
-  // the iframe, and wipe the user's selection mid-edit.
-  const persistCurrentSlide = useCallback(async () => {
-    if (!carousel) return;
-    const slide = carousel.slides[activeSlide];
-    const iframe = iframeRef.current;
-    const body = iframe?.contentDocument?.body;
-    if (!slide || !body) return;
-    const html = stripInspectorAttrs(body.innerHTML);
-    setIsSavingSlide(true);
+  const uploadImage = useCallback(async (file: File): Promise<string | null> => {
+    const body = new FormData();
+    body.append("file", file);
     try {
-      await fetch(`/api/carousels/${id}/slides/${slide.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ html }),
-      });
-    } finally {
-      setIsSavingSlide(false);
+      const res = await fetch("/api/upload", { method: "POST", body });
+      if (!res.ok) return null;
+      const data: { url?: string } = await res.json();
+      return data.url ?? null;
+    } catch {
+      return null;
     }
-  }, [carousel, activeSlide, id]);
-
-  const handleSlideMutate = useCallback(() => {
-    setMutationTick((n) => n + 1);
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
-      persistCurrentSlide();
-    }, 450);
-  }, [persistCurrentSlide]);
-
-  // Flush + refetch when leaving edit mode so the in-memory carousel
-  // catches up with what we sent to the server.
-  const handleToggleEditMode = useCallback(async () => {
-    if (editMode) {
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current);
-        saveTimerRef.current = null;
-      }
-      await persistCurrentSlide();
-      setEditMode(false);
-      await fetchCarousel();
-    } else {
-      setEditMode(true);
-    }
-  }, [editMode, persistCurrentSlide, fetchCarousel]);
-
-  const handleInspectorUndo = useCallback(async () => {
-    if (!carousel) return;
-    const slide = carousel.slides[activeSlide];
-    if (!slide) return;
-    setSelectedElement(null);
-    await handleUndoSlide(slide.id);
-    setIframeReadyTick((n) => n + 1);
-  }, [carousel, activeSlide, handleUndoSlide]);
-
-  // Clear selection when active slide changes or edit mode toggles off
-  const [lastSelectionContext, setLastSelectionContext] = useState({
-    slide: activeSlide,
-    mode: editMode,
-  });
-  if (
-    lastSelectionContext.slide !== activeSlide ||
-    lastSelectionContext.mode !== editMode
-  ) {
-    setLastSelectionContext({ slide: activeSlide, mode: editMode });
-    setSelectedElement(null);
-  }
-
-  // Flush pending save on unmount
-  useEffect(() => {
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    };
   }, []);
+
+  /* -------------------------------------------------------------- render */
 
   if (notFound) {
     return (
-      <div className="h-full flex flex-col items-center justify-center gap-4">
-        <p className="text-lg font-semibold">Carousel not found</p>
-        <p className="text-sm text-muted-foreground">
-          This carousel may have been deleted.
+      <div className="flex h-full flex-col items-center justify-center gap-3">
+        <p className="text-title font-semibold">No encontramos este carrusel</p>
+        <p className="text-body text-muted-foreground">
+          Puede que lo hayas eliminado.
         </p>
-        <Link href="/" className="text-sm text-accent underline">
-          Back to dashboard
-        </Link>
+        <Button variant="outline" asChild>
+          <Link href="/">Volver al inicio</Link>
+        </Button>
       </div>
     );
   }
 
   if (!carousel) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="h-8 w-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+      <div className="flex h-full items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex h-full flex-col">
       <TopBar
         title={carousel.name}
         showBack
@@ -313,193 +526,239 @@ export default function CarouselEditorPage({ params }: PageProps) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name }),
           });
-          if (res.ok) {
-            const updated = await res.json();
-            setCarousel(updated);
-          }
+          if (res.ok) setCarousel(await res.json());
         }}
       />
 
-      {/* Fullscreen preview */}
       <FullscreenPreview
         open={showFullscreen}
         onOpenChange={setShowFullscreen}
-        slides={carousel.slides}
+        slides={slides}
         aspectRatio={carousel.aspectRatio}
         activeIndex={activeSlide}
         onActiveChange={setActiveSlide}
       />
 
-      {/* Confirm dialog */}
       <ConfirmDialog
         open={confirmState.open}
         onOpenChange={(open) => setConfirmState((s) => ({ ...s, open }))}
         title={confirmState.title}
         description={confirmState.description}
-        confirmLabel="Delete"
+        confirmLabel="Eliminar"
         variant="destructive"
         onConfirm={confirmState.onConfirm}
       />
 
-      {/* Main editor area */}
-      <div className="flex-1 flex min-h-0 overflow-hidden">
-        {/* Chat panel */}
-        {chatOpen && (
-          <div className="oc-fade w-80 border-r border-border shrink-0 flex flex-col bg-surface">
-            <ChatPanel
-              carouselId={id}
-              engines={engines}
-              referenceImages={carousel.referenceImages || []}
-              onStreamStart={handleStreamStart}
-              onStreamEnd={handleStreamEnd}
-              chatInputRef={chatInputRef}
-            />
-          </div>
-        )}
+      <BrandSetup
+        open={showBrandSetup}
+        onComplete={() => {
+          setShowBrandSetup(false);
+          fetch("/api/brand")
+            .then((r) => r.json())
+            .then((b) => setBrand(withBrandDefaults(b)))
+            .catch(() => {});
+        }}
+        initialBrand={brand}
+      />
 
-        {/* Right side: toolbar + preview */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-0">
-          {/* Toolbar */}
-          <div className="h-11 border-b border-border bg-surface flex items-center px-4 gap-3 shrink-0">
-            <AspectRatioSelector
-              value={carousel.aspectRatio}
-              onChange={handleAspectChange}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <ToolRail
+          active={railTab}
+          onActiveChange={setRailTab}
+          brand={brand}
+          onBrandChange={saveBrand}
+          onEditBrand={() => setShowBrandSetup(true)}
+          aspectRatio={carousel.aspectRatio}
+          canGenerate={canGenerateImages}
+          selection={selection}
+          onInsert={setDragItem}
+          onUpload={uploadImage}
+          onApplyStyle={applyStyle}
+          onReplaceSlide={replaceSlideHtml}
+          onReplaceImage={replaceImage}
+          onBackground={setSlideBackground}
+          background={slideBackground}
+          carouselId={id}
+          engines={engines}
+          referenceImages={carousel.referenceImages || []}
+          onBeforeSend={handleBeforeSend}
+          onStreamStart={handleStreamStart}
+          onStreamEnd={handleStreamEnd}
+          chatInputRef={chatInputRef}
+          onClearSelection={clearSelection}
+        />
+
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {/* Canvas chrome */}
+          <div className="flex h-control-lg shrink-0 items-center gap-2 overflow-x-auto border-b border-border bg-surface px-3">
+            <CanvasToolbar
+              scale={view.zoom ?? fitScale}
+              onZoomTo={zoomTo}
+              onZoomBy={zoomBy}
+              onFit={fitToScreen}
+              canUndo={editor.canUndo}
+              canRedo={editor.canRedo}
+              onUndo={editor.undo}
+              onRedo={editor.redo}
+              commands={commands}
+              saving={editor.saving}
+              enabled={!slideLocked}
             />
-            <div className="flex-1" />
-            <Button
-              variant={editMode ? "outline" : "ghost"}
-              size="sm"
-              onClick={handleToggleEditMode}
-              className={
-                editMode
-                  ? "border-accent text-accent gap-1.5"
-                  : "text-muted-foreground gap-1.5"
-              }
-              aria-label="Toggle edit mode"
-              title="Click elements on the slide to edit them"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              <span className="text-xs">Edit</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowFullscreen(true)}
-              className="text-muted-foreground"
-              aria-label="Fullscreen preview"
-              title="Fullscreen preview"
-            >
-              <Maximize2 className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant={showSafeZones ? "outline" : "ghost"}
-              size="sm"
-              onClick={() => setShowSafeZones(!showSafeZones)}
-              className={showSafeZones ? "border-accent text-accent" : "text-muted-foreground"}
-              aria-label="Toggle safe zones"
-              title="Instagram safe zones"
-            >
-              <Grid3X3 className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={async () => {
-                await fetch("/api/templates", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ carouselId: carousel.id }),
-                });
-              }}
-              className="text-muted-foreground"
-              aria-label="Save as template"
-              title="Save as template"
-            >
-              <Bookmark className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleDeleteCarousel}
-              className="text-muted-foreground hover:text-destructive"
-              aria-label="Delete carousel"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-            <button
-              onClick={() => setChatOpen(!chatOpen)}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-md border border-border hover:bg-muted"
-            >
-              {chatOpen ? "Hide Chat" : "Show Chat"}
-            </button>
-            <ExportButton
-              carouselId={carousel.id}
-              slideCount={carousel.slides.length}
-            />
+
+            <div className="ml-auto flex shrink-0 items-center gap-1">
+              <AspectRatioSelector
+                value={carousel.aspectRatio}
+                onChange={handleAspectChange}
+                label="Proporción"
+              />
+              <IconButton
+                label="Vista a pantalla completa"
+                size="sm"
+                onClick={() => setShowFullscreen(true)}
+              >
+                <Maximize2 className="h-4 w-4" aria-hidden />
+              </IconButton>
+              <IconButton
+                label="Zonas seguras de Instagram"
+                size="sm"
+                active={showSafeZones}
+                onClick={() => setShowSafeZones(!showSafeZones)}
+              >
+                <Grid3X3 className="h-4 w-4" aria-hidden />
+              </IconButton>
+              <IconButton
+                label="Guardar como plantilla"
+                size="sm"
+                onClick={async () => {
+                  await editor.flush();
+                  await fetch("/api/templates", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ carouselId: carousel.id }),
+                  });
+                }}
+              >
+                <Bookmark className="h-4 w-4" aria-hidden />
+              </IconButton>
+              <IconButton
+                label="Eliminar el carrusel"
+                size="sm"
+                onClick={handleDeleteCarousel}
+                className="hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" aria-hidden />
+              </IconButton>
+              <ExportButton
+                carouselId={carousel.id}
+                slideCount={carousel.slides.length}
+                onBeforeExport={editor.flush}
+              />
+            </div>
           </div>
 
-          {/* Carousel preview + Inspector */}
-          <div className="flex-1 flex min-h-0 min-w-0">
+          <ContextToolbar
+            element={selection.length === 1 ? selection[0] : null}
+            selectionCount={selection.length}
+            tick={iframeReadyTick + editor.mutationTick}
+            onMutate={editor.commit}
+            commands={commands}
+            enabled={!slideLocked}
+            swatches={swatches}
+            brandFonts={brandFonts}
+            onOpenAdvanced={openAdvanced}
+            onOpenImages={() => setRailTab("images")}
+          />
+
+          {/* Canvas + inspector */}
+          <div className="flex min-h-0 min-w-0 flex-1">
             <CarouselPreview
-              slides={carousel.slides}
+              slides={slides}
               aspectRatio={carousel.aspectRatio}
               activeIndex={activeSlide}
-              onActiveChange={setActiveSlide}
+              onActiveChange={changeSlide}
               showSafeZones={showSafeZones}
-              editable={editMode}
-              selectedElement={selectedElement}
-              onSelectElement={setSelectedElement}
+              viewportRef={viewportRef}
+              scale={view.zoom ?? undefined}
+              pan={view.pan}
+              onFitScale={onFitScale}
+              generating={slideLocked}
               onIframeReady={(iframe) => {
                 iframeRef.current = iframe;
+                setSlideDocument(iframe.contentDocument);
+                setSelection([]);
                 setIframeReadyTick((n) => n + 1);
+                editor.registerIframe();
               }}
             />
-            <InspectorPanel
-              isOpen={editMode}
-              enabled={editMode}
-              onClose={handleToggleEditMode}
-              selectedElement={selectedElement}
-              aspectRatio={carousel.aspectRatio}
-              canGenerate={canGenerateImages}
-              onImageDragStart={setDragImageUrl}
-              iframeReadyTick={iframeReadyTick + mutationTick}
-              onMutate={handleSlideMutate}
-              onUndo={handleInspectorUndo}
-              saving={isSavingSlide}
-            />
+            <aside
+              className="flex w-props shrink-0 flex-col border-l border-border bg-surface"
+              aria-label="Capas y propiedades"
+            >
+              <div className="flex max-h-[45%] min-h-0 flex-col">
+                <LayersPanel
+                  doc={slideDocument}
+                  selection={selection}
+                  onSelectionChange={setSelection}
+                  onCommit={editor.commit}
+                  tick={iframeReadyTick + editor.mutationTick}
+                  enabled={!slideLocked}
+                />
+              </div>
+              <InspectorPanel
+                onClose={clearSelection}
+                selectedElement={selection.length === 1 ? selection[0] : null}
+                selectionCount={selection.length}
+                iframeReadyTick={iframeReadyTick + editor.mutationTick}
+                onMutate={editor.commit}
+                onUndo={() => activeSlideId && handleUndoSlide(activeSlideId)}
+                focus={advanced}
+                accent={brand.colors.primary}
+                swatches={swatches}
+                onUpload={uploadImage}
+                saving={editor.saving}
+              />
+            </aside>
           </div>
 
           <SlideCanvas
             iframeRef={iframeRef}
-            dimensions={DIMENSIONS[carousel.aspectRatio]}
-            active={editMode}
-            selectedElement={selectedElement}
-            onSelectElement={setSelectedElement}
-            dragUrl={dragImageUrl}
-            onDragResolved={() => setDragImageUrl(null)}
-            onMutate={handleSlideMutate}
+            viewportRef={viewportRef}
+            dimensions={dimensions}
+            enabled={!slideLocked}
+            selection={selection}
+            onSelectionChange={setSelection}
+            dragItem={dragItem}
+            onDragResolved={() => setDragItem(null)}
+            onCommit={editor.commit}
             iframeReadyTick={iframeReadyTick}
+            scale={view.zoom ?? fitScale}
+            pan={view.pan}
+            onPanTo={panTo}
+            onPanBy={panBy}
+            onZoomBy={zoomBy}
+            onZoomTo={zoomTo}
+            onFit={fitToScreen}
+            commands={commands}
+            onUndo={editor.undo}
+            onRedo={editor.redo}
+            onUploadImage={uploadImage}
           />
 
-          {/* Caption panel */}
-          <CaptionPanel
-            caption={carousel.caption}
-            hashtags={carousel.hashtags}
-          />
+          <CaptionPanel caption={carousel.caption} hashtags={carousel.hashtags} />
         </div>
       </div>
 
-      {/* Filmstrip */}
       <SlideFilmstrip
-        slides={carousel.slides}
+        slides={slides}
         aspectRatio={carousel.aspectRatio}
         activeIndex={activeSlide}
-        onActiveChange={setActiveSlide}
+        onActiveChange={changeSlide}
         onDeleteSlide={handleDeleteSlide}
         onUndoSlide={handleUndoSlide}
         onAddSlideRequest={handleAddSlideRequest}
         onReorderSlides={handleReorderSlides}
         isGenerating={isGenerating}
+        generatingIds={generatingIds}
       />
     </div>
   );

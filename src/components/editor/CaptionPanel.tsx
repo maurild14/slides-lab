@@ -33,7 +33,7 @@ export function CaptionPanel({ caption, hashtags }: CaptionPanelProps) {
     <div className="border-t border-border bg-surface">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+        className="w-full flex items-center justify-between px-4 py-2 text-label font-medium text-muted-foreground hover:text-foreground transition-colors"
       >
         <span className="flex items-center gap-1.5">
           <MessageSquare className="h-3 w-3" />
@@ -51,13 +51,13 @@ export function CaptionPanel({ caption, hashtags }: CaptionPanelProps) {
           {caption && caption.trim() && (
             <div>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-medium text-muted-foreground">
+                <span className="text-micro font-medium text-muted-foreground">
                   Caption
                 </span>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-5 text-[10px] gap-1 px-1.5"
+                  className="h-5 text-micro gap-1 px-1.5"
                   onClick={() => handleCopy(caption, "caption")}
                 >
                   {copiedCaption ? (
@@ -68,7 +68,7 @@ export function CaptionPanel({ caption, hashtags }: CaptionPanelProps) {
                   {copiedCaption ? "Copied" : "Copy"}
                 </Button>
               </div>
-              <p className="text-xs text-foreground bg-muted rounded-md p-2 whitespace-pre-wrap">
+              <p className="text-label text-foreground bg-muted rounded-md p-2 whitespace-pre-wrap">
                 {caption}
               </p>
             </div>
@@ -77,14 +77,14 @@ export function CaptionPanel({ caption, hashtags }: CaptionPanelProps) {
           {hashtags && hashtags.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-medium text-muted-foreground flex items-center gap-1">
+                <span className="text-micro font-medium text-muted-foreground flex items-center gap-1">
                   <Hash className="h-2.5 w-2.5" />
                   Hashtags ({hashtags.length})
                 </span>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-5 text-[10px] gap-1 px-1.5"
+                  className="h-5 text-micro gap-1 px-1.5"
                   onClick={() =>
                     handleCopy(hashtags.map((h) => `#${h}`).join(" "), "hashtags")
                   }
@@ -101,7 +101,7 @@ export function CaptionPanel({ caption, hashtags }: CaptionPanelProps) {
                 {hashtags.map((tag) => (
                   <span
                     key={tag}
-                    className="text-[10px] bg-accent/10 text-accent rounded-full px-2 py-0.5"
+                    className="text-micro bg-accent/10 text-accent rounded-full px-2 py-0.5"
                   >
                     #{tag}
                   </span>

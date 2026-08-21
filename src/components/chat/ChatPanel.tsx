@@ -20,18 +20,33 @@ interface ChatPanelProps {
   carouselId: string;
   referenceImages?: ReferenceImage[];
   engines: EngineStatus[];
+  /** Awaited before the request goes out: last chance to save manual edits. */
+  onBeforeSend?: () => Promise<void>;
   onStreamStart?: () => void;
   onStreamEnd?: () => void;
   chatInputRef?: React.RefObject<HTMLTextAreaElement | null>;
+  /**
+   * The element the user has selected, handed to the agent as context so a
+   * request can be "hacelo más grande" instead of a description of which
+   * heading you mean.
+   */
+  context?: { label: string; html: string } | null;
+  onClearContext?: () => void;
+  /** Hosted inside a panel that already draws the title. */
+  embedded?: boolean;
 }
 
 export function ChatPanel({
   carouselId,
   engines,
   referenceImages = [],
+  onBeforeSend,
   onStreamStart,
   onStreamEnd,
   chatInputRef,
+  context,
+  onClearContext,
+  embedded = false,
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -108,6 +123,7 @@ export function ChatPanel({
       if (isStreaming) return;
       setError(null);
       setIsStreaming(true);
+      await onBeforeSend?.();
       onStreamStart?.();
 
       // Add user message
@@ -126,6 +142,18 @@ export function ChatPanel({
         { id: assistantId, role: "assistant", content: "" },
       ]);
 
+      // What the user sees is what they typed; what the agent gets also
+      // carries the selected element's markup.
+      const outgoing = context
+        ? `Trabajá sobre este elemento del slide actual:
+
+\`\`\`html
+${context.html}
+\`\`\`
+
+${message}`
+        : message;
+
       abortRef.current = new AbortController();
 
       try {
@@ -133,7 +161,7 @@ export function ChatPanel({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            message,
+            message: outgoing,
             sessionId,
             carouselId,
             engine,
@@ -247,9 +275,11 @@ export function ChatPanel({
       sessionKey,
       engine,
       carouselId,
+      onBeforeSend,
       onStreamStart,
       onStreamEnd,
       persistMessages,
+      context,
     ]
   );
 
@@ -258,10 +288,10 @@ export function ChatPanel({
       <div className="h-full flex flex-col items-center justify-center p-6 text-center">
         <Plug className="h-10 w-10 text-muted-foreground mb-3" />
         <h3 className="font-semibold text-sm mb-1">Conectá un motor de IA</h3>
-        <p className="text-xs text-muted-foreground max-w-[220px] mb-3">
+        <p className="text-label text-muted-foreground max-w-[220px] mb-3">
           Necesitás al menos una CLI instalada para crear carruseles con IA.
         </p>
-        <ul className="text-xs text-muted-foreground space-y-1.5 text-left">
+        <ul className="text-label text-muted-foreground space-y-1.5 text-left">
           {engines.map((e) => (
             <li key={e.id}>
               <span className="font-medium text-foreground">{e.label}</span>
@@ -269,7 +299,7 @@ export function ChatPanel({
             </li>
           ))}
         </ul>
-        <div className="flex gap-3 mt-4 text-xs">
+        <div className="flex gap-3 mt-4 text-label">
           <a
             href="https://docs.anthropic.com/en/docs/claude-code"
             target="_blank"
@@ -294,22 +324,32 @@ export function ChatPanel({
   return (
     <div className="h-full flex flex-col">
       <div className="px-4 py-3 border-b border-border">
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-sm font-semibold">AI Assistant</h2>
-            <p className="text-xs text-muted-foreground">
-              Describe the carousel you want to create
-            </p>
+        {!embedded && (
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="text-section font-semibold">Asistente de IA</h2>
+              <p className="text-label text-muted-foreground">
+                Contale qué carrusel querés armar
+              </p>
+            </div>
+            {messages.length > 0 && (
+              <button
+                onClick={handleClearChat}
+                className="oc-focus cursor-pointer rounded px-1.5 py-0.5 text-micro text-muted-foreground transition-colors hover:text-destructive"
+              >
+                Limpiar
+              </button>
+            )}
           </div>
-          {messages.length > 0 && (
-            <button
-              onClick={handleClearChat}
-              className="text-[10px] text-muted-foreground hover:text-destructive transition-colors px-1.5 py-0.5 rounded"
-            >
-              Clear
-            </button>
-          )}
-        </div>
+        )}
+        {embedded && messages.length > 0 && (
+          <button
+            onClick={handleClearChat}
+            className="oc-focus mb-2 cursor-pointer rounded px-1.5 py-0.5 text-micro text-muted-foreground transition-colors hover:text-destructive"
+          >
+            Limpiar la conversación
+          </button>
+        )}
         <EngineSelector
           engines={engines}
           value={engine}
@@ -327,9 +367,9 @@ export function ChatPanel({
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         {messages.length === 0 && (
           <div className="p-6 text-center text-muted-foreground">
-            <p className="text-sm mb-1">No messages yet</p>
-            <p className="text-xs">
-              Tell me what carousel you&apos;d like to create
+            <p className="mb-1 text-body">Todavía no hay mensajes</p>
+            <p className="text-label">
+              Pedile un carrusel, o seleccioná un elemento y pedile un cambio.
             </p>
           </div>
         )}
@@ -347,7 +387,7 @@ export function ChatPanel({
           />
         ))}
         {error && (
-          <div className="mx-4 my-2 flex items-center gap-2 text-destructive text-xs bg-destructive/10 rounded-lg p-3">
+          <div className="mx-4 my-2 flex items-center gap-2 text-destructive text-label bg-destructive/10 rounded-lg p-3">
             <AlertCircle className="h-4 w-4 shrink-0" />
             {error}
           </div>
@@ -356,7 +396,7 @@ export function ChatPanel({
 
       {isStreaming && status && (
         <div
-          className="px-4 py-1.5 border-t border-border flex items-center gap-2 text-[11px] text-muted-foreground"
+          className="px-4 py-1.5 border-t border-border flex items-center gap-2 text-label text-muted-foreground"
           aria-live="polite"
         >
           <span
@@ -364,6 +404,21 @@ export function ChatPanel({
             aria-hidden
           />
           <span className="truncate font-mono">{status}</span>
+        </div>
+      )}
+
+      {context && (
+        <div className="flex items-center gap-2 border-t border-border bg-accent-soft px-4 py-2">
+          <span className="min-w-0 flex-1 truncate text-label text-foreground">
+            Sobre: <strong className="font-medium">{context.label}</strong>
+          </span>
+          <button
+            type="button"
+            onClick={onClearContext}
+            className="oc-focus shrink-0 cursor-pointer rounded px-1.5 py-0.5 text-micro text-muted-foreground hover:text-foreground"
+          >
+            Quitar
+          </button>
         </div>
       )}
 

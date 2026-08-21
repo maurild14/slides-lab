@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash2, Undo2, GripVertical } from "lucide-react";
+import { Plus, Trash2, Undo2, GripVertical, Sparkles } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -31,6 +31,8 @@ interface SlideFilmstripProps {
   onAddSlideRequest?: () => void;
   onReorderSlides?: (slideIds: string[]) => void;
   isGenerating?: boolean;
+  /** Slides the agent is currently rewriting. */
+  generatingIds?: string[];
 }
 
 function SortableSlideThumb({
@@ -43,6 +45,7 @@ function SortableSlideThumb({
   onSelect,
   onDelete,
   onUndo,
+  generating = false,
 }: {
   slide: Slide;
   index: number;
@@ -53,6 +56,7 @@ function SortableSlideThumb({
   onSelect: () => void;
   onDelete?: () => void;
   onUndo?: () => void;
+  generating?: boolean;
 }) {
   const {
     attributes,
@@ -80,9 +84,10 @@ function SortableSlideThumb({
       <div
         {...attributes}
         {...listeners}
-        className="absolute -left-1 top-1/2 -translate-y-1/2 z-10 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
+        aria-label={`Reordenar el slide ${index + 1}`}
+        className="absolute -left-1.5 top-1/2 z-10 flex h-8 w-4 -translate-y-1/2 cursor-grab items-center justify-center rounded text-muted-foreground opacity-60 transition-opacity hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing"
       >
-        <GripVertical className="h-3 w-3 text-muted-foreground" />
+        <GripVertical className="h-4 w-4" aria-hidden />
       </div>
 
       <button
@@ -94,7 +99,8 @@ function SortableSlideThumb({
             : "border-border hover:border-muted-foreground/50"
         )}
         style={{ width: thumbWidth, height: thumbHeight }}
-        aria-label={`Select slide ${index + 1}`}
+        aria-label={`Ir al slide ${index + 1}`}
+        aria-current={isActive}
       >
         <SlideRenderer
           html={slide.html}
@@ -103,40 +109,50 @@ function SortableSlideThumb({
         />
       </button>
 
-      {/* Hover actions */}
-      <div className="absolute -top-1 -right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+      {generating && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg bg-foreground/45">
+          <Sparkles className="h-4 w-4 animate-pulse text-background" aria-hidden />
+          <span className="sr-only">La IA está escribiendo este slide</span>
+        </div>
+      )}
+
+      {/* Always present, never hover-only: an action you cannot see is an
+          action that does not exist. Hover and focus only raise the contrast. */}
+      <div className="absolute -right-1.5 -top-1.5 flex gap-1 opacity-70 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
         {onUndo && slide.previousVersions.length > 0 && (
           <Button
-            variant="ghost"
-            size="icon"
-            className="h-5 w-5 bg-white shadow-sm border border-border rounded-full"
+            variant="outline"
+            size="icon-sm"
+            className="oc-hit h-6 w-6 rounded-full p-0 shadow-raised"
             onClick={(e) => {
               e.stopPropagation();
               onUndo();
             }}
-            aria-label="Undo last change"
+            aria-label={`Volver a la versión anterior del slide ${index + 1}`}
+            title="Volver a la versión anterior"
           >
-            <Undo2 className="h-2.5 w-2.5" />
+            <Undo2 className="h-3 w-3" aria-hidden />
           </Button>
         )}
         {onDelete && (
           <Button
-            variant="ghost"
-            size="icon"
-            className="h-5 w-5 bg-white shadow-sm border border-border rounded-full text-destructive hover:text-destructive"
+            variant="outline"
+            size="icon-sm"
+            className="oc-hit h-6 w-6 rounded-full p-0 text-destructive shadow-raised hover:text-destructive"
             onClick={(e) => {
               e.stopPropagation();
               onDelete();
             }}
-            aria-label={`Delete slide ${index + 1}`}
+            aria-label={`Eliminar el slide ${index + 1}`}
+            title="Eliminar el slide"
           >
-            <Trash2 className="h-2.5 w-2.5" />
+            <Trash2 className="h-3 w-3" aria-hidden />
           </Button>
         )}
       </div>
 
       {/* Slide number */}
-      <div className="absolute bottom-1 left-1 text-[9px] font-bold text-white bg-black/60 rounded px-1 py-0.5 leading-none">
+      <div className="absolute bottom-1 left-1 text-micro font-bold text-white bg-black/60 rounded px-1 py-0.5 leading-none">
         {index + 1}
       </div>
     </div>
@@ -153,6 +169,7 @@ export function SlideFilmstrip({
   onAddSlideRequest,
   onReorderSlides,
   isGenerating,
+  generatingIds = [],
 }: SlideFilmstripProps) {
   const { width: slideW, height: slideH } = DIMENSIONS[aspectRatio];
   const thumbHeight = 80;
@@ -213,6 +230,7 @@ export function SlideFilmstrip({
                 onSelect={() => onActiveChange(index)}
                 onDelete={onDeleteSlide ? () => onDeleteSlide(slide.id) : undefined}
                 onUndo={onUndoSlide ? () => onUndoSlide(slide.id) : undefined}
+                generating={generatingIds.includes(slide.id)}
               />
             ))}
           </SortableContext>
@@ -225,7 +243,7 @@ export function SlideFilmstrip({
           >
             <div className="flex flex-col items-center gap-1">
               <div className="w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-              <span className="text-[8px] text-accent font-medium">Creating</span>
+              <span className="text-micro font-medium text-accent">Creando</span>
             </div>
           </div>
         )}
@@ -235,9 +253,10 @@ export function SlideFilmstrip({
             onClick={onAddSlideRequest}
             className="shrink-0 rounded-lg border-2 border-dashed border-border flex items-center justify-center hover:border-muted-foreground/50 hover:bg-muted/50 transition-colors cursor-pointer"
             style={{ width: thumbWidth, height: thumbHeight }}
-            aria-label="Add slide via AI"
+            aria-label="Agregar un slide con la IA"
+            title="Agregar un slide con la IA"
           >
-            <Plus className="h-4 w-4 text-muted-foreground" />
+            <Plus className="h-5 w-5 text-muted-foreground" aria-hidden />
           </button>
         )}
       </div>

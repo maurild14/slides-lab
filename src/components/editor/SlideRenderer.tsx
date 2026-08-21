@@ -1,20 +1,8 @@
 "use client";
 
-import {
-  useMemo,
-  useRef,
-  useEffect,
-  useState,
-  useCallback,
-} from "react";
+import { useMemo, useRef, useEffect, useState, useCallback } from "react";
 import { wrapSlideHtml } from "@/lib/slide-html";
-import {
-  INSPECTOR_STYLE,
-  INSPECTOR_STYLE_ID,
-  OC_ATTR_HOVER,
-  OC_ATTR_SELECTED,
-  isSelectable,
-} from "@/lib/inspector-utils";
+import { INSPECTOR_STYLE, INSPECTOR_STYLE_ID } from "@/lib/inspector-utils";
 import type { AspectRatio } from "@/types/carousel";
 import { DIMENSIONS } from "@/types/carousel";
 
@@ -23,13 +11,19 @@ interface SlideRendererProps {
   aspectRatio: AspectRatio;
   className?: string;
   style?: React.CSSProperties;
-  /** Edit mode lets users click inside the iframe to select elements. */
-  editable?: boolean;
-  /** Called when the user clicks an element in editable mode. */
-  onSelectElement?: (el: HTMLElement | null) => void;
-  /** Currently selected element (used to draw the selection ring). */
-  selectedElement?: HTMLElement | null;
-  /** Called when iframe (re)loads — selection refs become stale. */
+  /**
+   * Prepares the iframe for direct manipulation: same-origin access so the
+   * canvas can read the DOM, pointer events, and the feedback stylesheet.
+   * Off for thumbnails and the fullscreen preview, which are read-only.
+   */
+  interactive?: boolean;
+  /** Absolute render scale. Omit to fit the slide to the container. */
+  scale?: number;
+  /** Offset in screen pixels, applied after centring. */
+  pan?: { x: number; y: number };
+  /** Reports the scale that fits the container, so callers can offer "fit". */
+  onFitScale?: (fit: number) => void;
+  /** Called on every (re)load — element references from before are stale. */
   onIframeReady?: (iframe: HTMLIFrameElement) => void;
 }
 
@@ -38,9 +32,10 @@ export function SlideRenderer({
   aspectRatio,
   className,
   style,
-  editable = false,
-  onSelectElement,
-  selectedElement,
+  interactive = false,
+  scale: scaleProp,
+  pan,
+  onFitScale,
   onIframeReady,
 }: SlideRendererProps) {
   const outerRef = useRef<HTMLDivElement>(null);
@@ -71,165 +66,119 @@ export function SlideRenderer({
     return () => obs.disconnect();
   }, [measure]);
 
-  // Stable refs to the latest callbacks so the attach effect doesn't re-run
-  // on every render (parents typically pass inline arrows for these).
-  const onSelectRef = useRef(onSelectElement);
+  const fit = dims ? Math.min(dims.w / slideW, dims.h / slideH) : 0;
+
+  // Stable refs so the load effect doesn't re-run for inline arrow props.
   const onReadyRef = useRef(onIframeReady);
+  const onFitRef = useRef(onFitScale);
   useEffect(() => {
-    onSelectRef.current = onSelectElement;
     onReadyRef.current = onIframeReady;
+    onFitRef.current = onFitScale;
   });
 
-  // Attach inspector listeners inside the iframe when editable.
-  // We re-attach on every iframe load (srcDoc change forces a reload).
   useEffect(() => {
-    if (!editable) return;
+    if (fit > 0) onFitRef.current?.(fit);
+  }, [fit]);
+
+  // Inject the feedback stylesheet and announce the iframe on every load.
+  // srcDoc changes reload the document, so this has to survive re-runs.
+  useEffect(() => {
+    if (!interactive) return;
     const iframe = iframeRef.current;
     if (!iframe) return;
 
-    let detach: (() => void) | null = null;
-
     const attach = () => {
-      detach?.();
-      detach = null;
       let doc: Document | null = null;
       try {
         doc = iframe.contentDocument;
       } catch {
-        return;
+        return false;
       }
-      if (!doc || !doc.body) return;
+      // A freshly created iframe is about:blank until srcdoc commits, and
+      // attaching to that document would seed the undo history with an empty
+      // slide. The viewport meta only exists in the document we wrote.
+      if (!doc?.body || !doc.querySelector('meta[name="viewport"]')) return false;
 
-      let styleEl = doc.getElementById(
-        INSPECTOR_STYLE_ID
-      ) as HTMLStyleElement | null;
-      if (!styleEl) {
-        styleEl = doc.createElement("style");
+      if (!doc.getElementById(INSPECTOR_STYLE_ID)) {
+        const styleEl = doc.createElement("style");
         styleEl.id = INSPECTOR_STYLE_ID;
         styleEl.textContent = INSPECTOR_STYLE;
         doc.head.appendChild(styleEl);
       }
-
-      const docFinal = doc;
-      const onClick = (e: MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const target = e.target as Element | null;
-        onSelectRef.current?.(isSelectable(target) ? target : null);
-      };
-      const onMouseOver = (e: MouseEvent) => {
-        const target = e.target as Element | null;
-        docFinal
-          .querySelectorAll(`[${OC_ATTR_HOVER}]`)
-          .forEach((n) => n.removeAttribute(OC_ATTR_HOVER));
-        if (isSelectable(target)) target.setAttribute(OC_ATTR_HOVER, "");
-      };
-      const onMouseOut = () => {
-        docFinal
-          .querySelectorAll(`[${OC_ATTR_HOVER}]`)
-          .forEach((n) => n.removeAttribute(OC_ATTR_HOVER));
-      };
-
-      docFinal.addEventListener("click", onClick, true);
-      docFinal.addEventListener("mouseover", onMouseOver, true);
-      docFinal.addEventListener("mouseout", onMouseOut, true);
-
-      detach = () => {
-        docFinal.removeEventListener("click", onClick, true);
-        docFinal.removeEventListener("mouseover", onMouseOver, true);
-        docFinal.removeEventListener("mouseout", onMouseOut, true);
-      };
-
       onReadyRef.current?.(iframe);
+      return true;
     };
 
-    const onLoad = () => attach();
-    iframe.addEventListener("load", onLoad);
-
-    // If the iframe has already loaded by the time this effect runs,
-    // attach immediately. Use a microtask so contentDocument has settled.
-    if (iframe.contentDocument?.body) {
-      attach();
-    } else {
-      // Fallback: poll briefly until body exists (srcdoc commit is async).
+    iframe.addEventListener("load", attach);
+    // srcdoc commits asynchronously, so the document may not exist yet when
+    // this effect runs — and if it already loaded, no further load event is
+    // coming. Poll briefly to cover both.
+    if (!attach()) {
       const interval = window.setInterval(() => {
-        if (iframe.contentDocument?.body) {
-          window.clearInterval(interval);
-          attach();
-        }
+        if (attach()) window.clearInterval(interval);
       }, 30);
-      window.setTimeout(() => window.clearInterval(interval), 2000);
+      const stop = window.setTimeout(() => window.clearInterval(interval), 4000);
+      return () => {
+        iframe.removeEventListener("load", attach);
+        window.clearInterval(interval);
+        window.clearTimeout(stop);
+      };
     }
+    return () => iframe.removeEventListener("load", attach);
+  }, [interactive, srcDoc]);
 
-    return () => {
-      iframe.removeEventListener("load", onLoad);
-      detach?.();
-    };
-  }, [editable]);
-
-  // Reflect selected element via attribute (drawn by injected stylesheet)
-  useEffect(() => {
-    if (!editable) return;
-    const iframe = iframeRef.current;
-    const doc = iframe?.contentDocument;
-    if (!doc) return;
-    doc
-      .querySelectorAll(`[${OC_ATTR_SELECTED}]`)
-      .forEach((n) => n.removeAttribute(OC_ATTR_SELECTED));
-    if (selectedElement && doc.contains(selectedElement)) {
-      selectedElement.setAttribute(OC_ATTR_SELECTED, "");
-    }
-  }, [editable, selectedElement]);
-
-  // Calculate scale to fit the slide into the container
-  const scale = dims ? Math.min(dims.w / slideW, dims.h / slideH) : 0;
-  const scaledW = Math.floor(slideW * scale);
-  const scaledH = Math.floor(slideH * scale);
+  const requested = scaleProp && scaleProp > 0 ? scaleProp : fit;
+  // The container has not been measured yet on the very first render. The
+  // iframe still has to mount now: returning early instead would leave the
+  // attach effect below with nothing to attach to, and it would never re-run.
+  const measured = requested > 0;
+  const scale = measured ? requested : 0.001;
+  const offset = pan ? `translate(${pan.x}px, ${pan.y}px)` : "";
 
   return (
     <div
       ref={outerRef}
       className={className}
-      style={{
-        position: "relative",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        ...style,
-      }}
+      style={{ position: "relative", overflow: "hidden", ...style }}
     >
-      {scale > 0 && (
-        <div
+      <div
+        style={{
+          // Centred, then panned. The canvas geometry assumes exactly this
+          // layout when it corrects the pan for a zoom about the cursor.
+          position: "absolute",
+          left: "50%",
+          top: "50%",
+          width: slideW * scale,
+          height: slideH * scale,
+          transform: `translate(-50%, -50%) ${offset}`,
+          visibility: measured ? "visible" : "hidden",
+          overflow: "hidden",
+          borderRadius: 8,
+          boxShadow: "0 4px 24px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.08)",
+          border: "1px solid rgba(0,0,0,0.06)",
+          background: "#fff",
+        }}
+      >
+        <iframe
+          ref={iframeRef}
+          // Never allow-scripts: the slide is untrusted generated markup and
+          // every interaction is driven from the parent document instead.
+          sandbox={interactive ? "allow-same-origin" : ""}
+          srcDoc={srcDoc}
+          title="Slide preview"
           style={{
-            width: scaledW,
-            height: scaledH,
-            overflow: "hidden",
-            borderRadius: 8,
-            position: "relative",
-            boxShadow: "0 4px 24px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.08)",
-            border: "1px solid rgba(0,0,0,0.06)",
+            width: slideW,
+            height: slideH,
+            border: "none",
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+            position: "absolute",
+            top: 0,
+            left: 0,
+            pointerEvents: interactive ? "auto" : "none",
           }}
-        >
-          <iframe
-            key={editable ? "edit" : "view"}
-            ref={iframeRef}
-            sandbox={editable ? "allow-same-origin" : ""}
-            srcDoc={srcDoc}
-            title="Slide preview"
-            style={{
-              width: slideW,
-              height: slideH,
-              border: "none",
-              transform: `scale(${scale})`,
-              transformOrigin: "top left",
-              position: "absolute",
-              top: 0,
-              left: 0,
-              pointerEvents: editable ? "auto" : "none",
-            }}
-          />
-        </div>
-      )}
+        />
+      </div>
     </div>
   );
 }

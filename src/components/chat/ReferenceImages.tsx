@@ -88,7 +88,7 @@ export function ReferenceImages({
     <div className="border-b border-border">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2">
-        <span className="text-xs font-medium text-muted-foreground">
+        <span className="text-label font-medium text-muted-foreground">
           Reference Images
         </span>
         <Button
@@ -96,7 +96,7 @@ export function ReferenceImages({
           size="sm"
           onClick={handleClick}
           disabled={uploading}
-          className="h-6 text-xs gap-1 px-2"
+          className="h-control-sm text-label gap-1 px-2"
         >
           <ImagePlus className="h-3 w-3" />
           {uploading ? "Uploading..." : "Add"}
@@ -112,10 +112,10 @@ export function ReferenceImages({
           className="mx-4 mb-3 border border-dashed border-border rounded-lg p-3 text-center cursor-pointer hover:border-muted-foreground/50 hover:bg-muted/30 transition-colors"
         >
           <ImagePlus className="h-4 w-4 mx-auto text-muted-foreground/50 mb-1" />
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-micro text-muted-foreground">
             Drop reference images here
           </p>
-          <p className="text-[9px] text-muted-foreground/70">
+          <p className="text-micro text-muted-foreground/70">
             The AI will study these to match your style
           </p>
         </div>

@@ -7,15 +7,24 @@ import { Button } from "@/components/ui/button";
 interface ExportButtonProps {
   carouselId: string;
   slideCount: number;
+  /** Flush pending canvas edits so the export renders what is on screen. */
+  onBeforeExport?: () => Promise<void>;
 }
 
-export function ExportButton({ carouselId, slideCount }: ExportButtonProps) {
+export function ExportButton({
+  carouselId,
+  slideCount,
+  onBeforeExport,
+}: ExportButtonProps) {
   const [exporting, setExporting] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [done, setDone] = useState(false);
 
   const handleExport = async () => {
     if (exporting || slideCount === 0) return;
+    // The server renders from stored HTML, so anything still sitting in the
+    // iframe has to reach it first or the PNGs come out stale.
+    await onBeforeExport?.();
     setExporting(true);
     setDone(false);
     setProgress({ current: 0, total: slideCount });

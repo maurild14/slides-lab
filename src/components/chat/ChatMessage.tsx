@@ -39,7 +39,7 @@ export function ChatMessage({
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-xs font-medium text-muted-foreground mb-1">
+        <div className="text-label font-medium text-muted-foreground mb-1">
           {role === "user" ? "You" : "Carrusel AI"}
         </div>
         {attachments && attachments.length > 0 && (

@@ -191,7 +191,7 @@ export function ChatInput({
     >
       {dragActive && (
         <div className="absolute inset-2 z-10 border-2 border-dashed border-accent rounded-xl bg-accent/5 flex items-center justify-center pointer-events-none">
-          <div className="flex items-center gap-2 text-xs text-accent font-medium">
+          <div className="flex items-center gap-2 text-label text-accent font-medium">
             <ImagePlus className="h-4 w-4" />
             Drop images to attach
           </div>
@@ -204,7 +204,7 @@ export function ChatInput({
             <button
               key={suggestion}
               onClick={() => setValue(suggestion)}
-              className="text-xs px-2.5 py-1 rounded-full border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              className="text-label px-2.5 py-1 rounded-full border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             >
               {suggestion}
             </button>
@@ -232,7 +232,7 @@ export function ChatInput({
               )}
               {att.error && (
                 <div className="absolute inset-0 bg-destructive/70 flex items-center justify-center">
-                  <span className="text-[9px] text-white font-medium">
+                  <span className="text-micro text-white font-medium">
                     Failed
                   </span>
                 </div>

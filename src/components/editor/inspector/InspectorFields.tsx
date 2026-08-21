@@ -1,15 +1,28 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 /* -------------------------------------------------------------------- */
 /* Section                                                              */
 /* -------------------------------------------------------------------- */
 
+/** Which section the floating toolbar asked for, and how many times. */
+export type SectionFocus = { section: string; n: number } | null;
+
+/** The nonce for `id`, or false when the toolbar asked for another section. */
+export function focusOn(focus: SectionFocus, id: string): number | false {
+  return focus && focus.section === id ? focus.n : false;
+}
+
 interface SectionProps {
   title: string;
   defaultOpen?: boolean;
+  /**
+   * Opened and scrolled to when this changes to a truthy value. A nonce
+   * rather than a boolean, so asking for the same section twice re-opens it.
+   */
+  focused?: number | false;
   children: React.ReactNode;
   action?: React.ReactNode;
 }
@@ -17,17 +30,32 @@ interface SectionProps {
 export function Section({
   title,
   defaultOpen = true,
+  focused = false,
   children,
   action,
 }: SectionProps) {
   const [open, setOpen] = useState(defaultOpen);
+  // React 19 pattern: react to the prop during render rather than in an
+  // effect, so the section is already open on the frame it is scrolled to.
+  const [lastFocused, setLastFocused] = useState<number | false>(focused);
+  if (focused !== lastFocused) {
+    setLastFocused(focused);
+    if (focused) setOpen(true);
+  }
+
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (focused) ref.current?.scrollIntoView({ block: "nearest" });
+  }, [focused]);
+
   return (
-    <div className="border-b border-border last:border-b-0">
+    <div ref={ref} className="border-b border-border last:border-b-0">
       <div className="flex items-center justify-between px-3 h-8">
         <button
           type="button"
+          aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="flex-1 text-left text-[11px] uppercase tracking-wider font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          className="flex-1 text-left text-label uppercase tracking-wider font-semibold text-muted-foreground hover:text-foreground transition-colors"
         >
           {title}
         </button>
@@ -52,7 +80,7 @@ export function Row({ label, children, hint }: RowProps) {
   return (
     <div className="grid grid-cols-[64px_1fr] items-center gap-2">
       <label
-        className="text-[11px] text-muted-foreground truncate"
+        className="text-label text-muted-foreground truncate"
         title={hint || label}
       >
         {label}
@@ -93,7 +121,7 @@ export function ColorField({ value, onChange, placeholder }: ColorFieldProps) {
   };
 
   return (
-    <div className="flex items-center gap-1.5 h-7 rounded-md border border-border bg-surface focus-within:ring-2 focus-within:ring-ring px-1.5">
+    <div className="flex items-center gap-1.5 h-control-sm rounded-md border border-border bg-surface focus-within:ring-2 focus-within:ring-ring px-1.5">
       <button
         type="button"
         onClick={() => pickerRef.current?.click()}
@@ -118,7 +146,7 @@ export function ColorField({ value, onChange, placeholder }: ColorFieldProps) {
         onKeyDown={(e) => {
           if (e.key === "Enter") commit((e.target as HTMLInputElement).value);
         }}
-        className="flex-1 min-w-0 bg-transparent text-xs font-mono uppercase outline-none placeholder:text-muted-foreground"
+        className="flex-1 min-w-0 bg-transparent text-label font-mono uppercase outline-none placeholder:text-muted-foreground"
       />
     </div>
   );
@@ -169,7 +197,7 @@ export function NumberField({
   };
 
   return (
-    <div className="flex items-center gap-1.5 h-7 rounded-md border border-border bg-surface focus-within:ring-2 focus-within:ring-ring px-2">
+    <div className="flex items-center gap-1.5 h-control-sm rounded-md border border-border bg-surface focus-within:ring-2 focus-within:ring-ring px-2">
       <input
         type="number"
         value={local}
@@ -182,10 +210,10 @@ export function NumberField({
         onKeyDown={(e) => {
           if (e.key === "Enter") commit((e.target as HTMLInputElement).value);
         }}
-        className="flex-1 min-w-0 bg-transparent text-xs outline-none placeholder:text-muted-foreground tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        className="flex-1 min-w-0 bg-transparent text-label outline-none placeholder:text-muted-foreground tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
       {suffix && (
-        <span className="text-[10px] text-muted-foreground select-none">
+        <span className="text-micro text-muted-foreground select-none">
           {suffix}
         </span>
       )}
@@ -208,7 +236,7 @@ export function SelectField({ value, onChange, options }: SelectFieldProps) {
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="h-7 w-full rounded-md border border-border bg-surface px-2 text-xs outline-none focus:ring-2 focus:ring-ring"
+      className="h-control-sm w-full rounded-md border border-border bg-surface px-2 text-label outline-none focus:ring-2 focus:ring-ring"
     >
       {options.map((o) => (
         <option key={o.value} value={o.value}>
@@ -242,7 +270,7 @@ export function TextAreaField({
       onChange={(e) => onChange(e.target.value)}
       rows={rows}
       placeholder={placeholder}
-      className="w-full resize-none rounded-md border border-border bg-surface px-2 py-1.5 text-xs leading-relaxed outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
+      className="w-full resize-none rounded-md border border-border bg-surface px-2 py-1.5 text-label leading-relaxed outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
     />
   );
 }
@@ -265,7 +293,7 @@ interface ToggleGroupProps {
 
 export function ToggleGroup({ value, onChange, options }: ToggleGroupProps) {
   return (
-    <div className="inline-flex h-7 w-full rounded-md border border-border bg-surface p-0.5">
+    <div className="inline-flex h-control-sm w-full rounded-md border border-border bg-surface p-0.5">
       {options.map((o) => {
         const active = o.value === value;
         return (
@@ -275,7 +303,7 @@ export function ToggleGroup({ value, onChange, options }: ToggleGroupProps) {
             onClick={() => onChange(o.value)}
             title={o.hint}
             className={cn(
-              "flex-1 flex items-center justify-center rounded text-[11px] transition-colors",
+              "flex-1 flex items-center justify-center rounded text-label transition-colors",
               active
                 ? "bg-foreground text-background"
                 : "text-muted-foreground hover:text-foreground"

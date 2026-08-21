@@ -34,8 +34,8 @@ export function EngineSelector({
           onChange={(e) => onChange(e.target.value as EngineId)}
           aria-label="Motor de IA"
           className={cn(
-            "h-7 appearance-none rounded-md border border-border bg-surface",
-            "pl-2 pr-6 text-xs font-medium cursor-pointer",
+            "h-control appearance-none rounded-md border border-border bg-surface",
+            "pl-2 pr-6 text-label font-medium cursor-pointer",
             "transition-colors duration-150",
             "hover:border-foreground/20 focus:outline-none focus:ring-2 focus:ring-ring",
             "disabled:cursor-not-allowed disabled:opacity-50",
@@ -58,7 +58,7 @@ export function EngineSelector({
 
       {active?.supportsImagegen && (
         <span
-          className="inline-flex items-center gap-1 text-[10px] text-muted-foreground"
+          className="inline-flex items-center gap-1 text-micro text-muted-foreground"
           title="Este motor puede generar imágenes"
         >
           <ImagePlus className="h-3 w-3" strokeWidth={1.5} aria-hidden />
@@ -67,7 +67,7 @@ export function EngineSelector({
       )}
 
       {unavailable && (
-        <span className="text-[10px] text-destructive">{active?.reason}</span>
+        <span className="text-micro text-destructive">{active?.reason}</span>
       )}
     </div>
   );

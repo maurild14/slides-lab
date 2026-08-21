@@ -46,3 +46,28 @@ export const DEFAULT_BRAND: BrandConfig = {
   createdAt: "",
   updatedAt: "",
 };
+
+/**
+ * Fill in whatever the stored brand is missing.
+ *
+ * The brand wizard lets you skip fields, so colours come back as empty
+ * strings — and an empty string in `background:${color}` is a declaration the
+ * browser silently drops, which reads as "the shape tool inserts nothing".
+ */
+export function withBrandDefaults(brand: Partial<BrandConfig> | null): BrandConfig {
+  const pick = <T extends object>(value: Partial<T> | undefined, fallback: T): T => {
+    const out = { ...fallback };
+    for (const key of Object.keys(fallback) as (keyof T)[]) {
+      const v = value?.[key];
+      if (typeof v === "string" && v.trim()) out[key] = v as T[keyof T];
+    }
+    return out;
+  };
+
+  return {
+    ...DEFAULT_BRAND,
+    ...brand,
+    colors: pick(brand?.colors, DEFAULT_BRAND.colors),
+    fonts: pick(brand?.fonts, DEFAULT_BRAND.fonts),
+  };
+}

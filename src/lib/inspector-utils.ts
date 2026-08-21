@@ -5,20 +5,52 @@
 
 export const OC_ATTR_HOVER = "data-oc-hover";
 export const OC_ATTR_SELECTED = "data-oc-selected";
+/** Set on <html> while a gesture is running, to freeze hover feedback. */
+export const OC_ATTR_BUSY = "data-oc-busy";
 
 export const INSPECTOR_STYLE_ID = "__oc_inspector_styles__";
 
+/**
+ * Feedback drawn *inside* the slide. The selection frame and handles live in
+ * the parent document, but the outlines have to be here: an outline hugs the
+ * element's real shape, including a rotated or oddly-padded one, which a box
+ * drawn from the outside cannot do.
+ *
+ * Colours are hard-coded rather than taken from CSS variables because the
+ * iframe document does not inherit the app's tokens. They mirror
+ * --canvas-selection / --canvas-hover in globals.css; keep them in step.
+ */
 export const INSPECTOR_STYLE = `
+  * { cursor: default; }
   [${OC_ATTR_HOVER}] {
-    outline: 2px solid rgba(59, 130, 246, 0.35) !important;
+    outline: 2px solid rgba(37, 99, 235, 0.35) !important;
     outline-offset: 1px;
-    cursor: pointer !important;
+    cursor: move !important;
   }
   [${OC_ATTR_SELECTED}] {
-    outline: 2px solid #3b82f6 !important;
+    outline: 2px solid #2563eb !important;
     outline-offset: 1px;
-    cursor: pointer !important;
+    cursor: move !important;
   }
+  [data-oc-lock] { cursor: not-allowed !important; }
+  [data-oc-lock][${OC_ATTR_HOVER}] {
+    outline-color: rgba(102, 102, 102, 0.4) !important;
+  }
+  html[${OC_ATTR_BUSY}] * { cursor: inherit !important; }
+  html[${OC_ATTR_BUSY}="pan"] { cursor: grabbing !important; }
+  html[${OC_ATTR_BUSY}="marquee"] { cursor: crosshair !important; }
+  html[${OC_ATTR_BUSY}="move"] { cursor: move !important; }
+  /* Text selection during a drag turns the whole slide blue. */
+  html[${OC_ATTR_BUSY}] { user-select: none !important; }
+  /* Editing text in place: the caret has to be visible and selectable, and
+     the "everything is a move handle" cursor has to get out of the way. */
+  [contenteditable="true"] {
+    cursor: text !important;
+    user-select: text !important;
+    outline: 2px solid #2563eb !important;
+    outline-offset: 1px;
+  }
+  [contenteditable="true"] * { cursor: text !important; user-select: text !important; }
 `;
 
 /**
@@ -221,5 +253,8 @@ export function replaceTextPreservingFormatting(
 export function stripInspectorAttrs(html: string): string {
   return html
     .replace(new RegExp(`\\s${OC_ATTR_HOVER}(="[^"]*")?`, "g"), "")
-    .replace(new RegExp(`\\s${OC_ATTR_SELECTED}(="[^"]*")?`, "g"), "");
+    .replace(new RegExp(`\\s${OC_ATTR_SELECTED}(="[^"]*")?`, "g"), "")
+    // In-place text editing sets this on the element being typed into. An
+    // interrupted session must never leave it in the saved slide.
+    .replace(/\scontenteditable(="[^"]*")?/gi, "");
 }

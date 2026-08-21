@@ -193,14 +193,14 @@ export default function DashboardPage() {
                           setCarousels((prev) => [dup, ...prev]);
                         }
                       }}
-                      className="h-7 w-7 rounded-lg flex items-center justify-center bg-white border border-border hover:bg-muted"
+                      className="oc-hit h-control-sm w-control-sm rounded-md flex items-center justify-center bg-white border border-border hover:bg-muted"
                       aria-label={`Duplicate ${carousel.name}`}
                     >
                       <Copy className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={(e) => handleDelete(e, carousel.id, carousel.name)}
-                      className="h-7 w-7 rounded-lg flex items-center justify-center bg-white border border-border hover:bg-destructive hover:text-white hover:border-destructive"
+                      className="oc-hit h-control-sm w-control-sm rounded-md flex items-center justify-center bg-white border border-border hover:bg-destructive hover:text-white hover:border-destructive"
                       aria-label={`Delete ${carousel.name}`}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -221,8 +221,8 @@ export default function DashboardPage() {
                   <h3 className="font-semibold text-sm group-hover:text-accent transition-colors truncate">
                     {carousel.name}
                   </h3>
-                  <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                    <Badge variant="secondary" className="text-[10px]">
+                  <div className="flex items-center gap-2 mt-2 text-label text-muted-foreground">
+                    <Badge variant="secondary" className="text-micro">
                       <SlidersHorizontal className="h-2.5 w-2.5 mr-1" />
                       {carousel.aspectRatio}
                     </Badge>

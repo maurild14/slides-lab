@@ -46,7 +46,7 @@ export function LogoUpload({ value, onChange }: LogoUploadProps) {
 
   return (
     <div>
-      <label className="text-xs font-medium text-muted-foreground">Logo</label>
+      <label className="text-label font-medium text-muted-foreground">Logo</label>
       {value ? (
         <div className="mt-1 flex items-center gap-3">
           <div className="h-16 w-16 rounded-lg border border-border bg-muted flex items-center justify-center overflow-hidden">
@@ -85,7 +85,7 @@ export function LogoUpload({ value, onChange }: LogoUploadProps) {
           {uploading ? (
             <div className="flex flex-col items-center gap-2">
               <div className="h-5 w-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-              <span className="text-xs text-muted-foreground">
+              <span className="text-label text-muted-foreground">
                 Uploading...
               </span>
             </div>
@@ -95,10 +95,10 @@ export function LogoUpload({ value, onChange }: LogoUploadProps) {
                 <Upload className="h-4 w-4 text-muted-foreground" />
               </div>
               <div>
-                <span className="text-xs font-medium">
+                <span className="text-label font-medium">
                   Drop your logo here
                 </span>
-                <span className="text-xs text-muted-foreground block">
+                <span className="text-label text-muted-foreground block">
                   PNG, JPG, or WebP (max 10MB)
                 </span>
               </div>

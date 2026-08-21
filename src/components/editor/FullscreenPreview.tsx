@@ -104,7 +104,7 @@ export function FullscreenPreview({
                 aria-label={`Go to slide ${i + 1}`}
               />
             ))}
-            <span className="text-white/60 text-xs ml-2">
+            <span className="text-white/60 text-label ml-2">
               {activeIndex + 1}/{slides.length}
             </span>
           </div>
