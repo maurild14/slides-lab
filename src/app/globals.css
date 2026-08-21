@@ -331,4 +331,12 @@ body {
   .oc-press:active {
     transform: none;
   }
+  /* Skeletons and spinners: keep them visible, stop them from throbbing. */
+  .animate-pulse {
+    animation: none !important;
+    opacity: 0.7;
+  }
+  .animate-spin {
+    animation-duration: 2s !important;
+  }
 }

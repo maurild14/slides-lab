@@ -60,13 +60,42 @@ async function inlineImages(html: string): Promise<string> {
   return result;
 }
 
+export type ExportFormat = "png" | "jpg" | "png-transparent" | "pdf";
+
+export interface ExportOptions {
+  format?: ExportFormat;
+  /** JPG only, 1-100. */
+  quality?: number;
+}
+
+export const FILE_EXT: Record<ExportFormat, string> = {
+  png: "png",
+  "png-transparent": "png",
+  jpg: "jpg",
+  pdf: "pdf",
+};
+
+export const MIME: Record<ExportFormat, string> = {
+  png: "image/png",
+  "png-transparent": "image/png",
+  jpg: "image/jpeg",
+  pdf: "application/pdf",
+};
+
 /**
- * Export a single slide to PNG buffer.
+ * Export a single slide to an image buffer.
+ *
+ * `png-transparent` asks Chrome to skip the default white backdrop. It only
+ * produces holes where the slide itself paints nothing — a slide whose root
+ * div has a background colour still comes out opaque, which is the honest
+ * result.
  */
 export async function exportSlide(
   slide: Slide,
-  aspectRatio: AspectRatio
+  aspectRatio: AspectRatio,
+  options: ExportOptions = {}
 ): Promise<Buffer> {
+  const { format = "png", quality = 90 } = options;
   const { width, height } = DIMENSIONS[aspectRatio];
 
   // Get inlined font CSS
@@ -104,18 +133,22 @@ export async function exportSlide(
 
     const screenshotBuffer = await page.screenshot({
       type: "png",
+      omitBackground: format === "png-transparent",
       clip: { x: 0, y: 0, width, height, scale: 1 },
     });
 
     exportCount++;
 
     // Post-process with Sharp: enforce sRGB
-    const processed = await sharp(screenshotBuffer)
-      .toColorspace("srgb")
-      .png()
-      .toBuffer();
-
-    return processed;
+    const pipeline = sharp(screenshotBuffer).toColorspace("srgb");
+    return format === "jpg"
+      ? await pipeline
+          // JPG has no alpha; without a flatten the transparent pixels of a
+          // cut-out slide come out black.
+          .flatten({ background: "#ffffff" })
+          .jpeg({ quality: Math.min(100, Math.max(1, Math.round(quality))) })
+          .toBuffer()
+      : await pipeline.png().toBuffer();
   } finally {
     await page.close().catch(() => {});
   }
@@ -133,15 +166,67 @@ export async function exportSlide(
 export async function exportAllSlides(
   slides: Slide[],
   aspectRatio: AspectRatio,
+  options: ExportOptions = {},
   onProgress?: (current: number, total: number) => void
 ): Promise<{ name: string; buffer: Buffer }[]> {
+  const ext = FILE_EXT[options.format ?? "png"];
   const results: { name: string; buffer: Buffer }[] = [];
 
   for (let idx = 0; idx < slides.length; idx++) {
-    const buffer = await exportSlide(slides[idx], aspectRatio);
+    const buffer = await exportSlide(slides[idx], aspectRatio, options);
     onProgress?.(idx + 1, slides.length);
-    results.push({ name: `slide-${idx + 1}.png`, buffer });
+    results.push({ name: `slide-${idx + 1}.${ext}`, buffer });
   }
 
   return results;
+}
+
+/**
+ * The whole carousel as one PDF, one slide per page.
+ *
+ * ponytail: the slides are rendered to PNG first and then laid into a page of
+ * <img> tags, rather than printing each slide document directly. Printing the
+ * live document re-runs layout under print media, where a `100vh` block or a
+ * viewport unit silently lands somewhere else; a bitmap cannot drift. The
+ * cost is a raster PDF — swap in a real vector print if selectable text in the
+ * PDF ever matters.
+ */
+export async function exportCarouselPdf(
+  slides: Slide[],
+  aspectRatio: AspectRatio,
+  onProgress?: (current: number, total: number) => void
+): Promise<Buffer> {
+  const { width, height } = DIMENSIONS[aspectRatio];
+
+  const pages: string[] = [];
+  for (let idx = 0; idx < slides.length; idx++) {
+    const png = await exportSlide(slides[idx], aspectRatio, { format: "png" });
+    onProgress?.(idx + 1, slides.length);
+    pages.push(
+      `<img src="data:image/png;base64,${png.toString("base64")}" width="${width}" height="${height}">`
+    );
+  }
+
+  const br = await getBrowser();
+  const page = await br.newPage();
+  try {
+    await page.setContent(
+      `<!DOCTYPE html><html><head><style>
+        @page { size: ${width}px ${height}px; margin: 0 }
+        * { margin: 0; padding: 0 }
+        img { display: block; width: ${width}px; height: ${height}px; break-after: page }
+        img:last-child { break-after: auto }
+      </style></head><body>${pages.join("")}</body></html>`,
+      { waitUntil: "domcontentloaded", timeout: 30000 }
+    );
+    const pdf = await page.pdf({
+      width: `${width}px`,
+      height: `${height}px`,
+      printBackground: true,
+      pageRanges: `1-${slides.length}`,
+    });
+    return Buffer.from(pdf);
+  } finally {
+    await page.close().catch(() => {});
+  }
 }

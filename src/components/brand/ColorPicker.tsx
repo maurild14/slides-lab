@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { Input } from "@/components/ui/input";
 
 interface ColorPickerProps {
@@ -9,30 +10,36 @@ interface ColorPickerProps {
 }
 
 export function ColorPicker({ label, value, onChange }: ColorPickerProps) {
+  const id = useId();
   return (
-    <div className="flex items-center gap-3">
-      <div className="relative">
+    <div className="grid grid-cols-[auto_1fr] items-center gap-3">
+      {/* The native picker sits invisible over its own swatch: one control,
+          not a swatch plus a hidden input somewhere else. */}
+      <div className="relative h-control-lg w-control-lg">
         <input
           type="color"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-          aria-label={`${label} color`}
+          className="oc-focus absolute inset-0 h-full w-full cursor-pointer rounded-md opacity-0"
+          aria-label={`Elegir el color ${label.toLowerCase()}`}
         />
         <div
-          className="h-9 w-9 rounded-lg border border-border shadow-sm cursor-pointer"
+          aria-hidden
+          className="pointer-events-none h-full w-full rounded-md border border-border shadow-rest"
           style={{ backgroundColor: value }}
         />
       </div>
-      <div className="flex-1">
-        <label className="text-label font-medium text-muted-foreground">
+      <div className="flex flex-col gap-1">
+        <label htmlFor={id} className="text-label font-medium text-foreground">
           {label}
         </label>
         <Input
+          id={id}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-8 text-label font-mono mt-0.5"
+          className="h-control-sm font-mono text-label"
           placeholder="#000000"
+          spellCheck={false}
         />
       </div>
     </div>

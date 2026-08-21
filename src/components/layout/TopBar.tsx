@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, Settings, Layers } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/button";
 
 interface TopBarProps {
   title?: string;
@@ -30,34 +30,32 @@ export function TopBar({
   };
 
   useEffect(() => {
-    if (isEditing) inputRef.current?.focus();
+    if (isEditing) inputRef.current?.select();
   }, [isEditing]);
 
   const handleSave = () => {
     const trimmed = editValue.trim();
-    if (trimmed && trimmed !== title) {
-      onTitleChange?.(trimmed);
-    } else {
-      setEditValue(title || "");
-    }
+    if (trimmed && trimmed !== title) onTitleChange?.(trimmed);
+    else setEditValue(title || "");
     setIsEditing(false);
   };
 
   return (
-    <header className="h-14 border-b border-border bg-surface flex items-center px-4 gap-3 shrink-0">
+    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-4">
       {showBack && (
-        <Link href="/">
-          <Button variant="ghost" size="icon" aria-label="Back to dashboard">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
+        <IconButton label="Volver al inicio" asChild>
+          <Link href="/">
+            <ArrowLeft className="h-4 w-4" aria-hidden />
+          </Link>
+        </IconButton>
       )}
-      <div className="flex items-center gap-2 min-w-0">
-        <Layers className="h-5 w-5 text-accent shrink-0" />
+      <div className="flex min-w-0 items-center gap-2">
+        <Layers className="h-5 w-5 shrink-0 text-accent" aria-hidden />
         {isEditing && editable ? (
           <input
             ref={inputRef}
             value={editValue}
+            aria-label="Nombre del carrusel"
             onChange={(e) => setEditValue(e.target.value)}
             onBlur={handleSave}
             onKeyDown={(e) => {
@@ -67,28 +65,28 @@ export function TopBar({
                 setIsEditing(false);
               }
             }}
-            className="font-semibold text-sm bg-transparent border-b-2 border-accent outline-none py-0.5 min-w-[120px]"
+            className="min-w-[12rem] border-b-2 border-accent bg-transparent py-0.5 text-body font-semibold outline-none"
           />
-        ) : (
-          <span
-            className={`font-semibold text-sm truncate ${editable ? "cursor-pointer hover:text-accent transition-colors" : ""}`}
-            onClick={() => editable && startEditing()}
-            title={editable ? "Click to rename" : undefined}
+        ) : editable ? (
+          <button
+            type="button"
+            onClick={startEditing}
+            title="Tocá para renombrar"
+            className="oc-focus cursor-pointer truncate rounded px-1 text-body font-semibold transition-colors hover:text-accent"
           >
+            {title || "Slides Lab"}
+          </button>
+        ) : (
+          <span className="truncate text-body font-semibold">
             {title || "Slides Lab"}
           </span>
         )}
       </div>
       <div className="flex-1" />
       {onSettingsClick && (
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onSettingsClick}
-          aria-label="Settings"
-        >
-          <Settings className="h-4 w-4" />
-        </Button>
+        <IconButton label="Configurar la marca" onClick={onSettingsClick}>
+          <Settings className="h-4 w-4" aria-hidden />
+        </IconButton>
       )}
     </header>
   );

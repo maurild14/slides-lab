@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash2, Undo2, GripVertical, Sparkles } from "lucide-react";
+import { Copy, Plus, Trash2, Undo2, GripVertical, Sparkles } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -27,6 +27,7 @@ interface SlideFilmstripProps {
   activeIndex: number;
   onActiveChange: (index: number) => void;
   onDeleteSlide?: (slideId: string) => void;
+  onDuplicateSlide?: (slideId: string) => void;
   onUndoSlide?: (slideId: string) => void;
   onAddSlideRequest?: () => void;
   onReorderSlides?: (slideIds: string[]) => void;
@@ -44,6 +45,7 @@ function SortableSlideThumb({
   aspectRatio,
   onSelect,
   onDelete,
+  onDuplicate,
   onUndo,
   generating = false,
 }: {
@@ -55,6 +57,7 @@ function SortableSlideThumb({
   aspectRatio: AspectRatio;
   onSelect: () => void;
   onDelete?: () => void;
+  onDuplicate?: () => void;
   onUndo?: () => void;
   generating?: boolean;
 }) {
@@ -119,6 +122,21 @@ function SortableSlideThumb({
       {/* Always present, never hover-only: an action you cannot see is an
           action that does not exist. Hover and focus only raise the contrast. */}
       <div className="absolute -right-1.5 -top-1.5 flex gap-1 opacity-70 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+        {onDuplicate && (
+          <Button
+            variant="outline"
+            size="icon-sm"
+            className="oc-hit h-6 w-6 rounded-full p-0 shadow-raised"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDuplicate();
+            }}
+            aria-label={`Duplicar el slide ${index + 1}`}
+            title="Duplicar el slide"
+          >
+            <Copy className="h-3 w-3" aria-hidden />
+          </Button>
+        )}
         {onUndo && slide.previousVersions.length > 0 && (
           <Button
             variant="outline"
@@ -165,6 +183,7 @@ export function SlideFilmstrip({
   activeIndex,
   onActiveChange,
   onDeleteSlide,
+  onDuplicateSlide,
   onUndoSlide,
   onAddSlideRequest,
   onReorderSlides,
@@ -229,6 +248,11 @@ export function SlideFilmstrip({
                 aspectRatio={aspectRatio}
                 onSelect={() => onActiveChange(index)}
                 onDelete={onDeleteSlide ? () => onDeleteSlide(slide.id) : undefined}
+                onDuplicate={
+                  onDuplicateSlide && slides.length < MAX_SLIDES
+                    ? () => onDuplicateSlide(slide.id)
+                    : undefined
+                }
                 onUndo={onUndoSlide ? () => onUndoSlide(slide.id) : undefined}
                 generating={generatingIds.includes(slide.id)}
               />

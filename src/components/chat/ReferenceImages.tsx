@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { ImagePlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DialogShell } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import type { ReferenceImage } from "@/types/carousel";
 
 interface ReferenceImagesProps {
@@ -17,35 +19,34 @@ export function ReferenceImages({
   onImagesChange,
 }: ReferenceImagesProps) {
   const [uploading, setUploading] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [over, setOver] = useState(false);
+  const [preview, setPreview] = useState<ReferenceImage | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const handleUpload = useCallback(
     async (file: File) => {
       setUploading(true);
+      setError(null);
       try {
-        // Upload the file
         const formData = new FormData();
         formData.append("file", file);
         const uploadRes = await fetch("/api/upload", {
           method: "POST",
           body: formData,
         });
-        if (!uploadRes.ok) return;
+        if (!uploadRes.ok) throw new Error();
         const uploadData = await uploadRes.json();
 
-        // Register as reference image
-        await fetch(`/api/carousels/${carouselId}/references`, {
+        const res = await fetch(`/api/carousels/${carouselId}/references`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            url: uploadData.url,
-            name: file.name,
-          }),
+          body: JSON.stringify({ url: uploadData.url, name: file.name }),
         });
-
+        if (!res.ok) throw new Error();
         onImagesChange();
       } catch {
-        // ignore
+        setError("No se pudo subir la imagen. Tiene que ser PNG, JPG o WebP de hasta 10 MB.");
       } finally {
         setUploading(false);
       }
@@ -55,127 +56,143 @@ export function ReferenceImages({
 
   const handleRemove = useCallback(
     async (imageId: string) => {
-      await fetch(
+      setError(null);
+      const res = await fetch(
         `/api/carousels/${carouselId}/references?imageId=${imageId}`,
         { method: "DELETE" }
       );
+      if (!res.ok) {
+        setError("No se pudo quitar la imagen. Probá de nuevo.");
+        return;
+      }
       onImagesChange();
     },
     [carouselId, onImagesChange]
   );
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      const file = e.dataTransfer.files[0];
-      if (file && file.type.startsWith("image/")) handleUpload(file);
-    },
-    [handleUpload]
-  );
-
-  const handleClick = useCallback(() => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "image/png,image/jpeg,image/webp";
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) handleUpload(file);
-    };
-    input.click();
-  }, [handleUpload]);
+  const pick = () => fileRef.current?.click();
 
   return (
     <div className="border-b border-border">
-      {/* Header */}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) handleUpload(file);
+        }}
+      />
+
       <div className="flex items-center justify-between px-4 py-2">
         <span className="text-label font-medium text-muted-foreground">
-          Reference Images
+          Imágenes de referencia
         </span>
         <Button
           variant="ghost"
           size="sm"
-          onClick={handleClick}
+          onClick={pick}
           disabled={uploading}
-          className="h-control-sm text-label gap-1 px-2"
+          className="gap-1 px-2"
         >
-          <ImagePlus className="h-3 w-3" />
-          {uploading ? "Uploading..." : "Add"}
+          <ImagePlus className="h-3.5 w-3.5" aria-hidden />
+          {uploading ? "Subiendo…" : "Agregar"}
         </Button>
       </div>
 
-      {/* Images grid or drop zone */}
       {images.length === 0 ? (
-        <div
-          onDrop={handleDrop}
-          onDragOver={(e) => e.preventDefault()}
-          onClick={handleClick}
-          className="mx-4 mb-3 border border-dashed border-border rounded-lg p-3 text-center cursor-pointer hover:border-muted-foreground/50 hover:bg-muted/30 transition-colors"
+        <button
+          type="button"
+          onDrop={(e) => {
+            e.preventDefault();
+            setOver(false);
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith("image/")) handleUpload(file);
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setOver(true);
+          }}
+          onDragLeave={() => setOver(false)}
+          onClick={pick}
+          className={cn(
+            "oc-focus mx-4 mb-3 flex w-[calc(100%-2rem)] cursor-pointer flex-col items-center gap-0.5 rounded-lg border border-dashed p-3 text-center transition-colors",
+            over ? "border-accent bg-accent-soft" : "border-border hover:border-muted-foreground/50 hover:bg-muted/30"
+          )}
         >
-          <ImagePlus className="h-4 w-4 mx-auto text-muted-foreground/50 mb-1" />
-          <p className="text-micro text-muted-foreground">
-            Drop reference images here
-          </p>
-          <p className="text-micro text-muted-foreground/70">
-            The AI will study these to match your style
-          </p>
-        </div>
+          <ImagePlus className="mb-1 h-4 w-4 text-muted-foreground/60" aria-hidden />
+          <span className="text-label text-foreground">
+            Arrastrá acá tus imágenes de referencia
+          </span>
+          <span className="text-micro text-muted-foreground">
+            La IA las mira para copiar tu estilo
+          </span>
+        </button>
       ) : (
-        <div className="flex gap-2 px-4 pb-3 overflow-x-auto">
+        <ul className="flex list-none gap-2 overflow-x-auto px-4 pb-3">
           {images.map((img) => (
-            <div key={img.id} className="oc-enter-pop relative group shrink-0">
+            <li key={img.id} className="oc-enter-pop relative shrink-0">
               <button
-                onClick={() => setPreviewUrl(previewUrl === img.url ? null : img.url)}
-                className="block w-14 h-14 rounded-lg overflow-hidden border border-border hover:border-accent transition-colors"
+                type="button"
+                onClick={() => setPreview(img)}
+                aria-label={`Ver ${img.name} en grande`}
+                className="oc-focus block h-16 w-16 cursor-pointer overflow-hidden rounded-lg border border-border transition-colors hover:border-accent"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={img.url}
                   alt={img.name}
-                  className="w-full h-full object-cover"
+                  className="h-full w-full object-cover"
                 />
               </button>
-              {/* Remove button */}
               <button
+                type="button"
                 onClick={() => handleRemove(img.id)}
-                className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                aria-label={`Remove ${img.name}`}
+                className="oc-focus absolute -right-1.5 -top-1.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full border border-surface bg-destructive text-white shadow-rest"
+                aria-label={`Quitar ${img.name}`}
               >
-                <X className="h-2.5 w-2.5" />
+                <X className="h-3 w-3" aria-hidden />
               </button>
-            </div>
+            </li>
           ))}
-          {/* Add more button */}
-          <button
-            onClick={handleClick}
-            className="shrink-0 w-14 h-14 rounded-lg border border-dashed border-border flex items-center justify-center hover:border-muted-foreground/50 transition-colors"
-          >
-            <ImagePlus className="h-3.5 w-3.5 text-muted-foreground" />
-          </button>
-        </div>
+          <li className="shrink-0">
+            <button
+              type="button"
+              onClick={pick}
+              aria-label="Agregar otra imagen de referencia"
+              className="oc-focus flex h-16 w-16 cursor-pointer items-center justify-center rounded-lg border border-dashed border-border transition-colors hover:border-muted-foreground/50"
+            >
+              <ImagePlus className="h-4 w-4 text-muted-foreground" aria-hidden />
+            </button>
+          </li>
+        </ul>
       )}
 
-      {/* Preview modal */}
-      {previewUrl && (
-        <div
-          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-8"
-          onClick={() => setPreviewUrl(null)}
-        >
-          <div className="relative max-w-2xl max-h-full">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={previewUrl}
-              alt="Reference preview"
-              className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
-            />
-            <button
-              onClick={() => setPreviewUrl(null)}
-              className="absolute -top-2 -right-2 h-8 w-8 rounded-full bg-white text-foreground flex items-center justify-center shadow-lg"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
+      {error && (
+        <p role="alert" className="px-4 pb-3 text-micro text-destructive">
+          {error}
+        </p>
       )}
+
+      {/* Same modal shell as the rest of the app — this used to be a hand-rolled
+          overlay with no focus trap and no Escape handling. */}
+      <DialogShell
+        open={preview !== null}
+        onOpenChange={(open) => !open && setPreview(null)}
+        title={preview?.name ?? ""}
+        className="max-w-2xl"
+      >
+        {preview && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={preview.url}
+            alt={preview.name}
+            className="max-h-[70vh] w-full rounded-lg object-contain"
+          />
+        )}
+      </DialogShell>
     </div>
   );
 }

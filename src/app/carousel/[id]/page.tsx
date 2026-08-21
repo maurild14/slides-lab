@@ -24,6 +24,13 @@ import { ContextToolbar } from "@/components/editor/ContextToolbar";
 import { useCanvasCommands } from "@/components/editor/canvas-commands";
 import { useSlideEditor } from "@/components/editor/use-slide-editor";
 import { clampZoom, getSlideRoot, zoomPanAt } from "@/lib/canvas-utils";
+import {
+  appendElementToHtml,
+  applyBackgroundToHtml,
+  reflowSlideHtml,
+} from "@/lib/slide-batch";
+import { stripInspectorAttrs } from "@/lib/inspector-utils";
+import { cn } from "@/lib/utils";
 import type { DragPayload } from "@/lib/slide-elements";
 import type { BrandConfig } from "@/types/brand";
 import { DEFAULT_BRAND, withBrandDefaults } from "@/types/brand";
@@ -55,6 +62,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingIds, setGeneratingIds] = useState<string[]>([]);
   const [showSafeZones, setShowSafeZones] = useState(false);
+  const [templateStatus, setTemplateStatus] = useState<"ok" | "error" | null>(null);
   const [showFullscreen, setShowFullscreen] = useState(false);
   const [selection, setSelection] = useState<HTMLElement[]>([]);
   const [iframeReadyTick, setIframeReadyTick] = useState(0);
@@ -86,6 +94,10 @@ export default function CarouselEditorPage({ params }: PageProps) {
     open: boolean;
     title: string;
     description: string;
+    confirmLabel?: string;
+    variant?: "destructive" | "default";
+    secondaryLabel?: string;
+    onSecondary?: () => void;
     onConfirm: () => void;
   }>({ open: false, title: "", description: "", onConfirm: () => {} });
 
@@ -131,7 +143,12 @@ export default function CarouselEditorPage({ params }: PageProps) {
 
   /* ------------------------------------------------------------- loading */
 
-  const fetchCarousel = useCallback(async () => {
+  /**
+   * `focusSlideId` overrides the "follow the newest slide" rule below. That
+   * rule exists for the agent appending slides; a duplicate lands in the
+   * middle and has to be followed by id, not by position.
+   */
+  const fetchCarousel = useCallback(async (focusSlideId?: string) => {
     try {
       const res = await fetch(`/api/carousels/${id}`);
       if (res.status === 404) {
@@ -161,9 +178,14 @@ export default function CarouselEditorPage({ params }: PageProps) {
       }
 
       setCarousel((prev) => {
+        const focused = focusSlideId
+          ? data.slides.findIndex((s) => s.id === focusSlideId)
+          : -1;
         // If new slides arrived during generation, follow the agent to the
         // newest one; otherwise just keep the index in range.
-        if (prev && data.slides.length > prev.slides.length) {
+        if (focused !== -1) {
+          setActiveSlide(focused);
+        } else if (prev && data.slides.length > prev.slides.length) {
           setActiveSlide(data.slides.length - 1);
         } else {
           setActiveSlide((idx) =>
@@ -283,15 +305,56 @@ export default function CarouselEditorPage({ params }: PageProps) {
     [activeSlide, editor]
   );
 
+  const setAspectRatio = useCallback(
+    async (ratio: AspectRatio) => {
+      const res = await fetch(`/api/carousels/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aspectRatio: ratio }),
+      });
+      if (res.ok) setCarousel(await res.json());
+    },
+    [id]
+  );
+
   const handleAspectChange = async (ratio: AspectRatio) => {
-    if (!carousel) return;
+    if (!carousel || ratio === carousel.aspectRatio) return;
     await editor.flush();
-    const res = await fetch(`/api/carousels/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ aspectRatio: ratio }),
+
+    const from = DIMENSIONS[carousel.aspectRatio];
+    const to = DIMENSIONS[ratio];
+    const current = carousel.slides;
+
+    // Changing the number used to be the whole operation, which left every
+    // slide's content sitting where it was on a canvas of another shape.
+    setConfirmState({
+      open: true,
+      title: `¿Pasar el carrusel a ${ratio}?`,
+      description: `Podemos reescalar el contenido de los ${current.length} slides para que entre en el lienzo nuevo. Es una aproximación: revisá cada slide después. Cada uno guarda su versión anterior, así que se puede volver atrás desde “Versión anterior”.`,
+      confirmLabel: "Reajustar el contenido",
+      secondaryLabel: "Solo cambiar el lienzo",
+      onSecondary: () => {
+        setAspectRatio(ratio);
+      },
+      onConfirm: async () => {
+        for (const slide of current) {
+          const html = editor.htmlFor(slide);
+          await fetch(`/api/carousels/${id}/slides/${slide.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ html: reflowSlideHtml(html, from, to) }),
+          });
+        }
+        // Order matters: `dropLocal` releases the pin that keeps the iframe
+        // from reloading, and the render that follows takes whatever html the
+        // carousel state holds *at that moment*. Dropping first re-pins the
+        // pre-reflow document, and the next autosave writes it back over the
+        // slide we just rescaled.
+        await setAspectRatio(ratio);
+        editor.dropLocal(current.map((s) => s.id));
+        setIframeReadyTick((n) => n + 1);
+      },
     });
-    if (res.ok) setCarousel(await res.json());
   };
 
   const handleDeleteSlide = (slideId: string) => {
@@ -310,6 +373,21 @@ export default function CarouselEditorPage({ params }: PageProps) {
     });
   };
 
+  const handleDuplicateSlide = useCallback(
+    async (slideId: string) => {
+      await editor.flush();
+      const res = await fetch(`/api/carousels/${id}/slides/${slideId}/duplicate`, {
+        method: "POST",
+      });
+      if (!res.ok) return;
+      const copy: { id?: string } = await res.json();
+      // Land on the copy: duplicating is almost always the first half of
+      // "and now change this one".
+      await fetchCarousel(copy.id);
+    },
+    [id, editor, fetchCarousel]
+  );
+
   const handleUndoSlide = useCallback(
     async (slideId: string) => {
       setSelection([]);
@@ -317,8 +395,8 @@ export default function CarouselEditorPage({ params }: PageProps) {
         method: "POST",
       });
       if (res.ok) {
-        editor.dropLocal([slideId]);
         await fetchCarousel();
+        editor.dropLocal([slideId]);
         setIframeReadyTick((n) => n + 1);
       }
     },
@@ -405,6 +483,60 @@ export default function CarouselEditorPage({ params }: PageProps) {
     const root = getSlideRoot(doc);
     return root.style.backgroundColor || root.style.background || "";
   }, [slideDoc, editor.mutationTick, iframeReadyTick]);
+
+  /* ------------------------------------------- applying across the carousel */
+
+  /**
+   * Rewrite every *other* slide. The active one already has the change on
+   * screen; re-sending it would only reload its iframe and drop the selection.
+   */
+  const applyToOtherSlides = useCallback(
+    async (transform: (html: string) => string) => {
+      await editor.flush();
+      const others = slides.filter((s) => s.id !== activeSlideId);
+      for (const slide of others) {
+        await fetch(`/api/carousels/${id}/slides/${slide.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ html: transform(slide.html) }),
+        });
+      }
+      await fetchCarousel();
+      editor.dropLocal(others.map((s) => s.id));
+    },
+    [editor, slides, activeSlideId, id, fetchCarousel]
+  );
+
+  const otherCount = (carousel?.slides.length ?? 1) - 1;
+
+  const handleApplyBackgroundToAll = useCallback(() => {
+    if (!slideBackground || otherCount < 1) return;
+    setConfirmState({
+      open: true,
+      title: `¿Poner este fondo en los otros ${otherCount} slides?`,
+      description:
+        "Se reemplaza el fondo de cada uno. Cada slide guarda su versión anterior, así que se puede volver atrás de a uno.",
+      confirmLabel: "Aplicar a todas",
+      onConfirm: () => {
+        applyToOtherSlides((html) => applyBackgroundToHtml(html, slideBackground));
+      },
+    });
+  }, [slideBackground, otherCount, applyToOtherSlides]);
+
+  const handleApplyElementToAll = useCallback(() => {
+    if (selection.length !== 1 || otherCount < 1) return;
+    const markup = stripInspectorAttrs(selection[0].outerHTML);
+    setConfirmState({
+      open: true,
+      title: `¿Copiar este elemento a los otros ${otherCount} slides?`,
+      description:
+        "Se agrega arriba de todo, en la misma posición. No reemplaza nada de lo que ya tienen.",
+      confirmLabel: "Aplicar a todas",
+      onConfirm: () => {
+        applyToOtherSlides((html) => appendElementToHtml(html, markup));
+      },
+    });
+  }, [selection, otherCount, applyToOtherSlides]);
 
   const swatches = useMemo(
     () => [
@@ -544,8 +676,10 @@ export default function CarouselEditorPage({ params }: PageProps) {
         onOpenChange={(open) => setConfirmState((s) => ({ ...s, open }))}
         title={confirmState.title}
         description={confirmState.description}
-        confirmLabel="Eliminar"
-        variant="destructive"
+        confirmLabel={confirmState.confirmLabel ?? "Eliminar"}
+        variant={confirmState.variant ?? "destructive"}
+        secondaryLabel={confirmState.secondaryLabel}
+        onSecondary={confirmState.onSecondary}
         onConfirm={confirmState.onConfirm}
       />
 
@@ -631,15 +765,31 @@ export default function CarouselEditorPage({ params }: PageProps) {
                 size="sm"
                 onClick={async () => {
                   await editor.flush();
-                  await fetch("/api/templates", {
+                  const res = await fetch("/api/templates", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ carouselId: carousel.id }),
                   });
+                  setTemplateStatus(res.ok ? "ok" : "error");
+                  window.setTimeout(() => setTemplateStatus(null), 3000);
                 }}
               >
                 <Bookmark className="h-4 w-4" aria-hidden />
               </IconButton>
+              {/* This used to fire and say nothing at all. */}
+              {templateStatus && (
+                <span
+                  role="status"
+                  className={cn(
+                    "shrink-0 text-label",
+                    templateStatus === "ok" ? "text-muted-foreground" : "text-destructive"
+                  )}
+                >
+                  {templateStatus === "ok"
+                    ? "Guardado como plantilla"
+                    : "No se pudo guardar"}
+                </span>
+              )}
               <IconButton
                 label="Eliminar el carrusel"
                 size="sm"
@@ -651,6 +801,8 @@ export default function CarouselEditorPage({ params }: PageProps) {
               <ExportButton
                 carouselId={carousel.id}
                 slideCount={carousel.slides.length}
+                activeSlideId={activeSlideId}
+                activeSlideNumber={activeSlide + 1}
                 onBeforeExport={editor.flush}
               />
             </div>
@@ -667,6 +819,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
             brandFonts={brandFonts}
             onOpenAdvanced={openAdvanced}
             onOpenImages={() => setRailTab("images")}
+            onApplyToAll={otherCount > 0 ? handleApplyElementToAll : undefined}
           />
 
           {/* Canvas + inspector */}
@@ -742,6 +895,10 @@ export default function CarouselEditorPage({ params }: PageProps) {
             onUndo={editor.undo}
             onRedo={editor.redo}
             onUploadImage={uploadImage}
+            onApplyElementToAll={otherCount > 0 ? handleApplyElementToAll : undefined}
+            onApplyBackgroundToAll={
+              otherCount > 0 && slideBackground ? handleApplyBackgroundToAll : undefined
+            }
           />
 
           <CaptionPanel caption={carousel.caption} hashtags={carousel.hashtags} />
@@ -754,6 +911,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
         activeIndex={activeSlide}
         onActiveChange={changeSlide}
         onDeleteSlide={handleDeleteSlide}
+        onDuplicateSlide={handleDuplicateSlide}
         onUndoSlide={handleUndoSlide}
         onAddSlideRequest={handleAddSlideRequest}
         onReorderSlides={handleReorderSlides}

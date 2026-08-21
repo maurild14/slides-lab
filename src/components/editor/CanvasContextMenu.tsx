@@ -17,6 +17,8 @@ interface CanvasContextMenuProps {
   commands: CanvasCommands;
   onUndo: () => void;
   onRedo: () => void;
+  onApplyElementToAll?: () => void;
+  onApplyBackgroundToAll?: () => void;
 }
 
 /**
@@ -31,6 +33,8 @@ export function CanvasContextMenu({
   commands,
   onUndo,
   onRedo,
+  onApplyElementToAll,
+  onApplyBackgroundToAll,
 }: CanvasContextMenuProps) {
   const has = commands.count > 0;
 
@@ -72,6 +76,20 @@ export function CanvasContextMenu({
 
             <MenuSeparator />
 
+            <MenuItem onSelect={commands.copyStyle} disabled={commands.count !== 1}>
+              Copiar estilo
+              <MenuShortcut>Ctrl ⌥ C</MenuShortcut>
+            </MenuItem>
+            <MenuItem
+              onSelect={commands.pasteStyle}
+              disabled={!commands.hasStyleClipboard || commands.locked}
+            >
+              Pegar estilo
+              <MenuShortcut>Ctrl ⌥ V</MenuShortcut>
+            </MenuItem>
+
+            <MenuSeparator />
+
             <MenuItem onSelect={() => commands.order("front")} disabled={commands.locked}>
               Traer al frente
               <MenuShortcut>Ctrl ⇧ ]</MenuShortcut>
@@ -108,6 +126,18 @@ export function CanvasContextMenu({
               <MenuShortcut>Ctrl L</MenuShortcut>
             </MenuItem>
 
+            {onApplyElementToAll && (
+              <>
+                <MenuSeparator />
+                <MenuItem
+                  onSelect={onApplyElementToAll}
+                  disabled={commands.count !== 1}
+                >
+                  Aplicar a todas las páginas
+                </MenuItem>
+              </>
+            )}
+
             <MenuSeparator />
 
             <MenuItem destructive onSelect={commands.remove} disabled={commands.locked}>
@@ -125,6 +155,11 @@ export function CanvasContextMenu({
               Seleccionar todo
               <MenuShortcut>Ctrl A</MenuShortcut>
             </MenuItem>
+            {onApplyBackgroundToAll && (
+              <MenuItem onSelect={onApplyBackgroundToAll}>
+                Aplicar el fondo a todas las páginas
+              </MenuItem>
+            )}
             <MenuSeparator />
             <MenuItem onSelect={onUndo}>
               Deshacer

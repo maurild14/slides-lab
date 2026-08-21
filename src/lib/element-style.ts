@@ -238,3 +238,87 @@ export const SHADOW_PRESETS: { id: string; label: string; value: string }[] = [
   { id: "strong", label: "Fuerte", value: "0 26px 60px rgb(0 0 0 / 0.28)" },
   { id: "hard", label: "Dura", value: "10px 10px 0 rgb(0 0 0 / 0.85)" },
 ];
+
+/* ------------------------------------------------------------ copy style */
+
+/**
+ * What "copiar estilo" carries from one element to another.
+ *
+ * Deliberately excludes everything that says *where* the element is or *how
+ * big* it is (`left`, `top`, `width`, `height`, `transform`, `z-index`) and
+ * everything that says what it contains. Pasting a style must never move the
+ * target or resize it — that is what makes it feel like a brush instead of a
+ * duplicate.
+ */
+export const STYLE_COPY_PROPS = [
+  // typography
+  "font-family",
+  "font-size",
+  "font-weight",
+  "font-style",
+  "line-height",
+  "letter-spacing",
+  "text-align",
+  "text-transform",
+  "text-decoration",
+  "color",
+  // text effects
+  ...TEXT_EFFECT_PROPS,
+  // fill and frame. Longhands only: the computed value of a shorthand like
+  // `background` is a seven-part serialization that means nothing to read back.
+  "background-color",
+  "background-image",
+  "border-width",
+  "border-style",
+  "border-color",
+  "border-radius",
+  "box-shadow",
+  "opacity",
+  // padding, because a chip without its padding is not the same chip
+  "padding-top",
+  "padding-right",
+  "padding-bottom",
+  "padding-left",
+  // images
+  "filter",
+  "clip-path",
+  "object-fit",
+  "object-position",
+] as const;
+
+export type StyleSnapshot = Record<string, string>;
+
+/**
+ * The look of an element, read from its *computed* style.
+ *
+ * Reading the inline style instead looks tempting and is wrong: a heading
+ * whose size comes from a `<style>` block — which is most of what the agent
+ * writes — has no inline `font-size`, so the snapshot would carry none, and
+ * the paste below would clear the target's own size and drop it to the
+ * browser default. Computed style is always complete, which is what makes
+ * "clear everything, then apply" safe.
+ */
+export function readStyleSnapshot(el: HTMLElement): StyleSnapshot {
+  const win = el.ownerDocument?.defaultView;
+  const computed = win ? win.getComputedStyle(el) : null;
+  const out: StyleSnapshot = {};
+  for (const prop of STYLE_COPY_PROPS) {
+    // A few properties have no computed value worth the name
+    // (`-webkit-text-stroke` serializes empty when the sides differ), so the
+    // inline declaration is the fallback rather than the source.
+    const value = computed?.getPropertyValue(prop) || el.style.getPropertyValue(prop);
+    if (value) out[prop] = value;
+  }
+  return out;
+}
+
+/**
+ * Every copyable property, cleared first and then re-applied from the
+ * snapshot. Clearing matters: pasting a plain style over a neon title has to
+ * remove the glow, not leave it underneath.
+ */
+export function styleSnapshotPatch(snapshot: StyleSnapshot): StyleSnapshot {
+  const patch: StyleSnapshot = {};
+  for (const prop of STYLE_COPY_PROPS) patch[prop] = "";
+  return { ...patch, ...snapshot };
+}

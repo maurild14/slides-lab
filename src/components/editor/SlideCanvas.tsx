@@ -96,6 +96,9 @@ interface SlideCanvasProps {
   onRedo: () => void;
   /** Upload a pasted or dropped file and return its public URL. */
   onUploadImage: (file: File) => Promise<string | null>;
+  /** Propagate the selected element / the slide background to every other slide. */
+  onApplyElementToAll?: () => void;
+  onApplyBackgroundToAll?: () => void;
 }
 
 /**
@@ -130,6 +133,8 @@ export function SlideCanvas({
   onUndo,
   onRedo,
   onUploadImage,
+  onApplyElementToAll,
+  onApplyBackgroundToAll,
 }: SlideCanvasProps) {
   const [overlay, setOverlay] = useState<OverlayState | null>(null);
   const [guides, setGuides] = useState<Box[]>([]);
@@ -989,6 +994,13 @@ export function SlideCanvas({
 
       if (mod) {
         const key = e.key.toLowerCase();
+        // Alt is the style brush: same copy/paste keys, the look only.
+        if (e.altKey && (key === "c" || key === "v")) {
+          e.preventDefault();
+          if (key === "c") cmd.copyStyle();
+          else cmd.pasteStyle();
+          return;
+        }
         const actions: Record<string, () => void> = {
           d: cmd.duplicate,
           c: cmd.copy,
@@ -1299,6 +1311,8 @@ export function SlideCanvas({
         commands={commands}
         onUndo={onUndo}
         onRedo={onRedo}
+        onApplyElementToAll={onApplyElementToAll}
+        onApplyBackgroundToAll={onApplyBackgroundToAll}
       />
 
       <CanvasGhost ghost={ghost} active={!!dragItem} />

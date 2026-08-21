@@ -11,9 +11,12 @@ import {
   parseFilters,
   presetFilters,
   readTextEffect,
+  STYLE_COPY_PROPS,
+  styleSnapshotPatch,
   toggleFlipTransform,
   withAlpha,
 } from "../src/lib/element-style.ts";
+import { reflowTransform, scaleStyleLengths } from "../src/lib/slide-reflow.ts";
 import {
   alignOffset,
   boxFromPoints,
@@ -613,4 +616,77 @@ const fake = (
   assert.ok(!hasFlip("scale(2)", "x"), "a plain scale is not a flip");
 }
 
-console.log("canvas geometry + history + elements + effects: all checks passed");
+/* ------------------------------------------------- copy style + reflow */
+{
+  // Pasting a style must never move or resize the target.
+  const forbidden = ["left", "top", "width", "height", "position", "transform", "z-index"];
+  for (const prop of forbidden) {
+    assert.ok(
+      !(STYLE_COPY_PROPS as readonly string[]).includes(prop),
+      `copiar estilo must not carry ${prop}`
+    );
+  }
+  // Shorthands stay out: their computed value is a long serialization that
+  // does not read back as the thing it describes. The longhands cover them.
+  for (const prop of ["background", "border", "padding"]) {
+    assert.ok(
+      !(STYLE_COPY_PROPS as readonly string[]).includes(prop),
+      `${prop} is a shorthand; copy its longhands instead`
+    );
+  }
+  for (const prop of ["background-color", "border-width", "padding-top"]) {
+    assert.ok(
+      (STYLE_COPY_PROPS as readonly string[]).includes(prop),
+      `${prop} has to be copied, since the shorthand is not`
+    );
+  }
+
+  // Every copyable property is cleared before the snapshot goes on, so a neon
+  // glow cannot survive under a plain style.
+  const patch = styleSnapshotPatch({ color: "#fff" });
+  assert.equal(patch.color, "#fff");
+  for (const prop of TEXT_EFFECT_PROPS) {
+    assert.equal(patch[prop], "", `${prop} is cleared by a paste`);
+  }
+
+  // Only the scalable declarations move; the rest pass through byte for byte.
+  assert.equal(scaleStyleLengths("left:100px;top:50px", 0.5), "left:50px;top:25px");
+  assert.equal(
+    scaleStyleLengths("padding:10px 20px;font-size:32px", 2),
+    "padding:20px 40px;font-size:64px"
+  );
+  assert.equal(
+    scaleStyleLengths("border-width:2px;background-position:10px 10px", 4),
+    "border-width:2px;background-position:10px 10px",
+    "hairlines and background art keep their px"
+  );
+  assert.equal(
+    scaleStyleLengths("background:linear-gradient(90deg, #a, #b);width:10px", 2),
+    "background:linear-gradient(90deg, #a, #b);width:20px",
+    "a comma inside a value is not a declaration break"
+  );
+  assert.equal(scaleStyleLengths("width:10px", 1), "width:10px", "k=1 is a no-op");
+  assert.equal(scaleStyleLengths("", 2), "", "an empty style stays empty");
+
+  // 4:5 -> 9:16 keeps the width, so the uniform factor is 1 and the content
+  // only re-centres vertically.
+  const square = { width: 1080, height: 1080 };
+  const story = { width: 1080, height: 1920 };
+  const wide = reflowTransform(square, story, { left: 0, top: 0, width: 1080, height: 1080 });
+  assert.equal(wide.k, 1);
+  assert.equal(wide.dx, 0);
+  assert.equal(wide.dy, 420, "a full-bleed square centres in a story");
+
+  // The other direction has to shrink: 1920 tall content into 1080.
+  const tall = reflowTransform(story, square, { left: 0, top: 0, width: 1080, height: 1920 });
+  assert.equal(tall.k, 0.5625);
+  assert.equal(tall.dy, 0);
+  assert.equal(tall.dx, 236.25, "the scaled content centres horizontally");
+
+  // An empty slide only changes canvas.
+  assert.deepEqual(reflowTransform(square, story, null), { k: 1, dx: 0, dy: 0 });
+}
+
+console.log(
+  "canvas geometry + history + elements + effects + reflow: all checks passed"
+);

@@ -21,6 +21,11 @@ import {
   type AlignMode,
   type LayerAction,
 } from "@/lib/canvas-utils";
+import {
+  readStyleSnapshot,
+  styleSnapshotPatch,
+  type StyleSnapshot,
+} from "@/lib/element-style";
 
 /**
  * Clipboard shared by every slide in the tab.
@@ -33,11 +38,16 @@ import {
  */
 let clipboard: string | null = null;
 
+/** Same idea, for "copiar estilo": the look without the content. */
+let styleClipboard: StyleSnapshot | null = null;
+
 export interface CanvasCommands {
   duplicate: () => void;
   copy: () => void;
   cut: () => void;
   paste: () => void;
+  copyStyle: () => void;
+  pasteStyle: () => void;
   remove: () => void;
   align: (mode: AlignMode) => void;
   distribute: (axis: "x" | "y") => void;
@@ -53,6 +63,7 @@ export interface CanvasCommands {
   canUngroup: boolean;
   canDistribute: boolean;
   hasClipboard: boolean;
+  hasStyleClipboard: boolean;
   count: number;
 }
 
@@ -105,6 +116,24 @@ export function useCanvasCommands({
     clipboard = serializeSelection(selection);
     setClipboardTick((n) => n + 1);
   }, [selection]);
+
+  const copyStyle = useCallback(() => {
+    if (selection.length !== 1) return;
+    styleClipboard = readStyleSnapshot(selection[0]);
+    setClipboardTick((n) => n + 1);
+  }, [selection]);
+
+  const pasteStyle = useCallback(() => {
+    if (editable.length === 0 || !styleClipboard) return;
+    const patch = styleSnapshotPatch(styleClipboard);
+    for (const el of editable) {
+      for (const [prop, value] of Object.entries(patch)) {
+        if (value === "") el.style.removeProperty(prop);
+        else el.style.setProperty(prop, value);
+      }
+    }
+    onCommit();
+  }, [editable, onCommit]);
 
   const remove = useCallback(() => {
     if (editable.length === 0) return;
@@ -231,6 +260,8 @@ export function useCanvasCommands({
     copy,
     cut,
     paste,
+    copyStyle,
+    pasteStyle,
     remove,
     align,
     distribute,
@@ -245,6 +276,7 @@ export function useCanvasCommands({
     canUngroup: editable.some(isGroup),
     canDistribute: editable.length >= 3,
     hasClipboard: clipboard !== null && clipboardTick >= 0,
+    hasStyleClipboard: styleClipboard !== null && clipboardTick >= 0,
     count: selection.length,
   };
 }

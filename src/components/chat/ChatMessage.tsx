@@ -40,7 +40,7 @@ export function ChatMessage({
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-label font-medium text-muted-foreground mb-1">
-          {role === "user" ? "You" : "Carrusel AI"}
+          {role === "user" ? "Vos" : "Asistente"}
         </div>
         {attachments && attachments.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-2">
@@ -63,7 +63,7 @@ export function ChatMessage({
           </div>
         )}
         {content && (
-          <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+          <div className="text-body leading-relaxed whitespace-pre-wrap break-words">
             {content}
             {isStreaming && (
               <span className="oc-caret inline-block w-1.5 h-4 bg-accent ml-0.5 align-text-bottom" />

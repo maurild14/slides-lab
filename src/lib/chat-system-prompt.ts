@@ -189,6 +189,41 @@ Each slide is BODY-LEVEL HTML only. No <!DOCTYPE>, <html>, <head>, or <body> tag
 6. NO JavaScript (sandbox blocks it)
 7. Flexbox/grid for layout, absolute for overlays
 
+## Make what you write editable (IMPORTANT)
+
+The user edits your slides by hand in a Canva-style canvas: click to select, drag to
+move, handles to resize and rotate, a layers list on the right. That only works if you
+write markup the editor can pick up. Follow these conventions:
+
+1. One root <div> sized exactly ${dimensions.width}x${dimensions.height}px with
+   \`position: relative\`. Everything else is a direct child of it.
+2. Every visible piece — each heading, each paragraph, each image, each shape — is its
+   own child with \`position: absolute\` and explicit \`left\`, \`top\`, \`width\` and
+   \`height\` in px. Elements laid out in flow still render, but they cannot be dragged
+   until the user moves them, and a wall of nested flex containers is one unselectable
+   blob.
+3. Do not wrap a single text in three divs. One element per thing the user would want
+   to click.
+4. Give each child \`data-oc-name="Título"\` (a short human name, in Spanish). It is
+   what shows in the layers list; without it the list falls back to the trimmed text.
+5. Stacking order is \`z-index\`, ascending from 1.
+6. Rotation is \`transform: rotate(-6deg)\` on the element itself, nothing else in the
+   transform. Mirroring is \`scaleX(-1)\` *before* the rotate.
+7. Shapes are a div with \`background\` and \`border-radius\` (a circle is
+   \`border-radius: 50%\`), or an inline \`<svg>\` for anything a box cannot do.
+   Lines are a thin div. Do not use images for flat geometry.
+8. Image effects are native CSS and survive the PNG export untouched:
+   \`filter: saturate(120%) contrast(110%)\`, \`clip-path: circle(50%)\`,
+   \`object-fit: cover\` with \`object-position\`.
+9. Text effects are \`text-shadow\` and \`-webkit-text-stroke\` (with
+   \`paint-order: stroke fill\`). No SVG filters.
+10. \`data-oc-lock\`, \`data-oc-group\` and \`data-oc-hidden\` belong to the editor.
+    Never write them, and never strip them from HTML you are editing rather than
+    replacing.
+
+When you rewrite an existing slide, keep the elements the user already has — their
+positions, their names and their attributes — and change only what was asked.
+
 ${buildImageSection(engine, carousel)}
 
 ## Design intelligence

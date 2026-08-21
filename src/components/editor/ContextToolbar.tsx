@@ -10,10 +10,13 @@ import {
   ChevronDown,
   Copy,
   Crop,
+  Files,
   Group,
   Image as ImageIcon,
   Italic,
   Move,
+  Paintbrush,
+  PaintBucket,
   Sparkles,
   SlidersHorizontal,
   Square,
@@ -52,6 +55,8 @@ interface Props {
   onOpenAdvanced: (section: string) => void;
   /** Jump the left rail to the image panel. */
   onOpenImages: () => void;
+  /** Copy the selected element onto every other slide. Absent when alone. */
+  onApplyToAll?: () => void;
 }
 
 /**
@@ -76,6 +81,7 @@ export function ContextToolbar({
   brandFonts,
   onOpenAdvanced,
   onOpenImages,
+  onApplyToAll,
 }: Props) {
   const api = useElementStyle(element, tick, onMutate);
   const props = api.props;
@@ -312,6 +318,33 @@ export function ContextToolbar({
         )}
 
         <Divider />
+        {/* The style brush: the look of one element, painted onto another
+            without touching where it is or what it says. */}
+        <IconButton
+          label="Copiar estilo (Ctrl Alt C)"
+          size="sm"
+          onClick={commands.copyStyle}
+          disabled={selectionCount !== 1}
+        >
+          <Paintbrush className="h-4 w-4" aria-hidden />
+        </IconButton>
+        <IconButton
+          label="Pegar estilo (Ctrl Alt V)"
+          size="sm"
+          onClick={commands.pasteStyle}
+          disabled={!commands.hasStyleClipboard || locked}
+        >
+          <PaintBucket className="h-4 w-4" aria-hidden />
+        </IconButton>
+        {onApplyToAll && selectionCount === 1 && (
+          <IconButton
+            label="Aplicar este elemento a todas las páginas"
+            size="sm"
+            onClick={onApplyToAll}
+          >
+            <Files className="h-4 w-4" aria-hidden />
+          </IconButton>
+        )}
         <IconButton
           label="Duplicar (Ctrl D)"
           size="sm"

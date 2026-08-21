@@ -36,7 +36,7 @@ export function CreateCarouselDialog({
     <DialogShell
       open={open}
       onOpenChange={onOpenChange}
-      title="New Carousel"
+      title="Nuevo carrusel"
       icon={
         <DialogIcon>
           <Layers className="h-5 w-5" />
@@ -45,19 +45,19 @@ export function CreateCarouselDialog({
       footer={
         <>
           <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
+            <Button variant="outline">Cancelar</Button>
           </DialogClose>
           <Button variant="accent" onClick={handleCreate} disabled={!name.trim()}>
-            Create
+            Crear
           </Button>
         </>
       }
     >
-      <Field label="Carousel Name">
+      <Field label="Nombre del carrusel" hint="Podés cambiarlo después desde la barra superior.">
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g., 5 Tips for Remote Work"
+          placeholder="Ej.: 5 tips para trabajar remoto"
           autoFocus
           onKeyDown={(e) => {
             if (e.key === "Enter") handleCreate();
@@ -68,11 +68,11 @@ export function CreateCarouselDialog({
       {/* Not wrapped in Field: the selector is a radiogroup that names itself,
           so a second label would announce it twice. */}
       <div className="flex flex-col gap-1.5">
-        <span className="text-label font-medium">Aspect Ratio</span>
+        <span className="text-label font-medium">Proporción</span>
         <AspectRatioSelector
           value={aspectRatio}
           onChange={setAspectRatio}
-          label="Aspect Ratio"
+          label="Proporción"
         />
       </div>
     </DialogShell>

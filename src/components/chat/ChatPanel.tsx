@@ -249,7 +249,7 @@ ${message}`
         }
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
-        const message = err instanceof Error ? err.message : "An unexpected error occurred";
+        const message = err instanceof Error ? err.message : "Ocurrió un error inesperado";
         setError(message);
         // Remove empty assistant message on error
         setMessages((prev) =>
@@ -287,7 +287,7 @@ ${message}`
     return (
       <div className="h-full flex flex-col items-center justify-center p-6 text-center">
         <Plug className="h-10 w-10 text-muted-foreground mb-3" />
-        <h3 className="font-semibold text-sm mb-1">Conectá un motor de IA</h3>
+        <h3 className="font-semibold text-section mb-1">Conectá un motor de IA</h3>
         <p className="text-label text-muted-foreground max-w-[220px] mb-3">
           Necesitás al menos una CLI instalada para crear carruseles con IA.
         </p>

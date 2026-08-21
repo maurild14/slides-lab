@@ -127,7 +127,7 @@ export function ColorField({ value, onChange, placeholder }: ColorFieldProps) {
         onClick={() => pickerRef.current?.click()}
         className="h-4 w-4 rounded shrink-0 border border-black/10 ring-0"
         style={{ backgroundColor: value || "transparent" }}
-        aria-label="Pick color"
+        aria-label="Elegir un color"
       />
       <input
         ref={pickerRef}

@@ -12,6 +12,9 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   variant?: "destructive" | "default";
   onConfirm: () => void;
+  /** A second way out that is not "cancel" — e.g. "solo cambiar el lienzo". */
+  secondaryLabel?: string;
+  onSecondary?: () => void;
 }
 
 export function ConfirmDialog({
@@ -22,6 +25,8 @@ export function ConfirmDialog({
   confirmLabel = "Confirm",
   variant = "default",
   onConfirm,
+  secondaryLabel,
+  onSecondary,
 }: ConfirmDialogProps) {
   return (
     <DialogShell
@@ -37,8 +42,19 @@ export function ConfirmDialog({
       footer={
         <>
           <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
+            <Button variant="ghost">Cancelar</Button>
           </DialogClose>
+          {secondaryLabel && onSecondary && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                onSecondary();
+                onOpenChange(false);
+              }}
+            >
+              {secondaryLabel}
+            </Button>
+          )}
           <Button
             variant={variant === "destructive" ? "destructive" : "accent"}
             onClick={() => {

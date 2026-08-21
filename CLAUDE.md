@@ -36,6 +36,10 @@ AI-powered Instagram carousel builder. Next.js 16 + React 19 + TypeScript + Tail
 - `src/components/editor/SlideCanvas.tsx` — Pointer/keyboard engine and the selection overlay
 - `src/components/editor/canvas-commands.ts` — Duplicate, copy/paste, align, order, lock, group; shared by the toolbar, the context menu and the keyboard
 - `src/components/editor/use-slide-editor.ts` — Undo history, autosave and the explicit save points
+- `src/lib/slide-reflow.ts` — the pure half of the aspect-ratio re-layout (which px declarations scale, the uniform factor and the re-centring offset)
+- `src/lib/slide-batch.ts` — rewrites a slide's stored HTML without opening it (aplicar a todas, reflow); browser-only, uses `DOMParser`
+- `src/components/ui/empty-state.tsx` — the one empty/error state (`tone="error"`), used by the dashboard, the template gallery and the inspector
+- `src/lib/utils.ts` — `cn()`, with the type scale registered as a `font-size` group so tailwind-merge stops eating text colours
 - `docs/imagegen-policy.md` — When the agent should generate an image; injected into the system prompt, edit freely
 
 ## API Routes
@@ -51,8 +55,9 @@ All at localhost:3000:
 - `POST /api/carousels/[id]/slides` — Add slide
 - `PUT/DELETE /api/carousels/[id]/slides/[slideId]` — Update/delete slide
 - `PUT /api/carousels/[id]/slides` — Reorder slides (body: { slideIds: [...] })
+- `POST /api/carousels/[id]/slides/[slideId]/duplicate` — Duplicate a slide in place
 - `POST /api/carousels/[id]/slides/[slideId]/undo` — Undo slide change
-- `POST /api/carousels/[id]/export` — Export all slides to PNG ZIP
+- `POST /api/carousels/[id]/export` — Export (body: `{ format?: "png"|"jpg"|"png-transparent"|"pdf", quality?, slideId? }`). One slide is one file; several are a ZIP; PDF is always one file
 - `GET/PUT /api/brand` — Brand configuration
 - `GET/POST /api/templates` — Templates
 - `POST /api/upload` — Image upload (PNG/JPG/WebP only, max 10MB)
@@ -82,7 +87,14 @@ Static assets:
 - `npm run check:canvas` runs the geometry, history, element and effect self-check (snapping, rotated resize, bounding boxes, align/distribute, zoom-about-cursor, undo cursor, filter round-trips, effect clearing, flip vs rotation)
 - Every text effect writes only properties listed in `TEXT_EFFECT_PROPS`; switching effects clears that whole set first, which is what stops a neon glow from surviving under a new outline
 - Double-click is detected from `pointerdown`, not from `dblclick`: `preventDefault()` on a pointerdown suppresses the compatibility mouse events, `dblclick` included
+- Anything that rewrites the *stored* HTML of the slide on screen has to update the carousel state **before** `dropLocal`. `dropLocal` releases the pin that keeps the iframe from reloading, and the render right after it takes whatever HTML the state holds at that moment — dropping first re-pins the old document and the next autosave writes it back
+- "Aplicar a todas" deliberately skips the active slide: it already has the change on screen, and re-sending it would reload its iframe and drop the selection
+- The aspect-ratio reflow is one uniform factor (`min(sx, sy)`) plus a re-centring translation, applied to a whitelist of px declarations. It is an approximation on purpose, so it asks first and leans on the server's per-slide version history to undo
+- "Copiar estilo" carries the look and nothing else: `STYLE_COPY_PROPS` excludes `left`, `top`, `width`, `height`, `transform` and `z-index`, and every listed property is cleared before the snapshot goes on so a neon glow cannot survive a plain paste
 - Image cropping is `object-fit: cover` plus `object-position`, dragged from a preview in the panel. Non-destructive, and the export inlines it untouched
+- Every token added to the type scale in `globals.css` has to be added to the `font-size` class group in `src/lib/utils.ts` too. Without it tailwind-merge reads `text-body` as `text-{color}` and drops the colour declared before it — that is how `bg-foreground` buttons ended up with near-black text on a near-black fill
+- Read-only slide iframes (thumbnails, filmstrip, dashboard cards) carry `loading="lazy"`; the editable canvas must stay eager, because the attach effect waits on its document
+- Errors surface where they happened, in a `role="alert"` line — there is no toast system. Every mutation that can fail says so; silence is a bug
 
 ## Instagram Dimensions
 

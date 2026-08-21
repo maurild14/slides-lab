@@ -1,9 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ChevronRight, ChevronLeft, Check, Palette, X } from "lucide-react";
+import { ChevronRight, ChevronLeft, Check, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Field } from "@/components/ui/field";
+import { DialogShell, DialogIcon } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { ColorPicker } from "./ColorPicker";
 import { FontSelector } from "./FontSelector";
 import { LogoUpload } from "./LogoUpload";
@@ -16,27 +19,35 @@ interface BrandSetupProps {
   initialBrand?: BrandConfig;
 }
 
-const STYLE_OPTIONS = [
-  "minimal",
-  "bold",
-  "playful",
-  "corporate",
-  "luxury",
-  "vintage",
-  "modern",
-  "elegant",
-  "creative",
-  "professional",
+/** Stored on the brand as-is and read by the agent, so the values stay English. */
+const STYLE_OPTIONS: { value: string; label: string }[] = [
+  { value: "minimal", label: "Minimalista" },
+  { value: "bold", label: "Contundente" },
+  { value: "playful", label: "Divertida" },
+  { value: "corporate", label: "Corporativa" },
+  { value: "luxury", label: "De lujo" },
+  { value: "vintage", label: "Vintage" },
+  { value: "modern", label: "Moderna" },
+  { value: "elegant", label: "Elegante" },
+  { value: "creative", label: "Creativa" },
+  { value: "professional", label: "Profesional" },
 ];
 
-const STEPS = ["Brand Name", "Colors", "Fonts", "Logo", "Style"];
+const STEPS = ["Nombre", "Colores", "Tipografías", "Logo", "Estilo"];
+
+const COLOR_FIELDS: { key: keyof BrandConfig["colors"]; label: string }[] = [
+  { key: "primary", label: "Primario" },
+  { key: "secondary", label: "Secundario" },
+  { key: "accent", label: "Acento" },
+  { key: "background", label: "Fondo" },
+  { key: "surface", label: "Superficie" },
+];
 
 export function BrandSetup({ open, onComplete, initialBrand }: BrandSetupProps) {
   const [step, setStep] = useState(0);
-  const [brand, setBrand] = useState<BrandConfig>(
-    initialBrand || DEFAULT_BRAND
-  );
+  const [brand, setBrand] = useState<BrandConfig>(initialBrand || DEFAULT_BRAND);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialBrand) setBrand(initialBrand);
@@ -44,254 +55,188 @@ export function BrandSetup({ open, onComplete, initialBrand }: BrandSetupProps) 
 
   const handleSave = useCallback(async () => {
     setSaving(true);
+    setError(null);
     try {
-      await fetch("/api/brand", {
+      const res = await fetch("/api/brand", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(brand),
       });
+      if (!res.ok) throw new Error();
       onComplete();
     } catch {
-      // ignore
+      setError("No se pudo guardar la marca. Revisá el servidor y probá de nuevo.");
     } finally {
       setSaving(false);
     }
   }, [brand, onComplete]);
 
-  // Escape key handler
-  useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onComplete();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, onComplete]);
-
-  if (!open) return null;
+  const last = step === STEPS.length - 1;
 
   return (
-    <div
-      className="oc-fade fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onComplete(); }}
-    >
-      <div className="oc-enter-pop bg-surface rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden relative">
-        {/* Close button */}
-        <button
-          onClick={onComplete}
-          className="absolute top-4 right-4 h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors z-10"
-          aria-label="Close"
-        >
-          <X className="h-4 w-4" />
-        </button>
-
-        {/* Header */}
-        <div className="px-6 pt-6 pb-4">
-          <div className="flex items-center gap-3 mb-1">
-            <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center">
-              <Palette className="h-5 w-5 text-accent" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold">Set Up Your Brand</h2>
-              <p className="text-label text-muted-foreground">
-                Step {step + 1} of {STEPS.length}: {STEPS[step]}
-              </p>
-            </div>
-          </div>
-          {/* Progress bar */}
-          <div className="flex gap-1 mt-4">
-            {STEPS.map((_, i) => (
-              <div
-                key={i}
-                className={`h-1 flex-1 rounded-full transition-colors ${
-                  i <= step ? "bg-accent" : "bg-muted"
-                }`}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="px-6 py-4 min-h-[240px]">
-          {step === 0 && (
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">
-                  What&apos;s your brand name?
-                </label>
-                <Input
-                  value={brand.name}
-                  onChange={(e) =>
-                    setBrand({ ...brand, name: e.target.value })
-                  }
-                  placeholder="My Brand"
-                  className="mt-2 text-lg h-12"
-                  autoFocus
-                />
-              </div>
-              <p className="text-label text-muted-foreground">
-                This helps the AI maintain your brand identity across all
-                carousels.
-              </p>
-            </div>
-          )}
-
-          {step === 1 && (
-            <div className="space-y-3">
-              <ColorPicker
-                label="Primary"
-                value={brand.colors.primary}
-                onChange={(v) =>
-                  setBrand({
-                    ...brand,
-                    colors: { ...brand.colors, primary: v },
-                  })
-                }
-              />
-              <ColorPicker
-                label="Secondary"
-                value={brand.colors.secondary}
-                onChange={(v) =>
-                  setBrand({
-                    ...brand,
-                    colors: { ...brand.colors, secondary: v },
-                  })
-                }
-              />
-              <ColorPicker
-                label="Accent"
-                value={brand.colors.accent}
-                onChange={(v) =>
-                  setBrand({
-                    ...brand,
-                    colors: { ...brand.colors, accent: v },
-                  })
-                }
-              />
-              <ColorPicker
-                label="Background"
-                value={brand.colors.background}
-                onChange={(v) =>
-                  setBrand({
-                    ...brand,
-                    colors: { ...brand.colors, background: v },
-                  })
-                }
-              />
-              <ColorPicker
-                label="Surface"
-                value={brand.colors.surface}
-                onChange={(v) =>
-                  setBrand({
-                    ...brand,
-                    colors: { ...brand.colors, surface: v },
-                  })
-                }
-              />
-            </div>
-          )}
-
-          {step === 2 && (
-            <div className="space-y-4">
-              <FontSelector
-                label="Heading Font"
-                value={brand.fonts.heading}
-                onChange={(v) =>
-                  setBrand({
-                    ...brand,
-                    fonts: { ...brand.fonts, heading: v },
-                  })
-                }
-              />
-              <FontSelector
-                label="Body Font"
-                value={brand.fonts.body}
-                onChange={(v) =>
-                  setBrand({
-                    ...brand,
-                    fonts: { ...brand.fonts, body: v },
-                  })
-                }
-              />
-            </div>
-          )}
-
-          {step === 3 && (
-            <LogoUpload
-              value={brand.logoPath}
-              onChange={(path) => setBrand({ ...brand, logoPath: path })}
-            />
-          )}
-
-          {step === 4 && (
-            <div>
-              <label className="text-sm font-medium">
-                Choose your brand style
-              </label>
-              <p className="text-label text-muted-foreground mt-1 mb-3">
-                Select keywords that describe your visual identity
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {STYLE_OPTIONS.map((keyword) => (
-                  <button
-                    key={keyword}
-                    onClick={() => {
-                      const keywords = brand.styleKeywords.includes(keyword)
-                        ? brand.styleKeywords.filter((k) => k !== keyword)
-                        : [...brand.styleKeywords, keyword];
-                      setBrand({ ...brand, styleKeywords: keywords });
-                    }}
-                    className={`px-3 py-1.5 rounded-full text-label font-medium transition-colors border ${
-                      brand.styleKeywords.includes(keyword)
-                        ? "bg-accent text-accent-foreground border-accent"
-                        : "bg-transparent text-foreground border-border hover:border-muted-foreground"
-                    }`}
-                  >
-                    {keyword}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-border flex items-center justify-between">
-          <Button
-            variant="ghost"
-            onClick={() => setStep(step - 1)}
-            disabled={step === 0}
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Back
+    <DialogShell
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onComplete();
+      }}
+      className="max-w-lg"
+      title="Configurá tu marca"
+      description={`Paso ${step + 1} de ${STEPS.length}: ${STEPS[step]}`}
+      icon={
+        <DialogIcon>
+          <Palette className="h-5 w-5" />
+        </DialogIcon>
+      }
+      footer={
+        <>
+          <Button variant="ghost" onClick={() => setStep(step - 1)} disabled={step === 0}>
+            <ChevronLeft className="h-4 w-4" aria-hidden />
+            Atrás
           </Button>
-
-          {step < STEPS.length - 1 ? (
-            <Button
-              onClick={() => setStep(step + 1)}
-              disabled={step === 0 && !brand.name.trim()}
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          ) : (
+          <div className="flex-1" />
+          {last ? (
             <Button
               variant="accent"
               onClick={handleSave}
               disabled={saving || !brand.name.trim()}
             >
               {saving ? (
-                "Saving..."
+                "Guardando…"
               ) : (
                 <>
-                  <Check className="h-4 w-4" />
-                  Complete Setup
+                  <Check className="h-4 w-4" aria-hidden />
+                  Listo
                 </>
               )}
             </Button>
+          ) : (
+            <Button
+              onClick={() => setStep(step + 1)}
+              disabled={step === 0 && !brand.name.trim()}
+            >
+              Siguiente
+              <ChevronRight className="h-4 w-4" aria-hidden />
+            </Button>
           )}
-        </div>
+        </>
+      }
+    >
+      {/* Progress: the same five steps the description names, as a shape. */}
+      <div className="flex gap-1" aria-hidden>
+        {STEPS.map((label, i) => (
+          <div
+            key={label}
+            className={cn(
+              "h-1 flex-1 rounded-full transition-colors",
+              i <= step ? "bg-accent" : "bg-muted"
+            )}
+          />
+        ))}
       </div>
-    </div>
+
+      <div className="min-h-[15rem]">
+        {step === 0 && (
+          <div className="space-y-1">
+            <Field
+              label="¿Cómo se llama tu marca?"
+              hint="La IA la usa para mantener una identidad consistente en todos los carruseles."
+            >
+              <Input
+                value={brand.name}
+                onChange={(e) => setBrand({ ...brand, name: e.target.value })}
+                placeholder="Mi marca"
+                className="h-control-lg text-title"
+                autoFocus
+              />
+            </Field>
+          </div>
+        )}
+
+        {step === 1 && (
+          <div className="space-y-3">
+            {COLOR_FIELDS.map(({ key, label }) => (
+              <ColorPicker
+                key={key}
+                label={label}
+                value={brand.colors[key]}
+                onChange={(v) =>
+                  setBrand({ ...brand, colors: { ...brand.colors, [key]: v } })
+                }
+              />
+            ))}
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-4">
+            <FontSelector
+              label="Tipografía de títulos"
+              value={brand.fonts.heading}
+              onChange={(v) =>
+                setBrand({ ...brand, fonts: { ...brand.fonts, heading: v } })
+              }
+            />
+            <FontSelector
+              label="Tipografía de texto"
+              value={brand.fonts.body}
+              onChange={(v) => setBrand({ ...brand, fonts: { ...brand.fonts, body: v } })}
+            />
+          </div>
+        )}
+
+        {step === 3 && (
+          <LogoUpload
+            value={brand.logoPath}
+            onChange={(path) => setBrand({ ...brand, logoPath: path })}
+          />
+        )}
+
+        {step === 4 && (
+          <fieldset>
+            <legend className="text-label font-medium text-foreground">
+              Elegí el estilo de tu marca
+            </legend>
+            <p className="mb-3 mt-1 text-label text-muted-foreground">
+              Podés marcar varias. Son las palabras con las que la IA describe tu
+              identidad visual.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {STYLE_OPTIONS.map(({ value, label }) => {
+                const on = brand.styleKeywords.includes(value);
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() =>
+                      setBrand({
+                        ...brand,
+                        styleKeywords: on
+                          ? brand.styleKeywords.filter((k) => k !== value)
+                          : [...brand.styleKeywords, value],
+                      })
+                    }
+                    className={cn(
+                      "oc-press oc-focus oc-hit flex h-control cursor-pointer items-center rounded-full border px-4 text-label font-medium",
+                      on
+                        ? "border-accent bg-accent text-accent-foreground"
+                        : "border-border bg-surface text-foreground hover:border-muted-foreground"
+                    )}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+        )}
+      </div>
+
+      {error && (
+        <p role="alert" className="text-label text-destructive">
+          {error}
+        </p>
+      )}
+    </DialogShell>
   );
 }

@@ -51,7 +51,7 @@ export function FullscreenPreview({
           <Dialog.Close asChild>
             <button
               className="absolute top-4 right-4 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors z-10"
-              aria-label="Close fullscreen"
+              aria-label="Salir de pantalla completa"
             >
               <X className="h-5 w-5" />
             </button>
@@ -64,7 +64,7 @@ export function FullscreenPreview({
             onClick={() => onActiveChange(activeIndex - 1)}
             disabled={activeIndex <= 0}
             className="absolute left-4 z-10 text-white bg-white/10 hover:bg-white/20 disabled:opacity-30 h-12 w-12"
-            aria-label="Previous slide"
+            aria-label="Slide anterior"
           >
             <ChevronLeft className="h-6 w-6" />
           </Button>
@@ -85,7 +85,7 @@ export function FullscreenPreview({
             onClick={() => onActiveChange(activeIndex + 1)}
             disabled={activeIndex >= slides.length - 1}
             className="absolute right-4 z-10 text-white bg-white/10 hover:bg-white/20 disabled:opacity-30 h-12 w-12"
-            aria-label="Next slide"
+            aria-label="Slide siguiente"
           >
             <ChevronRight className="h-6 w-6" />
           </Button>

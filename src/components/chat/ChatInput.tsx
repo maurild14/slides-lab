@@ -24,11 +24,11 @@ interface ChatInputProps {
 }
 
 const SUGGESTIONS = [
-  "Create a 5-slide carousel about...",
-  "Make the design more minimal",
-  "Change the accent color to blue",
-  "Add a call-to-action slide",
-  "Make the headings bigger",
+  "Armá un carrusel de 5 slides sobre…",
+  "Hacé el diseño más minimalista",
+  "Cambiá el color de acento a azul",
+  "Agregá un slide de llamada a la acción",
+  "Agrandá los títulos",
 ];
 
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp"];
@@ -271,7 +271,7 @@ export function ChatInput({
           disabled={
             isStreaming || disabled || attachments.length >= MAX_ATTACHMENTS
           }
-          aria-label="Attach image"
+          aria-label="Adjuntar una imagen"
           className="shrink-0"
         >
           <Paperclip className="h-4 w-4" />
@@ -285,22 +285,22 @@ export function ChatInput({
           onPaste={handlePaste}
           placeholder={
             isStreaming
-              ? "AI is working..."
+              ? "La IA está trabajando…"
               : attachments.length > 0
-              ? "Add a message about these images..."
-              : "Describe your carousel..."
+              ? "Contale qué hacer con estas imágenes…"
+              : "Pedile un carrusel…"
           }
           disabled={isStreaming || disabled}
           rows={1}
-          className="flex-1 resize-none bg-muted rounded-lg px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-          aria-label="Chat message input"
+          className="flex-1 resize-none bg-muted rounded-lg px-3 py-2.5 text-body placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+          aria-label="Mensaje para la IA"
         />
         {isStreaming ? (
           <Button
             size="icon"
             variant="destructive"
             onClick={onStop}
-            aria-label="Stop generating"
+            aria-label="Detener la generación"
           >
             <Square className="h-3.5 w-3.5" />
           </Button>
@@ -309,7 +309,7 @@ export function ChatInput({
             size="icon"
             onClick={handleSubmit}
             disabled={!canSend}
-            aria-label="Send message"
+            aria-label="Enviar el mensaje"
           >
             {uploading ? (
               <Loader2 className="h-4 w-4 animate-spin" />

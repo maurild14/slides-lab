@@ -306,7 +306,7 @@ Simplificaciones deliberadas:
 
 ---
 
-## Fase 4 — Páginas, estilos y exportación
+## Fase 4 — Páginas, estilos y exportación ✅
 
 **Objetivo:** cerrar el ciclo de trabajo sobre el carrusel completo, no sobre un slide aislado.
 
@@ -330,9 +330,25 @@ Simplificaciones deliberadas:
 - Los slides generados por la IA después del cambio de prompt se seleccionan y editan igual que los hechos a mano.
 - Cada formato de exportación produce un archivo que abre correctamente en su visor.
 
+### Cómo quedó
+
+- **Duplicar slide** ya existía en la librería de datos; faltaba la ruta (`POST .../slides/{id}/duplicate`) y el botón, que vive en la miniatura junto a deshacer y eliminar. Después de duplicar el editor salta a la copia, no al último slide: `fetchCarousel` acepta un `focusSlideId` que desactiva la regla de "seguir al slide más nuevo", que es para cuando el agente agrega slides al final.
+- **Aplicar a todas** vive en el menú contextual (el elemento seleccionado, o el fondo si hacés clic derecho en vacío) y como botón en la barra contextual. Reescribe el HTML guardado de los otros slides con `DOMParser`, sin montar sus iframes; el slide activo se saltea a propósito, porque ya tiene el cambio en pantalla y reenviarlo recargaría su iframe y perdería la selección.
+- **Copiar y pegar estilo** es un pincel: `Ctrl Alt C` / `Ctrl Alt V`, o los dos botones de la barra. `STYLE_COPY_PROPS` deja afuera posición, tamaño, rotación y capa, y limpia todas las propiedades copiables antes de aplicar, para que un neón no sobreviva debajo de un estilo plano.
+- **Cambio de proporción**: como todo formato de Instagram mide 1080 de ancho, escalar x e y por separado sólo deformaría; se usa un factor uniforme `min(sx, sy)` y se vuelve a centrar el contenido. El diálogo ofrece las dos salidas — "Reajustar el contenido" y "Solo cambiar el lienzo" — y cada slide conserva su versión anterior en el servidor.
+- **Exportación**: PNG, JPG, PNG sin fondo (`omitBackground`) y PDF, todo el carrusel o un solo slide. Un archivo solo se descarga solo; varios van en ZIP. El PDF se arma con los PNG ya rasterizados en vez de imprimir el documento vivo: imprimir vuelve a maquetar bajo `media print` y cualquier unidad de viewport se corre de lugar.
+- **El prompt del agente** ahora documenta las convenciones del lienzo: un hijo absoluto por cosa clickeable, `data-oc-name`, `z-index`, rotación en el propio `transform`, formas con `border-radius` o SVG, efectos con CSS nativo, y no tocar `data-oc-lock` / `data-oc-group` / `data-oc-hidden`.
+
+**Simplificaciones deliberadas.**
+
+- El re-maquetado no tiene vista previa en vivo: el diálogo explica qué va a pasar y el historial del servidor deshace por slide. Una previa real necesita renderizar los N slides al lienzo nuevo antes de escribir nada.
+- El reflow es un factor uniforme más una traslación, sin anclajes por elemento. Si deja de alcanzar, el paso siguiente es declarar el anclaje (arriba / abajo / centro) en un `data-*`.
+- El PDF sale rasterizado. Si alguna vez hace falta texto seleccionable, hay que imprimir el documento vivo y aceptar el re-maquetado.
+- El duotono y "aplicar a todas" no diferencian pie de página de un elemento cualquiera: se copia lo que tengas seleccionado, arriba de todo.
+
 ---
 
-## Fase 5 — Resto de la app y repaso final
+## Fase 5 — Resto de la app y repaso final ✅
 
 **Objetivo:** que no haya un salto visible entre el editor nuevo y el resto de la aplicación, y verificar el conjunto.
 
@@ -350,6 +366,23 @@ Simplificaciones deliberadas:
 - Se respeta la preferencia de movimiento reducido del sistema.
 - Ningún estado vacío es un espacio en blanco.
 - No hay dos componentes que resuelvan lo mismo de dos maneras distintas.
+
+### Cómo quedó
+
+- **Un bug real de la Fase 0, encontrado acá**: `cn()` usaba `twMerge` sin configurar, así que leía `text-body` como `text-{color}` y borraba el color que venía antes. Todo botón `bg-foreground` quedaba con texto casi negro sobre relleno casi negro — literalmente ilegible, y no se veía hasta abrir un diálogo. `src/lib/utils.ts` ahora registra la escala tipográfica como grupo `font-size`. **Cualquier token nuevo de la escala hay que agregarlo ahí también.**
+- **Dashboard** reescrito: castellano, tokens, tarjetas con *stretched link* (el título es el enlace y su `::after` cubre la tarjeta) en vez de un `div` con `onClick`, así se navega con Tab y los dos botones de acción conservan su propia parada de foco. Duplicar y eliminar dejaron de aparecer sólo con `:hover`. Pestañas con `role="tablist"` y flechas.
+- **Estados de error de verdad**: el dashboard y la galería distinguen "no hay nada" de "no pudimos cargar", con botón de reintentar. Crear, duplicar, eliminar, subir y "guardar como plantilla" avisan cuando fallan; antes fallaban en silencio.
+- **`EmptyState`** es la única primitiva de estado vacío/error (`tone="error"`). Reemplaza tres copias con iconos y escalas distintas.
+- **Los dos overlays a mano murieron**: la configuración de marca y el visor de imágenes de referencia usan `DialogShell`. Ganan foco atrapado, Escape y la misma animación que el resto.
+- **Miniaturas diferidas**: los iframes de sólo lectura llevan `loading="lazy"`. El dashboard montaba un documento completo por tarjeta.
+- **Movimiento reducido** también apaga los esqueletos que laten y frena los spinners.
+- **`lang="es"`** en el documento: la interfaz está en castellano y se anunciaba como inglesa.
+
+**Simplificaciones deliberadas de esta fase**
+
+- El re-maquetado de proporción sigue sin vista previa en vivo; el diálogo explica la operación y el historial por slide del servidor la deshace.
+- No hay sistema de toasts: los errores se muestran en el lugar donde ocurrieron (`role="alert"`), que es donde el usuario está mirando. Vale agregar toasts si aparece una acción que termine fuera de la vista.
+- Los valores guardados de `styleKeywords` siguen en inglés — los lee el agente; sólo se tradujeron las etiquetas.
 
 ---
 

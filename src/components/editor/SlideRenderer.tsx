@@ -165,7 +165,13 @@ export function SlideRenderer({
           // every interaction is driven from the parent document instead.
           sandbox={interactive ? "allow-same-origin" : ""}
           srcDoc={srcDoc}
-          title="Slide preview"
+          // ponytail: native lazy loading for read-only thumbnails — the
+          // dashboard mounts one full slide document per card. The editable
+          // canvas must never defer: the attach effect below waits on its
+          // document. Swap for an IntersectionObserver only if a browser we
+          // care about drops srcdoc support for this attribute.
+          loading={interactive ? "eager" : "lazy"}
+          title="Vista previa del slide"
           style={{
             width: slideW,
             height: slideH,
