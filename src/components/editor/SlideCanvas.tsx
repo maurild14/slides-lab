@@ -102,6 +102,24 @@ interface SlideCanvasProps {
 }
 
 /**
+ * The pan / marquee / move cursor flag. Both realms carry it: the iframe has
+ * its own copy of the rules (inspector-utils.ts), the grey work area around it
+ * lives in this document and reads them from globals.css.
+ */
+const markBusy = (el: Element | null | undefined, kind: string | null) => {
+  if (!el) return;
+  if (kind) el.setAttribute(OC_ATTR_BUSY, kind);
+  else el.removeAttribute(OC_ATTR_BUSY);
+};
+
+/** Chrome starts its autoscroll on a middle press: it swaps the cursor for the
+ * compass and scrolls under us. Cancelling the mouse event leaves the press to
+ * our own pan gesture. */
+const blockAutoScroll = (event: Event) => {
+  if ((event as MouseEvent).button === 1) event.preventDefault();
+};
+
+/**
  * Direct manipulation layer for a slide.
  *
  * Everything visible here is drawn in the *parent* document and positioned
@@ -300,17 +318,17 @@ export function SlideCanvas({
   const setBusy = useCallback(
     (kind: string | null) => {
       gestureRef.current = kind;
+      markBusy(viewportRef.current, kind);
       const doc = getDoc();
       if (!doc) return;
-      if (kind) doc.documentElement.setAttribute(OC_ATTR_BUSY, kind);
-      else doc.documentElement.removeAttribute(OC_ATTR_BUSY);
+      markBusy(doc.documentElement, kind);
       if (!kind) {
         doc
           .querySelectorAll(`[${OC_ATTR_HOVER}]`)
           .forEach((n) => n.removeAttribute(OC_ATTR_HOVER));
       }
     },
-    [getDoc]
+    [getDoc, viewportRef]
   );
 
   /**
@@ -870,6 +888,7 @@ export function SlideCanvas({
       else latest.current.onPanBy(0, -e.deltaY);
     };
 
+    doc.addEventListener("mousedown", blockAutoScroll, true);
     doc.addEventListener("pointerdown", onPointerDown, true);
     doc.addEventListener("mouseover", onOver, true);
     doc.addEventListener("mouseleave", onOut, true);
@@ -882,6 +901,7 @@ export function SlideCanvas({
       // died with it, so there is nothing left to remove.
       try {
         stopEditing();
+        doc.removeEventListener("mousedown", blockAutoScroll, true);
         doc.removeEventListener("pointerdown", onPointerDown, true);
         doc.removeEventListener("mouseover", onOver, true);
         doc.removeEventListener("mouseleave", onOut, true);
@@ -936,9 +956,11 @@ export function SlideCanvas({
       else latest.current.onPanBy(0, -event.deltaY);
     };
 
+    host.addEventListener("mousedown", blockAutoScroll);
     host.addEventListener("pointerdown", onPointerDown);
     host.addEventListener("wheel", onWheel, { passive: false });
     return () => {
+      host.removeEventListener("mousedown", blockAutoScroll);
       host.removeEventListener("pointerdown", onPointerDown);
       host.removeEventListener("wheel", onWheel);
     };
@@ -966,8 +988,10 @@ export function SlideCanvas({
 
       if (e.code === "Space" && !mod) {
         spaceRef.current = true;
-        const html = getDoc()?.documentElement;
-        if (html && !gestureRef.current) html.setAttribute(OC_ATTR_BUSY, "pan");
+        if (!gestureRef.current) {
+          markBusy(getDoc()?.documentElement, "pan");
+          markBusy(viewportRef.current, "pan");
+        }
         e.preventDefault();
         return;
       }
@@ -1079,8 +1103,10 @@ export function SlideCanvas({
     const onKeyUp = (event: Event) => {
       if ((event as KeyboardEvent).code !== "Space") return;
       spaceRef.current = false;
-      const html = getDoc()?.documentElement;
-      if (html && !gestureRef.current) html.removeAttribute(OC_ATTR_BUSY);
+      if (!gestureRef.current) {
+        markBusy(getDoc()?.documentElement, null);
+        markBusy(viewportRef.current, null);
+      }
     };
 
     // Key events do not cross the iframe boundary, so both realms need the
@@ -1101,7 +1127,7 @@ export function SlideCanvas({
         /* the iframe is gone */
       }
     };
-  }, [getDoc, iframeReadyTick]);
+  }, [getDoc, iframeReadyTick, viewportRef]);
 
   /* ----------------------------------------------- paste an OS clipboard image */
 

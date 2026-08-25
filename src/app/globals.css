@@ -340,3 +340,13 @@ body {
     animation-duration: 2s !important;
   }
 }
+
+/* Canvas cursors on the grey work area. The slide itself is an iframe with its
+   own copy of these rules (src/lib/inspector-utils.ts). */
+[data-oc-busy="pan"],
+[data-oc-busy="pan"] * {
+  cursor: grabbing !important;
+}
+[data-oc-busy="marquee"] {
+  cursor: crosshair !important;
+}
