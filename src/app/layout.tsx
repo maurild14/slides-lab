@@ -27,13 +27,13 @@ export default function RootLayout({
     <html
       lang="es"
       translate="no"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full overflow-hidden antialiased`}
       suppressHydrationWarning
     >
       <head>
         <meta name="google" content="notranslate" />
       </head>
-      <body className="h-full notranslate" suppressHydrationWarning>{children}</body>
+      <body className="h-full overflow-hidden notranslate" suppressHydrationWarning>{children}</body>
     </html>
   );
 }
