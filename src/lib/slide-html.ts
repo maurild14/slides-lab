@@ -70,6 +70,8 @@ export function wrapSlideHtml(
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: ${width}px; height: ${height}px; overflow: hidden; }
+    /* Grab a vector anywhere in its box, not only on the stroke it painted. */
+    svg { pointer-events: all; }
   </style>
 </head>
 <body>

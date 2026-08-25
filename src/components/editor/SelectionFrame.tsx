@@ -1,6 +1,6 @@
 "use client";
 
-import { RotateCw, Lock } from "lucide-react";
+import { Lock, RefreshCw } from "lucide-react";
 import type { Box } from "@/lib/canvas-utils";
 
 /** Corner and edge handles, named by the edges each one moves. */
@@ -53,7 +53,8 @@ export function handleCursor(handle: string, angle: number): string {
 
 /** Below this the edge handles would sit on top of the corner ones. */
 const EDGE_HANDLE_MIN = 44;
-const ROTATE_GAP = 30;
+/** Canva hangs the rotate handle under the box, clear of the bottom handles. */
+const ROTATE_GAP = 18;
 
 interface SelectionFrameProps {
   /** Screen box relative to the overlay container. */
@@ -159,17 +160,20 @@ export function SelectionFrame({
           type="button"
           aria-label="Rotar"
           onPointerDown={onRotatePointerDown}
-          className="oc-focus absolute flex items-center justify-center rounded-full border border-border bg-surface text-muted-foreground shadow-raised hover:text-foreground"
+          className="oc-focus absolute flex items-center justify-center rounded-full border border-border bg-surface text-muted-foreground shadow-raised hover:text-foreground active:cursor-grabbing"
           style={{
-            left: "calc(50% - 13px)",
-            top: -ROTATE_GAP,
-            width: 26,
-            height: 26,
+            left: "calc(50% - 14px)",
+            top: `calc(100% + ${ROTATE_GAP}px)`,
+            width: 28,
+            height: 28,
+            // The handle keeps its own upright orientation inside a rotated
+            // frame; a spinning icon reads as noise.
+            transform: angle ? `rotate(${-angle}deg)` : undefined,
             cursor: "grab",
             touchAction: "none",
           }}
         >
-          <RotateCw className="h-3.5 w-3.5" aria-hidden />
+          <RefreshCw className="h-3.5 w-3.5" aria-hidden />
         </button>
       )}
     </div>
@@ -189,7 +193,7 @@ export function GestureReadout({
       className="pointer-events-none absolute rounded-sm bg-foreground px-2 py-1 text-micro font-medium tabular-nums text-background shadow-float"
       style={{
         left: box.left + box.width / 2,
-        top: box.top + box.height + 12,
+        top: box.top + box.height + 52,
         transform: "translateX(-50%)",
         whiteSpace: "nowrap",
         zIndex: 3,

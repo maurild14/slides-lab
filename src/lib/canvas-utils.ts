@@ -95,6 +95,21 @@ export function isFloating(el: HTMLElement | null): boolean {
 }
 
 export function readBox(el: HTMLElement): Box {
+  // ponytail: an <svg> root has no offset* boxes (Blink dropped them in 2016,
+  // no other engine ever had them), so an arrow or an icon read back as NaN
+  // and refused to move. Fall back to the computed style, which is relative to
+  // the parent's padding box: a slide root with a border would shift these by
+  // that width. Nothing we generate has one.
+  if (typeof el.offsetWidth !== "number") {
+    const cs = el.ownerDocument?.defaultView?.getComputedStyle(el);
+    const n = (v: string | undefined) => Number.parseFloat(v || "") || 0;
+    return {
+      left: n(cs?.left),
+      top: n(cs?.top),
+      width: n(cs?.width),
+      height: n(cs?.height),
+    };
+  }
   return {
     left: el.offsetLeft,
     top: el.offsetTop,
@@ -634,7 +649,10 @@ export function resolveTarget(
   el: HTMLElement,
   root: HTMLElement
 ): HTMLElement | null {
-  let node: HTMLElement | null = el;
+  // A click on an arrow lands on its <line>, not on the <svg>. The guts of a
+  // vector are never a layer: the <svg> is.
+  const hit = (el.closest?.("svg") as HTMLElement | null) ?? el;
+  let node: HTMLElement | null = hit;
   let group: HTMLElement | null = null;
   let locked = false;
   while (node && node !== root) {
@@ -643,7 +661,7 @@ export function resolveTarget(
     node = node.parentElement;
   }
   if (locked) return null;
-  return group ?? el;
+  return group ?? hit;
 }
 
 /** Every element on the slide a marquee or "select all" can reach. */
