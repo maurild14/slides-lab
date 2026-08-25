@@ -877,12 +877,19 @@ export function SlideCanvas({
     doc.addEventListener("wheel", onWheel, { passive: false, capture: true });
 
     return () => {
-      stopEditing();
-      doc.removeEventListener("pointerdown", onPointerDown, true);
-      doc.removeEventListener("mouseover", onOver, true);
-      doc.removeEventListener("mouseleave", onOut, true);
-      doc.removeEventListener("contextmenu", onContextMenu, true);
-      doc.removeEventListener("wheel", onWheel, true);
+      // React flushes passive cleanups after the DOM node is already detached,
+      // and a discarded frame throws SecurityError on any access. Its listeners
+      // died with it, so there is nothing left to remove.
+      try {
+        stopEditing();
+        doc.removeEventListener("pointerdown", onPointerDown, true);
+        doc.removeEventListener("mouseover", onOver, true);
+        doc.removeEventListener("mouseleave", onOut, true);
+        doc.removeEventListener("contextmenu", onContextMenu, true);
+        doc.removeEventListener("wheel", onWheel, true);
+      } catch {
+        /* the iframe is gone */
+      }
     };
   }, [getDoc, iframeReadyTick, startMove, startMarquee, startPan]);
 
@@ -1085,8 +1092,14 @@ export function SlideCanvas({
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
-      frameWin?.removeEventListener("keydown", onKeyDown);
-      frameWin?.removeEventListener("keyup", onKeyUp);
+      // Same as the document listeners: a detached iframe window throws
+      // SecurityError on any property read, removeEventListener included.
+      try {
+        frameWin?.removeEventListener("keydown", onKeyDown);
+        frameWin?.removeEventListener("keyup", onKeyUp);
+      } catch {
+        /* the iframe is gone */
+      }
     };
   }, [getDoc, iframeReadyTick]);
 
