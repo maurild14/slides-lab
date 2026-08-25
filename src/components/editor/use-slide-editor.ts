@@ -74,6 +74,21 @@ export function useSlideEditor({
     unloadRef.current.slideId = slide?.id ?? null;
   }, [slide?.id]);
 
+  // Leaving a slide is the one moment its pin can move: the iframe is gone, so
+  // a new string cannot reload it under the user. Without this, coming back
+  // rebuilds the document from the HTML the slide had when the page loaded and
+  // the next save writes that stale copy over the work that was just saved.
+  useEffect(() => {
+    const id = slide?.id;
+    if (!id) return;
+    return () => {
+      const saved = savedRef.current[id];
+      setLocalHtml((prev) =>
+        saved !== undefined && prev[id] !== saved ? { ...prev, [id]: saved } : prev
+      );
+    };
+  }, [slide?.id]);
+
   const snapshot = useCallback((): string | null => {
     try {
       const body = iframeRef.current?.contentDocument?.body;
