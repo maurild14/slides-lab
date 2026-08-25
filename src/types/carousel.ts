@@ -16,6 +16,13 @@ export interface ReferenceImage {
   addedAt: string;
 }
 
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  attachments?: { url: string; name: string }[];
+}
+
 export interface Carousel {
   id: string;
   name: string;
@@ -25,6 +32,8 @@ export interface Carousel {
   caption?: string;
   hashtags?: string[];
   chatSessionId: string | null;
+  /** The conversation with the agent, kept next to the slides it produced. */
+  chatMessages?: ChatMessage[];
   isTemplate: boolean;
   tags: string[];
   createdAt: string;
@@ -43,3 +52,4 @@ export const DIMENSIONS: Record<AspectRatio, { width: number; height: number }> 
 
 export const MAX_SLIDES = 20;
 export const MAX_VERSIONS = 5;
+export const MAX_CHAT_MESSAGES = 200;

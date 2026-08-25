@@ -6,15 +6,8 @@ import { ChatInput, type ChatAttachment } from "./ChatInput";
 import { ReferenceImages } from "./ReferenceImages";
 import { EngineSelector } from "./EngineSelector";
 import { AlertCircle, Plug } from "lucide-react";
-import type { ReferenceImage } from "@/types/carousel";
+import type { ChatMessage as Message, ReferenceImage } from "@/types/carousel";
 import type { EngineId, EngineStatus } from "@/lib/agents";
-
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  attachments?: ChatAttachment[];
-}
 
 interface ChatPanelProps {
   carouselId: string;
@@ -34,6 +27,11 @@ interface ChatPanelProps {
   onClearContext?: () => void;
   /** Hosted inside a panel that already draws the title. */
   embedded?: boolean;
+  /**
+   * The panel stays mounted while another rail tab is open, so a stream in
+   * progress survives the switch. This says whether it is on screen.
+   */
+  visible?: boolean;
 }
 
 export function ChatPanel({
@@ -47,8 +45,10 @@ export function ChatPanel({
   context,
   onClearContext,
   embedded = false,
+  visible = true,
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -61,18 +61,36 @@ export function ChatPanel({
   const sessionKey = `chat-session-${carouselId}-${engine}`;
   const anyEngineAvailable = engines.some((e) => e.available);
 
-  // Load chat history and the engine chosen for this carousel
+  // The history lives with the carousel on disk, so it survives a reload and
+  // a different browser. The old localStorage log is deliberately NOT read as
+  // a fallback: it resurrected month-old conversations every time the stored
+  // history happened to be empty.
   useEffect(() => {
-    try {
-      const storedMessages = localStorage.getItem(`chat-messages-${carouselId}`);
-      if (storedMessages) setMessages(JSON.parse(storedMessages));
-    } catch {
-      // ignore corrupted data
-    }
     const storedEngine = localStorage.getItem(`chat-engine-${carouselId}`);
     if (storedEngine === "claude" || storedEngine === "codex") {
       setEngine(storedEngine);
     }
+
+    let cancelled = false;
+    setLoaded(false);
+    (async () => {
+      let history: Message[] = [];
+      try {
+        const res = await fetch(`/api/carousels/${carouselId}`);
+        if (res.ok) history = (await res.json()).chatMessages ?? [];
+      } catch {
+        // offline: start empty rather than with an unrelated conversation
+      }
+      if (cancelled) return;
+      // Never replace what is already on screen. A remount — Fast Refresh, a
+      // parent that re-keys — would otherwise drop the live conversation and
+      // show the stored one in its place.
+      setMessages((prev) => (prev.length > 0 ? prev : history));
+      setLoaded(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [carouselId]);
 
   // Follow the engine's own session when it (or the carousel) changes
@@ -88,17 +106,21 @@ export function ChatPanel({
     [carouselId]
   );
 
-  // Persist messages to localStorage
-  const persistMessages = useCallback(
-    (msgs: Message[]) => {
-      try {
-        localStorage.setItem(`chat-messages-${carouselId}`, JSON.stringify(msgs));
-      } catch {
-        // ignore quota errors
-      }
-    },
-    [carouselId]
-  );
+  // Save whenever the log settles. Debounced, so a stream writes once when it
+  // stops instead of once per token.
+  useEffect(() => {
+    if (!loaded) return;
+    const timer = setTimeout(() => {
+      fetch(`/api/carousels/${carouselId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatMessages: messages }),
+      }).catch(() => {
+        // a failed history write is not worth an error line in the chat
+      });
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [messages, loaded, carouselId]);
 
   const handleClearChat = useCallback(() => {
     setMessages([]);
@@ -111,12 +133,14 @@ export function ChatPanel({
     abortRef.current?.abort();
   }, []);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom. `visible` is a dependency because a hidden panel
+  // has no scrollHeight: without it you come back from another tab to a
+  // conversation scrolled to the top.
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, visible]);
 
   const handleSend = useCallback(
     async (message: string, attachments: ChatAttachment[] = []) => {
@@ -261,11 +285,6 @@ ${message}`
         setIsStreaming(false);
         setStatus(null);
         abortRef.current = null;
-        // Persist messages after stream completes
-        setMessages((prev) => {
-          persistMessages(prev);
-          return prev;
-        });
         onStreamEnd?.();
       }
     },
@@ -278,7 +297,6 @@ ${message}`
       onBeforeSend,
       onStreamStart,
       onStreamEnd,
-      persistMessages,
       context,
     ]
   );

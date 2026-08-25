@@ -196,29 +196,34 @@ export function ToolRail({
         />
       )}
 
-      {active === "ai" && (
-        <PanelShell
-          title="IA"
-          description="Pedile un carrusel entero, o un cambio sobre lo que tengas seleccionado."
-          onClose={close}
-          flush
-        >
-          <div className="flex min-h-0 flex-1 flex-col">
-            <ChatPanel
-              embedded
-              carouselId={carouselId}
-              engines={engines}
-              referenceImages={referenceImages}
-              onBeforeSend={onBeforeSend}
-              onStreamStart={onStreamStart}
-              onStreamEnd={onStreamEnd}
-              chatInputRef={chatInputRef}
-              context={aiContext}
-              onClearContext={onClearSelection}
-            />
-          </div>
-        </PanelShell>
-      )}
+      {/*
+        Always mounted, hidden when another tab is open. Unmounting it mid
+        stream threw the conversation away and aborted the request: opening
+        "Elementos" used to kill the generation you were watching.
+      */}
+      <PanelShell
+        title="IA"
+        description="Pedile un carrusel entero, o un cambio sobre lo que tengas seleccionado."
+        onClose={close}
+        flush
+        hidden={active !== "ai"}
+      >
+        <div className="flex min-h-0 flex-1 flex-col">
+          <ChatPanel
+            embedded
+            visible={active === "ai"}
+            carouselId={carouselId}
+            engines={engines}
+            referenceImages={referenceImages}
+            onBeforeSend={onBeforeSend}
+            onStreamStart={onStreamStart}
+            onStreamEnd={onStreamEnd}
+            chatInputRef={chatInputRef}
+            context={aiContext}
+            onClearContext={onClearSelection}
+          />
+        </div>
+      </PanelShell>
     </div>
   );
 }

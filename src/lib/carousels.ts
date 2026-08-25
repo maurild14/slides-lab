@@ -1,7 +1,7 @@
 import { readDataSafe, mutateData, ABORT_WRITE } from "./data";
 import { generateId, now } from "./utils";
 import type { Carousel, CarouselsData, Slide, AspectRatio, ReferenceImage } from "@/types/carousel";
-import { MAX_SLIDES, MAX_VERSIONS } from "@/types/carousel";
+import { MAX_SLIDES, MAX_VERSIONS, MAX_CHAT_MESSAGES } from "@/types/carousel";
 
 const FILE = "carousels.json";
 const EMPTY: CarouselsData = { carousels: [] };
@@ -56,12 +56,31 @@ export async function createCarousel(
 
 export async function updateCarousel(
   id: string,
-  updates: Partial<Pick<Carousel, "name" | "aspectRatio" | "tags" | "chatSessionId" | "caption" | "hashtags">>
+  updates: Partial<
+    Pick<
+      Carousel,
+      | "name"
+      | "aspectRatio"
+      | "tags"
+      | "chatSessionId"
+      | "chatMessages"
+      | "caption"
+      | "hashtags"
+    >
+  >
 ): Promise<Carousel | null> {
   return mutate((data) => {
     const carousel = data.carousels.find((c) => c.id === id);
     if (!carousel) return ABORT_WRITE;
-    Object.assign(carousel, updates, { updatedAt: now() });
+    // The chat log is the one field a client grows without bound; keep the
+    // tail so carousels.json cannot balloon over a long session.
+    const patch = updates.chatMessages
+      ? {
+          ...updates,
+          chatMessages: updates.chatMessages.slice(-MAX_CHAT_MESSAGES),
+        }
+      : updates;
+    Object.assign(carousel, patch, { updatedAt: now() });
     return carousel;
   });
 }
