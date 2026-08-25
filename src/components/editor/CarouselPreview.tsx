@@ -1,10 +1,12 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { IconButton } from "@/components/ui/button";
 import { SlideRenderer } from "./SlideRenderer";
 import { SafeZoneOverlay } from "./SafeZoneOverlay";
 import type { Slide, AspectRatio } from "@/types/carousel";
+import { DIMENSIONS } from "@/types/carousel";
 
 interface CarouselPreviewProps {
   slides: Slide[];
@@ -37,6 +39,20 @@ export function CarouselPreview({
 }: CarouselPreviewProps) {
   const slide = slides[activeIndex];
 
+  // The guides have to sit on the slide, not on the grey work area. They used
+  // to be `inset-0` over the whole viewport, so "zona segura" was drawn around
+  // the window and lined up with nothing.
+  const [fit, setFit] = useState(0);
+  const handleFitScale = useCallback(
+    (value: number) => {
+      setFit(value);
+      onFitScale(value);
+    },
+    [onFitScale]
+  );
+  const { width: slideW, height: slideH } = DIMENSIONS[aspectRatio];
+  const shown = scale && scale > 0 ? scale : fit;
+
   if (!slide) {
     return (
       <div className="flex flex-1 items-center justify-center bg-(--canvas-bg)">
@@ -64,12 +80,27 @@ export function CarouselPreview({
           interactive={!generating}
           scale={scale}
           pan={pan}
-          onFitScale={onFitScale}
+          onFitScale={handleFitScale}
           onIframeReady={onIframeReady}
           style={{ position: "absolute", inset: 0 }}
         />
 
-        <SafeZoneOverlay aspectRatio={aspectRatio} visible={showSafeZones} />
+        {/* Same centring and pan as SlideRenderer's own box, so the guides
+            track the slide through every zoom and drag. */}
+        {showSafeZones && shown > 0 && (
+          <div
+            className="pointer-events-none absolute z-(--z-overlay)"
+            style={{
+              left: "50%",
+              top: "50%",
+              width: slideW * shown,
+              height: slideH * shown,
+              transform: `translate(-50%, -50%) translate(${pan.x}px, ${pan.y}px)`,
+            }}
+          >
+            <SafeZoneOverlay aspectRatio={aspectRatio} />
+          </div>
+        )}
 
         {generating && (
           <div className="pointer-events-none absolute inset-0 flex items-start justify-center bg-foreground/5 pt-6">

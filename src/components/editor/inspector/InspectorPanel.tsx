@@ -1,7 +1,8 @@
 "use client";
 
 import { MousePointerClick, RefreshCw, SlidersHorizontal, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, IconButton } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { SectionFocus } from "./InspectorFields";
 import { useElementStyle } from "./use-element-style";
 import { TextSections } from "./TextSections";
@@ -53,27 +54,21 @@ export function InspectorPanel({
 
   return (
     <section className="flex min-h-0 flex-1 flex-col" aria-label="Propiedades del elemento">
+      {/* The save state is said once, in the footer. A second pulsing dot up
+          here said the same thing without ever naming it. */}
       <div className="flex h-control-lg shrink-0 items-center gap-2 border-b border-border px-3">
         <SlidersHorizontal className="h-4 w-4 text-muted-foreground" aria-hidden />
         <h2 className="flex-1 text-section font-semibold">Propiedades</h2>
-        {saving && (
-          <span
-            className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent"
-            title="Guardando…"
-          />
-        )}
-        <button
-          onClick={onClose}
-          className="oc-hit oc-focus flex h-control-sm w-control-sm cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label="Deseleccionar"
-        >
+        <IconButton label="Deseleccionar" size="sm" onClick={onClose}>
           <X className="h-4 w-4" aria-hidden />
-        </button>
+        </IconButton>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         {!props ? (
           <EmptyState
+            size="sm"
+            icon={<MousePointerClick className="h-5 w-5" aria-hidden />}
             title={
               selectionCount > 1
                 ? `${selectionCount} elementos seleccionados`
@@ -81,9 +76,10 @@ export function InspectorPanel({
             }
             hint={
               selectionCount > 1
-                ? "Las propiedades se editan de a un elemento. Alinear, agrupar y ordenar sí funcionan con varios, desde la barra flotante."
+                ? "Las propiedades se editan de a un elemento. Alinear, agrupar y ordenar sí funcionan con varios, desde la barra de arriba."
                 : "Hacé clic en cualquier texto, imagen o forma del slide para editarlo."
             }
+            className="px-6"
           />
         ) : (
           <>
@@ -134,17 +130,5 @@ export function InspectorPanel({
         </span>
       </div>
     </section>
-  );
-}
-
-function EmptyState({ title, hint }: { title: string; hint: string }) {
-  return (
-    <div className="p-6 text-center">
-      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
-        <MousePointerClick className="h-5 w-5" aria-hidden />
-      </div>
-      <p className="mb-1 text-label font-medium">{title}</p>
-      <p className="text-label leading-relaxed text-muted-foreground">{hint}</p>
-    </div>
   );
 }

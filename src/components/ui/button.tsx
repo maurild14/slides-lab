@@ -25,7 +25,11 @@ const buttonVariants = cva(
         default: "h-control px-4 text-body",
         lg: "h-control-lg px-6 text-body",
         icon: "h-control w-control oc-hit",
-        "icon-sm": "h-control-sm w-control-sm oc-hit",
+        // No `oc-hit`: 32px already clears the 24px target minimum, and the
+        // 40px expander overlapped its neighbours in every dense row (layers,
+        // filmstrip, toolbars) — the later sibling swallowed the click, so
+        // "eliminar" was eating presses meant for the button beside it.
+        "icon-sm": "h-control-sm w-control-sm",
         "icon-lg": "h-control-lg w-control-lg oc-hit",
       },
     },

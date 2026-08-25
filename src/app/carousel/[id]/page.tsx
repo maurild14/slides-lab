@@ -723,8 +723,11 @@ export default function CarouselEditorPage({ params }: PageProps) {
         />
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {/* Canvas chrome */}
-          <div className="flex h-control-lg shrink-0 items-center gap-2 overflow-x-auto border-b border-border bg-surface px-3">
+          {/* Canvas chrome. 44px with 4px of vertical padding, not 40px flush:
+              the row scrolls horizontally, and a scroll container clips at its
+              padding box — flush, it sheared the focus ring off every control
+              inside it. */}
+          <div className="flex h-11 shrink-0 items-center gap-2 overflow-x-auto border-b border-border bg-surface px-3 py-1">
             <CanvasToolbar
               scale={view.zoom ?? fitScale}
               onZoomTo={zoomTo}
@@ -734,9 +737,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
               canRedo={editor.canRedo}
               onUndo={editor.undo}
               onRedo={editor.redo}
-              commands={commands}
               saving={editor.saving}
-              enabled={!slideLocked}
             />
 
             <div className="ml-auto flex shrink-0 items-center gap-1">

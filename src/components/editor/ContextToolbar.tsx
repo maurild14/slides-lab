@@ -6,6 +6,8 @@ import {
   AlignCenterHorizontal,
   AlignLeft,
   AlignRight,
+  ArrowDownToLine,
+  ArrowUpToLine,
   Bold,
   ChevronDown,
   Copy,
@@ -14,6 +16,8 @@ import {
   Group,
   Image as ImageIcon,
   Italic,
+  Layers,
+  Lock,
   Move,
   Paintbrush,
   PaintBucket,
@@ -24,6 +28,7 @@ import {
   Type as TypeIcon,
   Underline,
   Ungroup,
+  Unlock,
 } from "lucide-react";
 import { Button, IconButton } from "@/components/ui/button";
 import { ColorInput, NumberInput, Segmented, Slider } from "@/components/ui/controls";
@@ -33,6 +38,7 @@ import {
   MenuItem,
   MenuLabel,
   MenuSeparator,
+  MenuShortcut,
   MenuTrigger,
 } from "@/components/ui/menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -102,14 +108,18 @@ export function ContextToolbar({
       aria-label="Acciones del elemento seleccionado"
       // The row keeps its height even when empty. Letting it collapse would
       // shift the canvas — and its zoom — on every click.
-      className="flex h-control-lg shrink-0 items-center border-b border-border bg-surface px-2"
+      className="flex h-11 shrink-0 items-center border-b border-border bg-surface px-2"
     >
       {idle ? (
         <p className="text-label text-muted-foreground">
           Seleccioná algo del slide para editarlo acá.
         </p>
       ) : (
-      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+      <div
+        // The padding is inside the scroller on purpose: it clips at its own
+        // padding box, so this is what keeps the focus rings visible.
+        className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-1"
+      >
         {selectionCount > 1 ? (
           <MultiControls commands={commands} onOpenAdvanced={onOpenAdvanced} />
         ) : !props ? null : kind === "text" || kind === "icon" ? (
@@ -316,6 +326,53 @@ export function ContextToolbar({
             </IconButton>
           </>
         )}
+
+        <Divider />
+
+        {/* Stacking order and the lock. They used to sit in the canvas row
+            above instead, which is about the canvas, not about what you have
+            selected. */}
+        <Menu>
+          <MenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="gap-1.5">
+              <Layers className="h-4 w-4" aria-hidden />
+              Capa
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" aria-hidden />
+            </Button>
+          </MenuTrigger>
+          <MenuContent align="start">
+            <MenuItem onSelect={() => commands.order("front")} disabled={locked}>
+              <ArrowUpToLine className="h-4 w-4" aria-hidden />
+              Traer al frente
+              <MenuShortcut>Ctrl ⇧ ]</MenuShortcut>
+            </MenuItem>
+            <MenuItem onSelect={() => commands.order("forward")} disabled={locked}>
+              Traer adelante
+              <MenuShortcut>Ctrl ]</MenuShortcut>
+            </MenuItem>
+            <MenuItem onSelect={() => commands.order("backward")} disabled={locked}>
+              Enviar atrás
+              <MenuShortcut>Ctrl [</MenuShortcut>
+            </MenuItem>
+            <MenuItem onSelect={() => commands.order("back")} disabled={locked}>
+              <ArrowDownToLine className="h-4 w-4" aria-hidden />
+              Enviar al fondo
+              <MenuShortcut>Ctrl ⇧ [</MenuShortcut>
+            </MenuItem>
+          </MenuContent>
+        </Menu>
+        <IconButton
+          label={locked ? "Desbloquear (Ctrl L)" : "Bloquear (Ctrl L)"}
+          size="sm"
+          active={locked}
+          onClick={commands.toggleLock}
+        >
+          {locked ? (
+            <Lock className="h-4 w-4" aria-hidden />
+          ) : (
+            <Unlock className="h-4 w-4" aria-hidden />
+          )}
+        </IconButton>
 
         <Divider />
         {/* The style brush: the look of one element, painted onto another

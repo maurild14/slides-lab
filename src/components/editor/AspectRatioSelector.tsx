@@ -17,9 +17,9 @@ const RATIOS: {
   label: string;
   icon: { w: number; h: number };
 }[] = [
-  { value: "1:1", label: "Square", icon: { w: 18, h: 18 } },
-  { value: "4:5", label: "Portrait", icon: { w: 18, h: 22 } },
-  { value: "9:16", label: "Story", icon: { w: 14, h: 24 } },
+  { value: "1:1", label: "Cuadrado", icon: { w: 16, h: 16 } },
+  { value: "4:5", label: "Vertical", icon: { w: 15, h: 19 } },
+  { value: "9:16", label: "Historia", icon: { w: 12, h: 20 } },
 ];
 
 /**
@@ -46,8 +46,10 @@ export function AspectRatioSelector({
           <label
             key={ratio.value}
             title={`${ratio.label} (${ratio.value})`}
+            // A row, not a stack: stacked it measured 64px and the editor's
+            // 40px toolbar clipped it (and grew a scrollbar around it).
             className={cn(
-              "oc-press flex min-h-hit cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md px-3 py-2 text-label font-medium",
+              "oc-press flex h-control cursor-pointer items-center justify-center gap-2 rounded-md px-2.5 text-label font-medium",
               "has-[:focus-visible]:shadow-[0_0_0_2px_var(--surface),0_0_0_4px_var(--ring)]",
               checked
                 ? "bg-foreground text-background"

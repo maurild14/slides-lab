@@ -110,7 +110,7 @@ export function TemplateGallery() {
         <EmptyState
           icon={<Bookmark className="h-6 w-6" />}
           title="Todavía no guardaste ninguna plantilla"
-          hint="Abrí un carrusel y guardalo como plantilla desde el panel Diseño para reutilizar su maqueta."
+          hint="Abrí un carrusel y tocá «Guardar como plantilla» en la barra del editor para reutilizar su maqueta."
         />
       ) : (
         <ul className="oc-stagger grid list-none grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

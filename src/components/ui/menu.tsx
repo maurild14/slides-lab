@@ -12,8 +12,11 @@ import { cn } from "@/lib/utils";
  * them (a trigger vs. a right-click).
  */
 
+/* Capped to what Radix measured as available: the font list and the layer
+   menus outgrow a short window, and an uncapped menu just runs off the
+   bottom with no way to reach the rest. */
 const CONTENT_CLASS =
-  "z-(--z-popover) min-w-52 overflow-hidden rounded-lg border border-border bg-surface p-1 shadow-float outline-none";
+  "z-(--z-popover) max-h-(--radix-popper-available-height) min-w-52 overflow-y-auto overscroll-contain rounded-lg border border-border bg-surface p-1 shadow-float outline-none";
 
 const ITEM_CLASS =
   "relative flex h-control cursor-pointer select-none items-center gap-2.5 rounded-sm px-2.5 text-body text-foreground outline-none data-[highlighted]:bg-muted data-[disabled]:pointer-events-none data-[disabled]:opacity-50";

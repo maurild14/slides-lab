@@ -195,7 +195,7 @@ export function NumberInput({
   return (
     <div
       className={cn(
-        "oc-press flex h-control items-center rounded-md border border-border bg-surface pl-3 hover:border-muted-foreground/40 has-[:focus-visible]:shadow-[0_0_0_2px_var(--surface),0_0_0_4px_var(--ring)]",
+        "oc-field flex h-control items-center rounded-md border border-border bg-surface pl-3 hover:border-muted-foreground/40 has-[:focus-visible]:shadow-[0_0_0_2px_var(--surface),0_0_0_4px_var(--ring)]",
         className
       )}
     >
@@ -263,7 +263,7 @@ export function ColorInput({
   return (
     <div
       className={cn(
-        "oc-press flex h-control items-center gap-2 rounded-md border border-border bg-surface pl-1.5 pr-3 hover:border-muted-foreground/40 has-[:focus-visible]:shadow-[0_0_0_2px_var(--surface),0_0_0_4px_var(--ring)]",
+        "oc-field flex h-control items-center gap-2 rounded-md border border-border bg-surface pl-1.5 pr-3 hover:border-muted-foreground/40 has-[:focus-visible]:shadow-[0_0_0_2px_var(--surface),0_0_0_4px_var(--ring)]",
         className
       )}
     >

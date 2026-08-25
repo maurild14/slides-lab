@@ -45,6 +45,8 @@ export function ChatInput({
   const [value, setValue] = useState("");
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [dragActive, setDragActive] = useState(false);
+  /** Why a file was refused. Dropping one used to do nothing at all. */
+  const [notice, setNotice] = useState<string | null>(null);
   const internalRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = externalRef || internalRef;
@@ -60,9 +62,19 @@ export function ChatInput({
   const uploading = attachments.some((a) => a.uploading);
 
   const uploadFile = useCallback(async (file: File) => {
-    if (!ACCEPTED_TYPES.includes(file.type)) return;
-    if (file.size > MAX_FILE_SIZE) return;
-    if (attachments.length >= MAX_ATTACHMENTS) return;
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      setNotice(`«${file.name}» no es PNG, JPG ni WebP.`);
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      setNotice(`«${file.name}» pesa más de 10 MB.`);
+      return;
+    }
+    if (attachments.length >= MAX_ATTACHMENTS) {
+      setNotice(`Se pueden adjuntar hasta ${MAX_ATTACHMENTS} imágenes.`);
+      return;
+    }
+    setNotice(null);
 
     const localPreview = URL.createObjectURL(file);
     const tempId = `${Date.now()}-${Math.random()}`;
@@ -101,11 +113,12 @@ export function ChatInput({
 
   const handleFiles = useCallback(
     (files: FileList | File[]) => {
-      const list = Array.from(files).filter((f) =>
-        ACCEPTED_TYPES.includes(f.type)
-      );
+      // Everything goes through uploadFile, rejects included: it is the one
+      // place that says out loud why a file did not make it.
       const available = MAX_ATTACHMENTS - attachments.length;
-      list.slice(0, available).forEach((f) => uploadFile(f));
+      Array.from(files)
+        .slice(0, Math.max(available, 1))
+        .forEach((f) => uploadFile(f));
     },
     [attachments.length, uploadFile]
   );
@@ -191,9 +204,9 @@ export function ChatInput({
     >
       {dragActive && (
         <div className="absolute inset-2 z-10 border-2 border-dashed border-accent rounded-xl bg-accent/5 flex items-center justify-center pointer-events-none">
-          <div className="flex items-center gap-2 text-label text-accent font-medium">
-            <ImagePlus className="h-4 w-4" />
-            Drop images to attach
+          <div className="flex items-center gap-2 text-label font-medium text-accent">
+            <ImagePlus className="h-4 w-4" aria-hidden />
+            Soltá las imágenes para adjuntarlas
           </div>
         </div>
       )}
@@ -203,8 +216,12 @@ export function ChatInput({
           {SUGGESTIONS.slice(0, 3).map((suggestion) => (
             <button
               key={suggestion}
-              onClick={() => setValue(suggestion)}
-              className="text-label px-2.5 py-1 rounded-full border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              type="button"
+              onClick={() => {
+                setValue(suggestion);
+                textareaRef.current?.focus();
+              }}
+              className="oc-focus oc-press cursor-pointer rounded-full border border-border px-2.5 py-1 text-label text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               {suggestion}
             </button>
@@ -217,37 +234,47 @@ export function ChatInput({
           {attachments.map((att) => (
             <div
               key={att.url}
-              className="relative group rounded-lg overflow-hidden border border-border bg-muted"
+              // Not `overflow-hidden`: the remove button hangs off the corner.
+              className="group relative rounded-lg border border-border bg-muted"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={att.localPreview}
                 alt={att.name}
-                className="h-16 w-16 object-cover"
+                className="h-16 w-16 rounded-lg object-cover"
               />
               {att.uploading && (
-                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                  <Loader2 className="h-4 w-4 text-white animate-spin" />
+                <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50">
+                  <Loader2 className="h-4 w-4 animate-spin text-white" aria-hidden />
+                  <span className="sr-only">Subiendo {att.name}</span>
                 </div>
               )}
               {att.error && (
-                <div className="absolute inset-0 bg-destructive/70 flex items-center justify-center">
-                  <span className="text-micro text-white font-medium">
-                    Failed
+                <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-destructive/80">
+                  <span className="text-micro font-medium text-white">
+                    No subió
                   </span>
                 </div>
               )}
+              {/* Always visible: hover-only made this unreachable by keyboard
+                  and on touch, with no other way to drop an attachment. */}
               <button
                 type="button"
                 onClick={() => removeAttachment(att.url)}
-                className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-foreground text-background flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-                aria-label={`Remove ${att.name}`}
+                className="oc-focus absolute -right-1.5 -top-1.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full border border-surface bg-foreground text-background shadow-rest transition-colors hover:bg-destructive hover:text-white"
+                aria-label={`Quitar ${att.name}`}
               >
-                <X className="h-2.5 w-2.5" />
+                <X className="h-3 w-3" aria-hidden />
               </button>
             </div>
           ))}
         </div>
+      )}
+
+      {notice && (
+        <p role="alert" className="mb-2 text-micro text-destructive">
+          {notice}
+        </p>
       )}
 
       <input
@@ -292,7 +319,7 @@ export function ChatInput({
           }
           disabled={isStreaming || disabled}
           rows={1}
-          className="flex-1 resize-none bg-muted rounded-lg px-3 py-2.5 text-body placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+          className="oc-focus flex-1 resize-none rounded-lg bg-muted px-3 py-2.5 text-body placeholder:text-muted-foreground disabled:opacity-50"
           aria-label="Mensaje para la IA"
         />
         {isStreaming ? (

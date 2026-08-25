@@ -266,17 +266,21 @@ function LayerRow({
           hidden && "opacity-50"
         )}
       >
-        <span
-          {...attributes}
-          {...listeners}
-          aria-label={node.sortable ? `Reordenar ${label}` : undefined}
-          className={cn(
-            "flex h-full w-5 shrink-0 items-center justify-center text-muted-foreground",
-            node.sortable ? "cursor-grab active:cursor-grabbing" : "opacity-0"
-          )}
-        >
-          <GripVertical className="h-4 w-4" aria-hidden />
-        </span>
+        {/* A group's members ride with the group, so their handle is only a
+            spacer. Spreading dnd-kit's attributes on it anyway left an
+            invisible, focusable button in every nested row's tab order. */}
+        {node.sortable ? (
+          <span
+            {...attributes}
+            {...listeners}
+            aria-label={`Reordenar ${label}`}
+            className="flex h-full w-5 shrink-0 cursor-grab items-center justify-center text-muted-foreground active:cursor-grabbing"
+          >
+            <GripVertical className="h-4 w-4" aria-hidden />
+          </span>
+        ) : (
+          <span aria-hidden className="w-5 shrink-0" />
+        )}
 
         {group ? (
           <button

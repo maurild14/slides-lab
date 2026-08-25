@@ -47,7 +47,11 @@ export function Field({
   if (inline) {
     return (
       <div className={cn("grid grid-cols-[5.5rem_1fr] items-center gap-3", className)}>
-        <label htmlFor={id} className="text-label text-muted-foreground">
+        <label
+          htmlFor={id}
+          title={label}
+          className="truncate text-label text-muted-foreground"
+        >
           {label}
         </label>
         {control}

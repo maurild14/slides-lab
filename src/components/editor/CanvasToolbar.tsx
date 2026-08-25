@@ -2,27 +2,12 @@
 
 import { useState } from "react";
 import {
-  AlignCenterHorizontal,
-  AlignCenterVertical,
-  AlignEndHorizontal,
-  AlignEndVertical,
-  AlignStartHorizontal,
-  AlignStartVertical,
-  ArrowDownToLine,
-  ArrowUpToLine,
   ChevronDown,
-  Copy,
-  Group,
   Keyboard,
-  Layers,
-  Lock,
   Maximize,
   Minus,
   Plus,
   Redo2,
-  Trash2,
-  Ungroup,
-  Unlock,
   Undo2,
 } from "lucide-react";
 import { Button, IconButton } from "@/components/ui/button";
@@ -31,16 +16,22 @@ import {
   Menu,
   MenuContent,
   MenuItem,
-  MenuLabel,
   MenuSeparator,
   MenuShortcut,
   MenuTrigger,
 } from "@/components/ui/menu";
 import { MAX_ZOOM, MIN_ZOOM } from "@/lib/canvas-utils";
-import type { CanvasCommands } from "./canvas-commands";
 
 const ZOOM_PRESETS = [0.5, 1, 2, 4];
 
+/**
+ * What is true of the whole canvas: history, zoom, and the shortcut sheet.
+ *
+ * Nothing here depends on the selection. Alinear, capa, agrupar, bloquear,
+ * duplicar and eliminar used to live here *as well as* in the contextual row
+ * right below — the same trash icon twice, 40px apart — and their appearing
+ * shoved the rest of this row sideways on every click.
+ */
 interface CanvasToolbarProps {
   scale: number;
   onZoomTo: (scale: number) => void;
@@ -50,10 +41,7 @@ interface CanvasToolbarProps {
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
-  commands: CanvasCommands;
   saving: boolean;
-  /** False while the AI is rewriting this slide. */
-  enabled: boolean;
 }
 
 export function CanvasToolbar({
@@ -65,13 +53,9 @@ export function CanvasToolbar({
   canRedo,
   onUndo,
   onRedo,
-  commands,
   saving,
-  enabled,
 }: CanvasToolbarProps) {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const hasSelection = commands.count > 0 && enabled;
-
 
   return (
     <div className="flex items-center gap-1">
@@ -139,139 +123,6 @@ export function CanvasToolbar({
       <IconButton label="Ajustar a la pantalla (Ctrl 0)" size="sm" onClick={onFit}>
         <Maximize className="h-4 w-4" aria-hidden />
       </IconButton>
-
-      {hasSelection && (
-        <>
-          <Divider />
-
-          <Menu>
-            <MenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-1.5">
-                <AlignCenterHorizontal className="h-4 w-4" aria-hidden />
-                Alinear
-                <ChevronDown className="h-3.5 w-3.5 opacity-60" aria-hidden />
-              </Button>
-            </MenuTrigger>
-            <MenuContent align="start">
-              <MenuLabel>
-                {commands.count === 1 ? "Respecto del slide" : "Respecto de la selección"}
-              </MenuLabel>
-              <MenuItem onSelect={() => commands.align("left")}>
-                <AlignStartVertical className="h-4 w-4" aria-hidden />
-                Izquierda
-              </MenuItem>
-              <MenuItem onSelect={() => commands.align("center-h")}>
-                <AlignCenterVertical className="h-4 w-4" aria-hidden />
-                Centro horizontal
-              </MenuItem>
-              <MenuItem onSelect={() => commands.align("right")}>
-                <AlignEndVertical className="h-4 w-4" aria-hidden />
-                Derecha
-              </MenuItem>
-              <MenuSeparator />
-              <MenuItem onSelect={() => commands.align("top")}>
-                <AlignStartHorizontal className="h-4 w-4" aria-hidden />
-                Arriba
-              </MenuItem>
-              <MenuItem onSelect={() => commands.align("center-v")}>
-                <AlignCenterHorizontal className="h-4 w-4" aria-hidden />
-                Centro vertical
-              </MenuItem>
-              <MenuItem onSelect={() => commands.align("bottom")}>
-                <AlignEndHorizontal className="h-4 w-4" aria-hidden />
-                Abajo
-              </MenuItem>
-              <MenuSeparator />
-              <MenuItem
-                onSelect={() => commands.distribute("x")}
-                disabled={!commands.canDistribute}
-              >
-                Distribuir en horizontal
-              </MenuItem>
-              <MenuItem
-                onSelect={() => commands.distribute("y")}
-                disabled={!commands.canDistribute}
-              >
-                Distribuir en vertical
-              </MenuItem>
-            </MenuContent>
-          </Menu>
-
-          <Menu>
-            <MenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-1.5">
-                <Layers className="h-4 w-4" aria-hidden />
-                Capa
-                <ChevronDown className="h-3.5 w-3.5 opacity-60" aria-hidden />
-              </Button>
-            </MenuTrigger>
-            <MenuContent align="start">
-              <MenuItem onSelect={() => commands.order("front")}>
-                <ArrowUpToLine className="h-4 w-4" aria-hidden />
-                Traer al frente
-                <MenuShortcut>Ctrl ⇧ ]</MenuShortcut>
-              </MenuItem>
-              <MenuItem onSelect={() => commands.order("forward")}>
-                Traer adelante
-                <MenuShortcut>Ctrl ]</MenuShortcut>
-              </MenuItem>
-              <MenuItem onSelect={() => commands.order("backward")}>
-                Enviar atrás
-                <MenuShortcut>Ctrl [</MenuShortcut>
-              </MenuItem>
-              <MenuItem onSelect={() => commands.order("back")}>
-                <ArrowDownToLine className="h-4 w-4" aria-hidden />
-                Enviar al fondo
-                <MenuShortcut>Ctrl ⇧ [</MenuShortcut>
-              </MenuItem>
-            </MenuContent>
-          </Menu>
-
-          {commands.canGroup && (
-            <IconButton label="Agrupar (Ctrl G)" size="sm" onClick={commands.group}>
-              <Group className="h-4 w-4" aria-hidden />
-            </IconButton>
-          )}
-          {commands.canUngroup && (
-            <IconButton
-              label="Desagrupar (Ctrl ⇧ G)"
-              size="sm"
-              onClick={commands.ungroup}
-            >
-              <Ungroup className="h-4 w-4" aria-hidden />
-            </IconButton>
-          )}
-          <IconButton
-            label={commands.locked ? "Desbloquear (Ctrl L)" : "Bloquear (Ctrl L)"}
-            size="sm"
-            active={commands.locked}
-            onClick={commands.toggleLock}
-          >
-            {commands.locked ? (
-              <Lock className="h-4 w-4" aria-hidden />
-            ) : (
-              <Unlock className="h-4 w-4" aria-hidden />
-            )}
-          </IconButton>
-          <IconButton
-            label="Duplicar (Ctrl D)"
-            size="sm"
-            onClick={commands.duplicate}
-            disabled={commands.locked}
-          >
-            <Copy className="h-4 w-4" aria-hidden />
-          </IconButton>
-          <IconButton
-            label="Eliminar (Supr)"
-            size="sm"
-            onClick={commands.remove}
-            disabled={commands.locked}
-            className="hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" aria-hidden />
-          </IconButton>
-        </>
-      )}
 
       <Divider />
 

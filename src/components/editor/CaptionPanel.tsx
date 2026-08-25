@@ -1,107 +1,99 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Check, ChevronDown, ChevronUp, Hash, MessageSquare } from "lucide-react";
+import { Copy, Check, ChevronDown, Hash, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface CaptionPanelProps {
   caption?: string;
   hashtags?: string[];
 }
 
+type Slot = "caption" | "hashtags";
+
 export function CaptionPanel({ caption, hashtags }: CaptionPanelProps) {
   const [expanded, setExpanded] = useState(false);
-  const [copiedCaption, setCopiedCaption] = useState(false);
-  const [copiedHashtags, setCopiedHashtags] = useState(false);
+  const [copied, setCopied] = useState<Slot | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const hasContent = (caption && caption.trim()) || (hashtags && hashtags.length > 0);
+  const hasCaption = Boolean(caption && caption.trim());
+  const hasHashtags = Boolean(hashtags && hashtags.length > 0);
+  if (!hasCaption && !hasHashtags) return null;
 
-  if (!hasContent) return null;
-
-  const handleCopy = async (text: string, type: "caption" | "hashtags") => {
-    await navigator.clipboard.writeText(text);
-    if (type === "caption") {
-      setCopiedCaption(true);
-      setTimeout(() => setCopiedCaption(false), 2000);
-    } else {
-      setCopiedHashtags(true);
-      setTimeout(() => setCopiedHashtags(false), 2000);
+  // The clipboard rejects on a denied permission or an insecure origin, and a
+  // copy button that silently does nothing is the worst kind of broken.
+  const handleCopy = async (text: string, slot: Slot) => {
+    setError(null);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(slot);
+      setTimeout(() => setCopied(null), 2000);
+    } catch {
+      setError("El navegador no dejó copiar. Seleccioná el texto y usá Ctrl C.");
     }
   };
 
   return (
-    <div className="border-t border-border bg-surface">
+    <div className="shrink-0 border-t border-border bg-surface">
       <button
+        type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-4 py-2 text-label font-medium text-muted-foreground hover:text-foreground transition-colors"
+        aria-expanded={expanded}
+        className="oc-focus flex w-full cursor-pointer items-center justify-between px-4 py-2 text-label font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
         <span className="flex items-center gap-1.5">
-          <MessageSquare className="h-3 w-3" />
-          Caption & Hashtags
+          <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+          Texto y hashtags
         </span>
-        {expanded ? (
-          <ChevronDown className="h-3 w-3" />
-        ) : (
-          <ChevronUp className="h-3 w-3" />
-        )}
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 transition-transform duration-200",
+            expanded ? "rotate-180" : "rotate-0"
+          )}
+          aria-hidden
+        />
       </button>
 
       {expanded && (
-        <div className="px-4 pb-3 space-y-3">
-          {caption && caption.trim() && (
+        <div className="space-y-3 px-4 pb-3">
+          {hasCaption && (
             <div>
-              <div className="flex items-center justify-between mb-1">
+              <div className="mb-1 flex items-center justify-between">
                 <span className="text-micro font-medium text-muted-foreground">
-                  Caption
+                  Texto del posteo
                 </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-5 text-micro gap-1 px-1.5"
-                  onClick={() => handleCopy(caption, "caption")}
-                >
-                  {copiedCaption ? (
-                    <Check className="h-2.5 w-2.5 text-green-500" />
-                  ) : (
-                    <Copy className="h-2.5 w-2.5" />
-                  )}
-                  {copiedCaption ? "Copied" : "Copy"}
-                </Button>
+                <CopyButton
+                  done={copied === "caption"}
+                  onClick={() => handleCopy(caption!, "caption")}
+                />
               </div>
-              <p className="text-label text-foreground bg-muted rounded-md p-2 whitespace-pre-wrap">
+              <p className="whitespace-pre-wrap rounded-md bg-muted p-2 text-label text-foreground">
                 {caption}
               </p>
             </div>
           )}
 
-          {hashtags && hashtags.length > 0 && (
+          {hasHashtags && (
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-micro font-medium text-muted-foreground flex items-center gap-1">
-                  <Hash className="h-2.5 w-2.5" />
-                  Hashtags ({hashtags.length})
+              <div className="mb-1 flex items-center justify-between">
+                <span className="flex items-center gap-1 text-micro font-medium text-muted-foreground">
+                  <Hash className="h-3 w-3" aria-hidden />
+                  Hashtags ({hashtags!.length})
                 </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-5 text-micro gap-1 px-1.5"
+                <CopyButton
+                  done={copied === "hashtags"}
+                  label="Copiar todos"
                   onClick={() =>
-                    handleCopy(hashtags.map((h) => `#${h}`).join(" "), "hashtags")
+                    handleCopy(hashtags!.map((h) => `#${h}`).join(" "), "hashtags")
                   }
-                >
-                  {copiedHashtags ? (
-                    <Check className="h-2.5 w-2.5 text-green-500" />
-                  ) : (
-                    <Copy className="h-2.5 w-2.5" />
-                  )}
-                  {copiedHashtags ? "Copied" : "Copy All"}
-                </Button>
+                />
               </div>
               <div className="flex flex-wrap gap-1">
-                {hashtags.map((tag) => (
+                {hashtags!.map((tag) => (
                   <span
                     key={tag}
-                    className="text-micro bg-accent/10 text-accent rounded-full px-2 py-0.5"
+                    className="rounded-full bg-accent-soft px-2 py-0.5 text-micro text-accent"
                   >
                     #{tag}
                   </span>
@@ -109,8 +101,35 @@ export function CaptionPanel({ caption, hashtags }: CaptionPanelProps) {
               </div>
             </div>
           )}
+
+          {error && (
+            <p role="alert" className="text-micro text-destructive">
+              {error}
+            </p>
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+function CopyButton({
+  done,
+  label = "Copiar",
+  onClick,
+}: {
+  done: boolean;
+  label?: string;
+  onClick: () => void;
+}) {
+  return (
+    <Button variant="ghost" size="sm" className="gap-1.5 px-2" onClick={onClick}>
+      {done ? (
+        <Check className="h-3.5 w-3.5" aria-hidden />
+      ) : (
+        <Copy className="h-3.5 w-3.5" aria-hidden />
+      )}
+      {done ? "Copiado" : label}
+    </Button>
   );
 }

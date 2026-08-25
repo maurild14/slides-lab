@@ -83,7 +83,7 @@ export function ImageSections({ props: p, api, onUpload, focus }: Props) {
             onChange={(e) =>
               mutate((el) => ((el as HTMLImageElement).alt = e.target.value))
             }
-            className="h-control-sm w-full rounded-md border border-border bg-surface px-2 text-label outline-none focus:ring-2 focus:ring-ring"
+            className="h-control-sm w-full rounded-md border border-border bg-surface px-2 text-label oc-focus"
           />
         </Row>
       </Section>

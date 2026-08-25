@@ -21,7 +21,7 @@ const PopoverContent = React.forwardRef<
       collisionPadding={8}
       data-oc-pop=""
       className={cn(
-        "z-(--z-popover) rounded-lg border border-border bg-surface p-3 text-body text-foreground shadow-float outline-none",
+        "z-(--z-popover) max-h-(--radix-popper-available-height) overflow-y-auto overscroll-contain rounded-lg border border-border bg-surface p-3 text-body text-foreground shadow-float outline-none",
         className
       )}
       {...props}

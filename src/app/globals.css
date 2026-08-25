@@ -264,8 +264,12 @@ body {
   animation: oc-slide-in 240ms var(--ease-out-strong);
 }
 
-/* Press feedback baseline — buttons use this via utility */
-.oc-press {
+/* Press feedback baseline — buttons use this via utility.
+   `oc-field` is the same transition without the press: a text field that
+   shrinks while you click into it (or while you drag to select, or while you
+   scrub a number) reads as broken, not as tactile. */
+.oc-press,
+.oc-field {
   transition: transform 160ms var(--ease-out-strong),
               background-color 160ms ease,
               border-color 160ms ease,

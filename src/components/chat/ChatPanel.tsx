@@ -5,6 +5,7 @@ import { ChatMessage } from "./ChatMessage";
 import { ChatInput, type ChatAttachment } from "./ChatInput";
 import { ReferenceImages } from "./ReferenceImages";
 import { EngineSelector } from "./EngineSelector";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AlertCircle, Plug } from "lucide-react";
 import type { ChatMessage as Message, ReferenceImage } from "@/types/carousel";
 import type { EngineId, EngineStatus } from "@/lib/agents";
@@ -54,6 +55,7 @@ export function ChatPanel({
   const [status, setStatus] = useState<string | null>(null);
   const [engine, setEngine] = useState<EngineId>("claude");
   const [error, setError] = useState<string | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -197,7 +199,8 @@ ${message}`
         if (!response.ok) {
           const err = await response.json().catch(() => ({}));
           throw new Error(
-            (err as { error?: string }).error || "Failed to connect to AI"
+            (err as { error?: string }).error ||
+              "No se pudo conectar con el motor de IA."
           );
         }
 
@@ -317,12 +320,12 @@ ${message}`
             </li>
           ))}
         </ul>
-        <div className="flex gap-3 mt-4 text-label">
+        <div className="mt-4 flex gap-3 text-label">
           <a
             href="https://docs.anthropic.com/en/docs/claude-code"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-accent underline"
+            className="oc-focus rounded text-accent underline underline-offset-4"
           >
             Instalar Claude
           </a>
@@ -330,7 +333,7 @@ ${message}`
             href="https://developers.openai.com/codex/cli"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-accent underline"
+            className="oc-focus rounded text-accent underline underline-offset-4"
           >
             Instalar Codex
           </a>
@@ -339,8 +342,30 @@ ${message}`
     );
   }
 
+  // Clearing throws away the conversation *and* the engine's session, and
+  // there is no undo for either — so it asks first.
+  const clearButton = messages.length > 0 && (
+    <button
+      type="button"
+      onClick={() => setConfirmClear(true)}
+      className="oc-focus cursor-pointer rounded px-1.5 py-0.5 text-micro text-muted-foreground transition-colors hover:text-destructive"
+    >
+      Limpiar la conversación
+    </button>
+  );
+
   return (
     <div className="h-full flex flex-col">
+      <ConfirmDialog
+        open={confirmClear}
+        onOpenChange={setConfirmClear}
+        title="¿Limpiar la conversación?"
+        description="Se borra el historial de este carrusel y la IA arranca sin memoria de lo hablado. Los slides no se tocan."
+        confirmLabel="Limpiar"
+        variant="destructive"
+        onConfirm={handleClearChat}
+      />
+
       <div className="px-4 py-3 border-b border-border">
         {!embedded && (
           <div className="flex items-start justify-between">
@@ -350,24 +375,10 @@ ${message}`
                 Contale qué carrusel querés armar
               </p>
             </div>
-            {messages.length > 0 && (
-              <button
-                onClick={handleClearChat}
-                className="oc-focus cursor-pointer rounded px-1.5 py-0.5 text-micro text-muted-foreground transition-colors hover:text-destructive"
-              >
-                Limpiar
-              </button>
-            )}
+            {clearButton}
           </div>
         )}
-        {embedded && messages.length > 0 && (
-          <button
-            onClick={handleClearChat}
-            className="oc-focus mb-2 cursor-pointer rounded px-1.5 py-0.5 text-micro text-muted-foreground transition-colors hover:text-destructive"
-          >
-            Limpiar la conversación
-          </button>
-        )}
+        {embedded && <div className="mb-2 empty:mb-0">{clearButton}</div>}
         <EngineSelector
           engines={engines}
           value={engine}
@@ -405,9 +416,12 @@ ${message}`
           />
         ))}
         {error && (
-          <div className="mx-4 my-2 flex items-center gap-2 text-destructive text-label bg-destructive/10 rounded-lg p-3">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            {error}
+          <div
+            role="alert"
+            className="mx-4 my-2 flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-label text-destructive"
+          >
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            <span className="min-w-0 break-words">{error}</span>
           </div>
         )}
       </div>

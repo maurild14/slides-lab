@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Copy, Plus, Trash2, Undo2, GripVertical, Sparkles } from "lucide-react";
 import {
   DndContext,
@@ -77,9 +78,21 @@ function SortableSlideThumb({
     zIndex: isDragging ? 10 : 0,
   };
 
+  // Follow the selection. The agent appends slides and the arrows walk past
+  // ten of them; without this the active thumb sat off the end of the strip.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (isActive) {
+      rootRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+  }, [isActive]);
+
   return (
     <div
-      ref={setNodeRef}
+      ref={(el) => {
+        setNodeRef(el);
+        rootRef.current = el;
+      }}
       style={style}
       className={cn("oc-enter-pop relative group shrink-0", isDragging && "!opacity-50")}
     >
@@ -121,12 +134,12 @@ function SortableSlideThumb({
 
       {/* Always present, never hover-only: an action you cannot see is an
           action that does not exist. Hover and focus only raise the contrast. */}
-      <div className="absolute -right-1.5 -top-1.5 flex gap-1 opacity-70 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+      <div className="absolute -right-1.5 -top-1.5 flex gap-1.5 opacity-70 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
         {onDuplicate && (
           <Button
             variant="outline"
             size="icon-sm"
-            className="oc-hit h-6 w-6 rounded-full p-0 shadow-raised"
+            className="h-7 w-7 rounded-full p-0 shadow-raised"
             onClick={(e) => {
               e.stopPropagation();
               onDuplicate();
@@ -134,14 +147,14 @@ function SortableSlideThumb({
             aria-label={`Duplicar el slide ${index + 1}`}
             title="Duplicar el slide"
           >
-            <Copy className="h-3 w-3" aria-hidden />
+            <Copy className="h-3.5 w-3.5" aria-hidden />
           </Button>
         )}
         {onUndo && slide.previousVersions.length > 0 && (
           <Button
             variant="outline"
             size="icon-sm"
-            className="oc-hit h-6 w-6 rounded-full p-0 shadow-raised"
+            className="h-7 w-7 rounded-full p-0 shadow-raised"
             onClick={(e) => {
               e.stopPropagation();
               onUndo();
@@ -149,14 +162,14 @@ function SortableSlideThumb({
             aria-label={`Volver a la versión anterior del slide ${index + 1}`}
             title="Volver a la versión anterior"
           >
-            <Undo2 className="h-3 w-3" aria-hidden />
+            <Undo2 className="h-3.5 w-3.5" aria-hidden />
           </Button>
         )}
         {onDelete && (
           <Button
             variant="outline"
             size="icon-sm"
-            className="oc-hit h-6 w-6 rounded-full p-0 text-destructive shadow-raised hover:text-destructive"
+            className="h-7 w-7 rounded-full p-0 text-destructive shadow-raised hover:text-destructive"
             onClick={(e) => {
               e.stopPropagation();
               onDelete();
@@ -164,7 +177,7 @@ function SortableSlideThumb({
             aria-label={`Eliminar el slide ${index + 1}`}
             title="Eliminar el slide"
           >
-            <Trash2 className="h-3 w-3" aria-hidden />
+            <Trash2 className="h-3.5 w-3.5" aria-hidden />
           </Button>
         )}
       </div>

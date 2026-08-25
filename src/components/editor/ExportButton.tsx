@@ -62,15 +62,20 @@ export function ExportButton({
         throw new Error(data?.error ?? "No se pudo exportar");
       }
 
+      // The filename the server chose travels in Content-Disposition — and it
+      // has to be read off the response here, because a blob: URL carries no
+      // headers. Leaving `download` empty saved every export as "download".
+      const named = /filename="?([^";]+)"?/i.exec(
+        response.headers.get("Content-Disposition") ?? ""
+      );
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      // The filename the server chose travels in Content-Disposition; leaving
-      // `download` empty lets the browser use it instead of a generic name.
-      a.download = "";
+      a.download = named?.[1] ?? `carrusel.${format === "pdf" ? "pdf" : "zip"}`;
       a.click();
-      URL.revokeObjectURL(url);
+      // Revoking in the same tick cancels the download in some browsers.
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
       setDone(true);
       setTimeout(() => setDone(false), 3000);
     } catch (err) {
@@ -91,70 +96,78 @@ export function ExportButton({
         </span>
       )}
 
-      {/* The common case is one click; the menu is for the other three
-          formats and the single slide. */}
-      <Button onClick={() => run("png")} disabled={disabled} variant="accent" size="sm">
-        <span
-          key={exporting ? "exporting" : done ? "done" : "idle"}
-          className="oc-enter-pop inline-flex items-center gap-2"
+      {/* One split control, not two loose pills: the common case is one click,
+          and the chevron is the same action with options. */}
+      <div className="flex items-center">
+        <Button
+          onClick={() => run("png")}
+          disabled={disabled}
+          variant="accent"
+          size="sm"
+          className="rounded-r-none"
         >
-          {exporting ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              Exportando…
-            </>
-          ) : done ? (
-            <>
-              <Check className="h-4 w-4" aria-hidden />
-              Listo
-            </>
-          ) : (
-            <>
-              <Download className="h-4 w-4" aria-hidden />
-              Exportar PNG
-            </>
-          )}
-        </span>
-      </Button>
-
-      <Menu>
-        <MenuTrigger asChild>
-          <Button
-            variant="accent"
-            size="sm"
-            disabled={disabled}
-            aria-label="Elegir el formato de exportación"
-            className="px-2"
+          <span
+            key={exporting ? "exporting" : done ? "done" : "idle"}
+            className="oc-enter-pop inline-flex items-center gap-2"
           >
-            <ChevronDown className="h-4 w-4" aria-hidden />
-          </Button>
-        </MenuTrigger>
-        <MenuContent align="end">
-          <MenuLabel>Todo el carrusel ({slideCount})</MenuLabel>
-          {(["png", "jpg", "png-transparent", "pdf"] as Format[]).map((f) => (
-            <MenuItem key={f} onSelect={() => run(f)}>
-              {LABELS[f]}
-              {f !== "pdf" && slideCount > 1 && (
-                <span className="ml-auto pl-4 text-micro text-muted-foreground">ZIP</span>
-              )}
-            </MenuItem>
-          ))}
+            {exporting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                Exportando…
+              </>
+            ) : done ? (
+              <>
+                <Check className="h-4 w-4" aria-hidden />
+                Listo
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4" aria-hidden />
+                Exportar PNG
+              </>
+            )}
+          </span>
+        </Button>
 
-          {activeSlideId && (
-            <>
-              <MenuSeparator />
-              <MenuLabel>
-                Solo el slide {activeSlideNumber ?? ""}
-              </MenuLabel>
-              {(["png", "jpg", "png-transparent"] as Format[]).map((f) => (
-                <MenuItem key={f} onSelect={() => run(f, activeSlideId)}>
-                  {LABELS[f]}
-                </MenuItem>
-              ))}
-            </>
-          )}
-        </MenuContent>
-      </Menu>
+        <Menu>
+          <MenuTrigger asChild>
+            <Button
+              variant="accent"
+              size="sm"
+              disabled={disabled}
+              aria-label="Elegir el formato de exportación"
+              className="ml-px rounded-l-none px-2"
+            >
+              <ChevronDown className="h-4 w-4" aria-hidden />
+            </Button>
+          </MenuTrigger>
+          <MenuContent align="end">
+            <MenuLabel>Todo el carrusel ({slideCount})</MenuLabel>
+            {(["png", "jpg", "png-transparent", "pdf"] as Format[]).map((f) => (
+              <MenuItem key={f} onSelect={() => run(f)}>
+                {LABELS[f]}
+                {f !== "pdf" && slideCount > 1 && (
+                  <span className="ml-auto pl-4 text-micro text-muted-foreground">ZIP</span>
+                )}
+              </MenuItem>
+            ))}
+
+            {activeSlideId && (
+              <>
+                <MenuSeparator />
+                <MenuLabel>
+                  Solo el slide {activeSlideNumber ?? ""}
+                </MenuLabel>
+                {(["png", "jpg", "png-transparent"] as Format[]).map((f) => (
+                  <MenuItem key={f} onSelect={() => run(f, activeSlideId)}>
+                    {LABELS[f]}
+                  </MenuItem>
+                ))}
+              </>
+            )}
+          </MenuContent>
+        </Menu>
+      </div>
     </div>
   );
 }

@@ -121,7 +121,7 @@ export function ColorField({ value, onChange, placeholder }: ColorFieldProps) {
   };
 
   return (
-    <div className="flex items-center gap-1.5 h-control-sm rounded-md border border-border bg-surface focus-within:ring-2 focus-within:ring-ring px-1.5">
+    <div className="flex items-center gap-1.5 h-control-sm rounded-md border border-border bg-surface has-[:focus-visible]:shadow-[0_0_0_2px_var(--surface),0_0_0_4px_var(--ring)] px-1.5">
       <button
         type="button"
         onClick={() => pickerRef.current?.click()}
@@ -197,7 +197,7 @@ export function NumberField({
   };
 
   return (
-    <div className="flex items-center gap-1.5 h-control-sm rounded-md border border-border bg-surface focus-within:ring-2 focus-within:ring-ring px-2">
+    <div className="flex items-center gap-1.5 h-control-sm rounded-md border border-border bg-surface has-[:focus-visible]:shadow-[0_0_0_2px_var(--surface),0_0_0_4px_var(--ring)] px-2">
       <input
         type="number"
         value={local}
@@ -236,7 +236,7 @@ export function SelectField({ value, onChange, options }: SelectFieldProps) {
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="h-control-sm w-full rounded-md border border-border bg-surface px-2 text-label outline-none focus:ring-2 focus:ring-ring"
+      className="h-control-sm w-full rounded-md border border-border bg-surface px-2 text-label oc-focus"
     >
       {options.map((o) => (
         <option key={o.value} value={o.value}>
@@ -270,7 +270,7 @@ export function TextAreaField({
       onChange={(e) => onChange(e.target.value)}
       rows={rows}
       placeholder={placeholder}
-      className="w-full resize-none rounded-md border border-border bg-surface px-2 py-1.5 text-label leading-relaxed outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
+      className="w-full resize-none rounded-md border border-border bg-surface px-2 py-1.5 text-label leading-relaxed oc-focus placeholder:text-muted-foreground"
     />
   );
 }

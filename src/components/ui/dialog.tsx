@@ -43,7 +43,10 @@ export function DialogShell({
         <Dialog.Content
           data-oc-dialog
           className={cn(
-            "fixed left-1/2 top-1/2 z-(--z-modal) w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-surface p-6 shadow-modal",
+            // Capped and scrollable: centred on the viewport, a dialog taller
+            // than the window loses its top edge off screen, and with it the
+            // title and the close button.
+            "fixed left-1/2 top-1/2 z-(--z-modal) max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border bg-surface p-6 shadow-modal",
             className
           )}
         >

@@ -34,10 +34,10 @@ export function EngineSelector({
           onChange={(e) => onChange(e.target.value as EngineId)}
           aria-label="Motor de IA"
           className={cn(
-            "h-control appearance-none rounded-md border border-border bg-surface",
+            "oc-focus h-control appearance-none rounded-md border border-border bg-surface",
             "pl-2 pr-6 text-label font-medium cursor-pointer",
             "transition-colors duration-150",
-            "hover:border-foreground/20 focus:outline-none focus:ring-2 focus:ring-ring",
+            "hover:border-foreground/20",
             "disabled:cursor-not-allowed disabled:opacity-50",
             unavailable && "border-destructive/50 text-destructive"
           )}

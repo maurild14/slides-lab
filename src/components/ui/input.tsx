@@ -9,7 +9,7 @@ const Input = React.forwardRef<
     <input
       type={type}
       className={cn(
-        "oc-focus oc-press flex h-control w-full rounded-md border border-border bg-surface px-3 text-body text-foreground placeholder:text-muted-foreground hover:border-muted-foreground/40 disabled:cursor-not-allowed disabled:opacity-50",
+        "oc-focus oc-field flex h-control w-full rounded-md border border-border bg-surface px-3 text-body text-foreground placeholder:text-muted-foreground hover:border-muted-foreground/40 disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
       ref={ref}
@@ -26,7 +26,7 @@ const Textarea = React.forwardRef<
   return (
     <textarea
       className={cn(
-        "oc-focus oc-press flex w-full resize-none rounded-md border border-border bg-surface px-3 py-2 text-body leading-relaxed text-foreground placeholder:text-muted-foreground hover:border-muted-foreground/40 disabled:cursor-not-allowed disabled:opacity-50",
+        "oc-focus oc-field flex w-full resize-none rounded-md border border-border bg-surface px-3 py-2 text-body leading-relaxed text-foreground placeholder:text-muted-foreground hover:border-muted-foreground/40 disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
       ref={ref}

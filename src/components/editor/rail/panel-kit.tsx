@@ -101,7 +101,7 @@ export function SearchInput({
   label: string;
 }) {
   return (
-    <div className="oc-press flex h-control items-center gap-2 rounded-md border border-border bg-surface pl-3 pr-1 hover:border-muted-foreground/40 has-[:focus-visible]:shadow-[0_0_0_2px_var(--surface),0_0_0_4px_var(--ring)]">
+    <div className="oc-field flex h-control items-center gap-2 rounded-md border border-border bg-surface pl-3 pr-1 hover:border-muted-foreground/40 has-[:focus-visible]:shadow-[0_0_0_2px_var(--surface),0_0_0_4px_var(--ring)]">
       <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
       <input
         type="search"

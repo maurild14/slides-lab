@@ -70,7 +70,7 @@ export function TextSections({ props: p, api, accent, swatches, focus }: Props) 
             onChange={(e) => setStyle({ "font-family": `"${e.target.value}"` })}
             placeholder="Inter"
             aria-label="Familia tipográfica"
-            className="h-control-sm w-full rounded-md border border-border bg-surface px-2 text-label outline-none focus:ring-2 focus:ring-ring"
+            className="h-control-sm w-full rounded-md border border-border bg-surface px-2 text-label oc-focus"
           />
         </Row>
         <Row label="Tamaño">

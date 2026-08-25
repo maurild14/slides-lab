@@ -3,8 +3,9 @@
 import { useEffect, useCallback } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/button";
 import { SlideRenderer } from "./SlideRenderer";
+import { cn } from "@/lib/utils";
 import type { Slide, AspectRatio } from "@/types/carousel";
 
 interface FullscreenPreviewProps {
@@ -15,6 +16,11 @@ interface FullscreenPreviewProps {
   activeIndex: number;
   onActiveChange: (index: number) => void;
 }
+
+/** Light-on-dark chrome: the whole overlay is black, so the app's surface
+ *  tokens would read as blocks of white sitting on the slide. */
+const CHROME =
+  "border-white/15 bg-white/10 text-white shadow-none hover:bg-white/20 hover:text-white disabled:opacity-30";
 
 export function FullscreenPreview({
   open,
@@ -46,30 +52,42 @@ export function FullscreenPreview({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay data-oc-overlay className="fixed inset-0 z-50 bg-black/90" />
-        <Dialog.Content data-oc-fade-scale className="fixed inset-0 z-50 flex items-center justify-center p-8">
+        <Dialog.Overlay
+          data-oc-overlay
+          className="fixed inset-0 z-(--z-modal) bg-black/90"
+        />
+        <Dialog.Content
+          data-oc-fade-scale
+          className="fixed inset-0 z-(--z-modal) flex items-center justify-center p-8"
+        >
+          <Dialog.Title className="sr-only">Vista a pantalla completa</Dialog.Title>
+          <Dialog.Description className="sr-only">
+            Slide {activeIndex + 1} de {slides.length}. Usá las flechas para
+            moverte y Escape para salir.
+          </Dialog.Description>
+
           <Dialog.Close asChild>
-            <button
-              className="absolute top-4 right-4 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors z-10"
-              aria-label="Salir de pantalla completa"
+            <IconButton
+              label="Salir de pantalla completa"
+              size="lg"
+              variant="outline"
+              className={cn("absolute right-4 top-4 z-10 rounded-full", CHROME)}
             >
-              <X className="h-5 w-5" />
-            </button>
+              <X className="h-5 w-5" aria-hidden />
+            </IconButton>
           </Dialog.Close>
 
-          {/* Prev */}
-          <Button
-            variant="ghost"
-            size="icon"
+          <IconButton
+            label="Slide anterior"
+            size="lg"
+            variant="outline"
             onClick={() => onActiveChange(activeIndex - 1)}
             disabled={activeIndex <= 0}
-            className="absolute left-4 z-10 text-white bg-white/10 hover:bg-white/20 disabled:opacity-30 h-12 w-12"
-            aria-label="Slide anterior"
+            className={cn("absolute left-4 z-10 rounded-full", CHROME)}
           >
-            <ChevronLeft className="h-6 w-6" />
-          </Button>
+            <ChevronLeft className="h-5 w-5" aria-hidden />
+          </IconButton>
 
-          {/* Slide */}
           {slide && (
             <SlideRenderer
               html={slide.html}
@@ -78,41 +96,37 @@ export function FullscreenPreview({
             />
           )}
 
-          {/* Next */}
-          <Button
-            variant="ghost"
-            size="icon"
+          <IconButton
+            label="Slide siguiente"
+            size="lg"
+            variant="outline"
             onClick={() => onActiveChange(activeIndex + 1)}
             disabled={activeIndex >= slides.length - 1}
-            className="absolute right-4 z-10 text-white bg-white/10 hover:bg-white/20 disabled:opacity-30 h-12 w-12"
-            aria-label="Slide siguiente"
+            className={cn("absolute right-4 z-10 rounded-full", CHROME)}
           >
-            <ChevronRight className="h-6 w-6" />
-          </Button>
+            <ChevronRight className="h-5 w-5" aria-hidden />
+          </IconButton>
 
-          {/* Counter */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2">
-            {slides.map((_, i) => (
+          <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-2">
+            {slides.map((s, i) => (
               <button
-                key={i}
+                key={s.id}
+                type="button"
                 onClick={() => onActiveChange(i)}
-                className={`h-2 rounded-full transition-all ${
+                aria-label={`Ir al slide ${i + 1}`}
+                aria-current={i === activeIndex}
+                className={cn(
+                  "oc-focus h-2 cursor-pointer rounded-full transition-[width,background-color] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)]",
                   i === activeIndex
                     ? "w-8 bg-white"
                     : "w-2 bg-white/30 hover:bg-white/50"
-                }`}
-                aria-label={`Go to slide ${i + 1}`}
+                )}
               />
             ))}
-            <span className="text-white/60 text-label ml-2">
+            <span className="ml-2 text-label tabular-nums text-white/60">
               {activeIndex + 1}/{slides.length}
             </span>
           </div>
-
-          <Dialog.Title className="sr-only">Fullscreen Preview</Dialog.Title>
-          <Dialog.Description className="sr-only">
-            Viewing slide {activeIndex + 1} of {slides.length}
-          </Dialog.Description>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
