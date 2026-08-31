@@ -56,6 +56,42 @@ Images always live under /uploads/ — never link a remote URL, the PNG export c
 ${readImagegenPolicy()}`;
 }
 
+// A slide is normally ~3KB. The cap is only there so one pathological slide —
+// a pasted data: URI, a runaway generated blob — cannot push the prompt past
+// what the CLI will accept and take the whole chat down with it.
+const MAX_REFERENCE_SLIDE_CHARS = 8000;
+
+/**
+ * The full HTML of every slide already in the carousel.
+ *
+ * Editing a real slide beats writing one from a description: it is what keeps
+ * slide 6 looking like slide 1. The listing above carries only ids and notes,
+ * which tells the agent a slide exists but nothing about how it was built.
+ */
+function buildExistingSlidesSection(carousel: Carousel): string {
+  if (carousel.slides.length === 0) return "";
+  const blocks = carousel.slides
+    .map((s) => {
+      const html =
+        s.html.length > MAX_REFERENCE_SLIDE_CHARS
+          ? `${s.html.slice(0, MAX_REFERENCE_SLIDE_CHARS)}\n<!-- ...recortado, pedí el slide completo con GET si lo necesitás -->`
+          : s.html;
+      return `### Slide ${s.order + 1} (ID: ${s.id})\n\`\`\`html\n${html}\n\`\`\``;
+    })
+    .join("\n\n");
+
+  return `
+## Existing slides — full HTML
+
+These are the slides as they stand right now, including anything the user moved
+by hand. Treat them as your style reference: when you add a slide, copy the
+structure, the spacing and the type sizes from these instead of inventing a new
+look. When you change one, edit its HTML and keep every element the user
+already has.
+
+${blocks}`;
+}
+
 export function buildSystemPrompt(
   brand: BrandConfig,
   carousel?: Carousel | null,
@@ -80,6 +116,8 @@ Use professional defaults: dark text on white/light backgrounds, Inter font, cle
 - Aspect ratio: ${carousel.aspectRatio} (${DIMENSIONS[carousel.aspectRatio].width}x${DIMENSIONS[carousel.aspectRatio].height}px)
 - Slides: ${carousel.slides.length}/${MAX_SLIDES}
 ${carousel.slides.length > 0 ? carousel.slides.map((s) => `  - Slide ${s.order + 1} (ID: ${s.id})${s.notes ? ` — ${s.notes}` : ""}`).join("\n") : "  (no slides yet)"}
+${carousel.designPlan ? `\n## Design plan already agreed for this carousel\nFollow it. Do not invent a second style — if the user asks for something it does not cover, extend the plan and save it again.\n\n${carousel.designPlan}` : ""}
+${buildExistingSlidesSection(carousel)}
 ${(carousel.referenceImages?.length ?? 0) > 0 ? `\n## Reference images (use Read to view these)\n${carousel.referenceImages.map((r) => `- "${r.name}" → ${r.absPath}`).join("\n")}` : ""}`
     : "";
 
@@ -88,7 +126,7 @@ ${(carousel.referenceImages?.length ?? 0) > 0 ? `\n## Reference images (use Read
 Follow these design rules for ALL slides:
 ${stylePreset.designRules}
 
-${stylePreset.exampleSlideHtml ? `Example slide HTML for reference:\n\`\`\`html\n${stylePreset.exampleSlideHtml.substring(0, 500)}\n\`\`\`` : ""}`
+${stylePreset.exampleSlideHtml ? `Example slide HTML — edit this rather than writing from scratch:\n\`\`\`html\n${stylePreset.exampleSlideHtml.slice(0, MAX_REFERENCE_SLIDE_CHARS)}\n\`\`\`` : ""}`
     : "";
 
   const dimensions = carousel
@@ -113,32 +151,96 @@ ${carouselSection}
 
 ${presetSection}
 
-## AUTONOMOUS MODE — How you work
+## AUTONOMOUS MODE — plan, build, look, fix
 
-### When the user gives you a TOPIC or IDEA:
-1. Immediately start creating slides — don't ask "what do you want?"
-2. Plan a ${Math.min(8, MAX_SLIDES)}-slide narrative arc:
-   - Slide 1: HOOK — provocative question, bold stat, or contrarian statement (max 8 words, huge text)
-   - Slides 2-3: Setup — establish the problem or context
-   - Slides 4-6: Value — one key insight per slide, punchy text
-   - Slide 7: Summary or transformation
-   - Slide 8: CTA — "Follow for more", "Save this", "Share with someone who needs this"
-3. Create each slide via the API, one by one
-4. After all slides are created, offer to generate caption + hashtags
+You are not writing HTML into the void any more. Every slide you create comes
+back **measured and rendered**, and you are expected to act on that before
+handing anything to the user. A slide you never looked at is not finished.
+
+### Step 1 — Decide the design before you write any HTML
+
+Never start with slide 1's markup. First write the plan, in one short block:
+
+- the ${Math.min(8, MAX_SLIDES)}-slide narrative arc:
+  - Slide 1: HOOK — provocative question, bold stat, or contrarian statement (max 8 words, huge text)
+  - Slides 2-3: Setup — establish the problem or context
+  - Slides 4-6: Value — one key insight per slide, punchy text
+  - Slide 7: Summary or transformation
+  - Slide 8: CTA — "Follow for more", "Save this", "Share with someone who needs this"
+- the palette (exact hex values) and the type scale (exact px for heading and body)
+- the layout of each slide in one line, and what varies between them
+
+Then save it, so a later session editing one slide does not invent a second style:
+
+${CURL} -s -X PUT http://localhost:3000/api/carousels/${carousel?.id || "{ID}"} \\
+  -H "Content-Type: application/json" \\
+  -d '{"designPlan": "YOUR PLAN HERE"}'
+
+Show the plan to the user in your reply too — it is the cheapest moment for them
+to correct you. Then keep building without waiting for approval.
+
+If a design plan is already listed above, skip this step and follow it.
+
+### Step 2 — Build one slide at a time, editing rather than inventing
+
+If the carousel already has slides, their full HTML is above. Copy that structure
+and change the content. Writing a slide from scratch when a good one exists is
+how a carousel ends up looking like eight unrelated posts.
+
+### Step 3 — Read what comes back
+
+Creating a slide now responds with two extra fields:
+
+\`\`\`json
+{ "id": "...", "warnings": ["\\"Título\\" se corta: el texto mide 932px de ancho y la caja 920px."],
+  "pngPath": "C:\\\\...\\\\Temp\\\\oc-slide-xxx.png" }
+\`\`\`
+
+- **\`warnings\`** — measured facts, not opinions. An empty array means the geometry
+  is clean. Anything listed is real: fix it, do not argue with it.
+- **\`pngPath\`** — the slide as it actually renders. **Use Read on it.** This is the
+  only way you ever see your own work.
+
+### Step 4 — Judge the image, not just the numbers
+
+The warnings only catch what is broken. Looking at the PNG is how you catch what
+is ugly: text that collides with the artwork, a hierarchy that does not read, a
+title that gets lost against the background, cramped or lopsided spacing. Ask
+yourself whether you would post it. If not, fix it.
+
+### Step 5 — Fix, and check the fix
+
+${CURL} -s -X PUT "http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}/slides/{SLIDE_ID}?audit=1" \\
+  -H "Content-Type: application/json" \\
+  -d '{"html": "CORRECTED_HTML"}'
+
+\`?audit=1\` re-measures and re-renders, so you can confirm the fix landed. Two
+rounds is plenty — if a warning survives two attempts, say so in your reply and
+move on rather than looping.
+
+### Step 6 — Look at the whole carousel before you call it done
+
+${CURL} -s http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}/contact-sheet
+
+It returns \`{"path": "..."}\` — one image with every slide in a grid. **Read it.**
+This is the only view where the problems of the set show up: three slides sharing
+a layout, one that breaks the palette, headings that shrink for no reason, a
+carousel that stops inviting the swipe. Fix what stands out, then offer the
+caption and hashtags.
 
 ### When the user gives you a URL:
 1. Use WebFetch to fetch the page content
 2. Extract the key points, statistics, and narrative
-3. Follow the same slide arc above with the extracted content
+3. Follow the same flow above with the extracted content
 
 ### When the user gives you TEXT/CONTENT:
 1. Extract the key points directly
-2. Create slides from the content
+2. Follow the same flow above
 
 ### When reference images are listed above:
 1. Use Read to view each reference image
 2. Study: colors, typography, spacing, layout patterns, background treatment
-3. Replicate that exact visual style in your slides
+3. Write that style into the design plan in step 1, then replicate it
 4. Mention what you noticed from the reference
 
 ## API — Use ${CURL} for all operations
@@ -154,8 +256,8 @@ ${CURL} -s -X POST http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}
   -H "Content-Type: application/json" \\
   -d '{"html": "YOUR_HTML_HERE", "notes": "description"}'
 
-### Update a slide:
-${CURL} -s -X PUT http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}/slides/{SLIDE_ID} \\
+### Update a slide (add ?audit=1 to re-measure and re-render it):
+${CURL} -s -X PUT "http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}/slides/{SLIDE_ID}?audit=1" \\
   -H "Content-Type: application/json" \\
   -d '{"html": "UPDATED_HTML"}'
 
@@ -176,6 +278,8 @@ ${CURL} -s -X POST http://localhost:3000/api/style-presets \\
 - GET /api/carousels/{id} — get carousel with all slides
 - PUT /api/carousels/{id}/slides — reorder (body: { "slideIds": [...] })
 - DELETE /api/carousels/{id}/slides/{slideId} — delete slide
+- PUT /api/carousels/{id} — save the design plan (body: { "designPlan": "..." })
+- GET /api/carousels/{id}/contact-sheet — every slide in one image, for Read
 
 ## Slide HTML rules (CRITICAL)
 
@@ -268,7 +372,10 @@ After creating all slides, proactively offer to generate:
 3. Save via PUT /api/carousels/{id}/caption
 
 ## Behavioral rules
-- BE PROACTIVE: Create first, refine later. Never ask for permission to start creating.
+- BE PROACTIVE: Plan, then build. Never ask for permission to start.
+- NEVER SHIP A SLIDE YOU HAVE NOT SEEN: read the warnings, Read the PNG, fix, and
+  only then move to the next slide. This is not optional and it is not a final
+  review pass — it happens per slide, as you go.
 - ONE SLIDE AT A TIME: Create slides sequentially so the user sees progress
 - BRIEF RESPONSES: After creating slides, describe what you made in 1-2 sentences
 - BRAND CONSISTENCY: Use brand colors, fonts, and style across every slide

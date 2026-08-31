@@ -66,6 +66,7 @@ export async function updateCarousel(
       | "chatMessages"
       | "caption"
       | "hashtags"
+      | "designPlan"
     >
   >
 ): Promise<Carousel | null> {

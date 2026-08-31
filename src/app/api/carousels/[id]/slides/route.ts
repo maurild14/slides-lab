@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { addSlide, reorderSlides, getCarousel } from "@/lib/carousels";
+import { auditForCarousel } from "@/lib/slide-audit";
 
 export async function POST(
   request: Request,
@@ -24,7 +25,14 @@ export async function POST(
         { status: 400 }
       );
     }
-    return NextResponse.json(slide, { status: 201 });
+
+    // Creating a slide is the agent's move, so it always gets measured. Pass
+    // ?audit=0 to skip the render when the caller has nothing to learn from it.
+    const audit =
+      new URL(request.url).searchParams.get("audit") === "0"
+        ? {}
+        : await auditForCarousel(id, slide);
+    return NextResponse.json({ ...slide, ...audit }, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }

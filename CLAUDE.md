@@ -29,6 +29,8 @@ AI-powered Instagram carousel builder. Next.js 16 + React 19 + TypeScript + Tail
 - `src/components/editor/LayersPanel.tsx` — Layer list: reorder, rename, visibility, lock
 - `src/lib/canvas-utils.ts` — Geometry (rotation, resize under rotation, bounding boxes, align/distribute, zoom/pan) plus the slide DOM contract (groups, locks, layer order, paste)
 - `src/lib/slide-history.ts` — Pure undo/redo stack with a cursor
+- `src/lib/slide-audit.ts` — Renders a slide once and takes both answers off that page: the measurements the agent reasons about and the PNG it looks at. Also builds the carousel's contact sheet
+- `src/lib/slide-audit-rules.ts` — The pure half: measured boxes in, warnings out. Import-free so the self-check runs it without Chrome
 - `src/lib/element-style.ts` — Text effects, image filters, frames, shadows and flip, all as pure string builders/parsers over native CSS
 - `src/components/editor/ContextToolbar.tsx` — The toolbar row; one variant per selection type
 - `src/components/editor/inspector/use-element-style.ts` — One read of the selected element, shared by the toolbar and the panel so they can never disagree
@@ -52,8 +54,9 @@ All at localhost:3000:
 - `GET /api/images` — recent images for the editor's drag-and-drop panel
 - `GET/POST /api/carousels` — List/create carousels
 - `GET/PUT/DELETE /api/carousels/[id]` — Single carousel
-- `POST /api/carousels/[id]/slides` — Add slide
-- `PUT/DELETE /api/carousels/[id]/slides/[slideId]` — Update/delete slide
+- `POST /api/carousels/[id]/slides` — Add slide. Always audits: the response carries `warnings` (measured geometry defects) and `pngPath` (the render, for the agent to `Read`). `?audit=0` skips it
+- `GET /api/carousels/[id]/contact-sheet` — Every slide in one image, four to a row. Returns `{ path }`
+- `PUT/DELETE /api/carousels/[id]/slides/[slideId]` — Update/delete slide. `?audit=1` re-measures and re-renders; without it nothing touches Chrome, because this is the autosave path
 - `PUT /api/carousels/[id]/slides` — Reorder slides (body: { slideIds: [...] })
 - `POST /api/carousels/[id]/slides/[slideId]/duplicate` — Duplicate a slide in place
 - `POST /api/carousels/[id]/slides/[slideId]/undo` — Undo slide change
@@ -84,6 +87,8 @@ Static assets:
 - Every insert affordance arms the drag through `armInsert()` in `rail/panel-kit.tsx`, which calls `setPointerCapture`. Without it the drag dies the moment the cursor crosses into the slide: pointer events fire in the iframe's realm and the parent `window` — where the drop listener lives — never hears another one
 - Everything a panel can insert is authored in **slide pixels** and previewed by CSS-scaling the real markup, so what you see in the panel is exactly what lands on the slide
 - Manipulable state lives in `data-*` attributes only (`data-oc-lock`, `data-oc-group`, `data-oc-hidden`, `data-oc-name`); hiding a layer also writes `display:none` inline, because the export renders raw HTML with none of our stylesheets
+- The agent never ships a slide it has not seen: creating one returns measured `warnings` plus a `pngPath` it is told to `Read`, and the contact sheet closes the carousel. The warnings only ever advise — a slide is saved before it is measured, and a Chrome that failed to start must never turn a good write into an error
+- The audit checks geometry and nothing else (off-canvas, cut-off text, zero size, empty boxes). Contrast, collision and Instagram's safe area were deliberately left out: they need a judgement call about intent, and a warning the agent learns to ignore is worse than no warning
 - `npm run check:canvas` runs the geometry, history, element and effect self-check (snapping, rotated resize, bounding boxes, align/distribute, zoom-about-cursor, undo cursor, filter round-trips, effect clearing, flip vs rotation)
 - Every text effect writes only properties listed in `TEXT_EFFECT_PROPS`; switching effects clears that whole set first, which is what stops a neon glow from surviving under a new outline
 - Double-click is detected from `pointerdown`, not from `dblclick`: `preventDefault()` on a pointerdown suppresses the compatibility mouse events, `dblclick` included

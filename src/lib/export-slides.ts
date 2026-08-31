@@ -12,7 +12,7 @@ let browser: Browser | null = null;
 let exportCount = 0;
 const MAX_EXPORTS_BEFORE_RESTART = 50;
 
-async function getBrowser(): Promise<Browser> {
+export async function getBrowser(): Promise<Browser> {
   if (browser && exportCount >= MAX_EXPORTS_BEFORE_RESTART) {
     await browser.close().catch(() => {});
     browser = null;
@@ -83,6 +83,25 @@ export const MIME: Record<ExportFormat, string> = {
 };
 
 /**
+ * Slide HTML → one self-contained document: fonts inlined as base64 @font-face,
+ * images inlined as data: URIs, wrapped at the carousel's exact dimensions.
+ *
+ * Shared by the exporter and the audit so a measured slide and an exported one
+ * are byte-for-byte the same document — a warning about a slide nobody can
+ * reproduce in the PNG would be worse than no warning.
+ */
+export async function buildSlideDocument(
+  slideHtml: string,
+  aspectRatio: AspectRatio
+): Promise<string> {
+  const inlinedFontCss = await getInlinedFontCSS(extractFontFamilies(slideHtml));
+  const inlinedHtml = await inlineImages(slideHtml);
+  return wrapSlideHtml(inlinedHtml, aspectRatio, {
+    inlineFontCss: inlinedFontCss,
+  });
+}
+
+/**
  * Export a single slide to an image buffer.
  *
  * `png-transparent` asks Chrome to skip the default white backdrop. It only
@@ -98,17 +117,7 @@ export async function exportSlide(
   const { format = "png", quality = 90 } = options;
   const { width, height } = DIMENSIONS[aspectRatio];
 
-  // Get inlined font CSS
-  const fontFamilies = extractFontFamilies(slide.html);
-  const inlinedFontCss = await getInlinedFontCSS(fontFamilies);
-
-  // Inline images
-  const inlinedHtml = await inlineImages(slide.html);
-
-  // Build self-contained HTML
-  const fullHtml = wrapSlideHtml(inlinedHtml, aspectRatio, {
-    inlineFontCss: inlinedFontCss,
-  });
+  const fullHtml = await buildSlideDocument(slide.html, aspectRatio);
 
   const br = await getBrowser();
   const page = await br.newPage();

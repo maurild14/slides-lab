@@ -17,6 +17,7 @@ import {
   withAlpha,
 } from "../src/lib/element-style.ts";
 import { reflowTransform, scaleStyleLengths } from "../src/lib/slide-reflow.ts";
+import { findIssues, type MeasuredBox } from "../src/lib/slide-audit-rules.ts";
 import {
   alignOffset,
   boxFromPoints,
@@ -687,6 +688,75 @@ const fake = (
   assert.deepEqual(reflowTransform(square, story, null), { k: 1, dx: 0, dy: 0 });
 }
 
+/* ------------------------------------------------------- slide audit */
+{
+  const box = (over: Partial<MeasuredBox>): MeasuredBox => ({
+    name: "Elemento",
+    text: "hola",
+    left: 100,
+    top: 100,
+    width: 400,
+    height: 200,
+    scrollWidth: 400,
+    scrollHeight: 200,
+    painted: true,
+    childCount: 0,
+    ...over,
+  });
+  const W = 1080;
+  const H = 1350;
+
+  assert.deepEqual(findIssues([box({})], W, H), [], "a clean element says nothing");
+
+  // The real defect measured in "La regla de los 5 minutos": a 140px square at
+  // left -171 ends at -31, so none of it is on the slide.
+  const gone = findIssues([box({ name: "Cuadrado", left: -171, width: 140 })], W, H);
+  assert.equal(gone.length, 1, "an element entirely off-canvas is reported once");
+  assert.match(gone[0], /completamente fuera/);
+  assert.match(gone[0], /Cuadrado/, "the warning names the layer");
+
+  // The other real one: declared 920px wide, the text needs 932.
+  const cut = findIssues([box({ width: 920, scrollWidth: 932 })], W, H);
+  assert.equal(cut.length, 1);
+  assert.match(cut[0], /se corta/);
+  assert.match(cut[0], /932px/, "the warning carries the measured number");
+
+  assert.match(findIssues([box({ height: 0 })], W, H)[0], /altura 0px/);
+  assert.match(findIssues([box({ width: 0 })], W, H)[0], /ancho 0px/);
+
+  assert.match(
+    findIssues([box({ text: "", painted: false, childCount: 0 })], W, H)[0],
+    /vac/,
+    "a box with no text, no fill and no children is dead weight"
+  );
+
+  // A shape bleeding off the edge is deliberate design; only text is reported.
+  assert.deepEqual(
+    findIssues([box({ text: "", left: -40 })], W, H),
+    [],
+    "an untexted shape may bleed past the edge"
+  );
+  assert.match(
+    findIssues([box({ left: -40 })], W, H)[0],
+    /se sale.*40px por la izquierda/,
+    "text hanging off the edge is always a bug"
+  );
+
+  // Sub-pixel rounding must not produce a warning.
+  assert.deepEqual(
+    findIssues([box({ width: 920, scrollWidth: 921, left: -1 })], W, H),
+    [],
+    "a 1px difference is rounding, not a defect"
+  );
+
+  // An invisible element reports once, not once per rule it also breaks.
+  assert.equal(
+    findIssues([box({ left: -900, width: 140, scrollWidth: 999, height: 0 })], W, H).length,
+    1,
+    "off-canvas short-circuits the rest"
+  );
+}
+
 console.log(
-  "canvas geometry + history + elements + effects + reflow: all checks passed"
+  "canvas geometry + history + elements + effects + reflow + audit: all checks passed"
 );
