@@ -118,6 +118,22 @@ const claude: Engine = {
   supportsImagegen: false,
 
   buildLaunch: ({ prompt, systemPrompt, sessionId }) => {
+    // The prompt carries the full HTML of every slide in the carousel, so it
+    // grows with the deck: ~17KB empty, 43KB at four slides, 53KB at nine.
+    // Windows caps a command line at 32767 characters, so passing it as an
+    // argument stopped the spawn outright with ENAMETOOLONG once a carousel
+    // had four slides. The -file variant reads it off disk instead, and has
+    // no such ceiling.
+    //
+    // ponytail: one file per server process, overwritten each turn. Two chats
+    // running concurrently in the same dev server would race on it — give it
+    // the session id if that ever becomes a real workflow.
+    const promptFile = path.join(
+      os.tmpdir(),
+      `oc-system-prompt-${process.pid}.txt`
+    );
+    fs.writeFileSync(promptFile, systemPrompt, "utf-8");
+
     const args = [
       "-p",
       prompt,
@@ -125,8 +141,8 @@ const claude: Engine = {
       "stream-json",
       "--include-partial-messages",
       "--verbose",
-      "--append-system-prompt",
-      systemPrompt,
+      "--append-system-prompt-file",
+      promptFile,
       "--allowedTools",
       "Bash",
       "WebFetch",
@@ -239,6 +255,13 @@ const codex: Engine = {
       // has to allow network. Approvals must be off: exec has no TTY to ask on.
       "-c",
       "sandbox_workspace_write.network_access=true",
+      // The prompt tells it to stage long JSON bodies in the OS temp dir,
+      // because writing them inside the project reloads the dev server and
+      // kills the chat stream. workspace-write forbids that by default, so
+      // the write came back as "patch rejected: writing outside of the
+      // project" and the run died with the carousel half built.
+      "-c",
+      `sandbox_workspace_write.writable_roots=["${os.tmpdir().replace(/\\/g, "/")}"]`,
       "-c",
       "approval_policy=never",
       // The user's global MCP servers are irrelevant here and cost ~4s of
