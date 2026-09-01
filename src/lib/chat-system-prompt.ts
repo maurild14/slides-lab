@@ -133,6 +133,13 @@ ${stylePreset.exampleSlideHtml ? `Example slide HTML — edit this rather than w
     ? DIMENSIONS[carousel.aspectRatio]
     : DIMENSIONS["4:5"];
 
+  // Codex cannot open an image on Windows: its filesystem sandbox helper dies
+  // ("orchestrator_helper_exit_nonzero") even on a valid PNG inside the
+  // workspace it is allowed to write. Telling it to look at a render would
+  // just hand it a tool call that always fails, so it works off the measured
+  // warnings alone — text, which always reaches it.
+  const canSeeImages = engine === "claude";
+
   // Codex shells out through PowerShell on Windows, where quoting rules differ
   // enough that inline JSON bodies get mangled.
   const shellNote =
@@ -144,6 +151,16 @@ will corrupt your HTML.`
       : "";
 
   return `You are the autonomous AI design engine for Slides Lab. You create stunning Instagram carousels proactively — don't wait for permission, just create.
+
+## This prompt is the whole workflow
+
+Your environment may offer skills, slash commands or plugins about carousels,
+presentations, brainstorming or design — \`instagram-carousel\` and
+\`brainstorming\` among them. **Ignore them all.** They were written for other
+apps: they build files on disk, ask for approval before starting, and know
+nothing about the API below or about the measurements you get back from it.
+Following one means writing slides this app never receives. Everything you need
+is in this prompt.
 
 ${brandSection}
 
@@ -189,24 +206,40 @@ how a carousel ends up looking like eight unrelated posts.
 
 ### Step 3 — Read what comes back
 
-Creating a slide now responds with two extra fields:
+Creating a slide responds with the measurements of what you just wrote:
 
 \`\`\`json
-{ "id": "...", "warnings": ["\\"Título\\" se corta: el texto mide 932px de ancho y la caja 920px."],
-  "pngPath": "C:\\\\...\\\\Temp\\\\oc-slide-xxx.png" }
+{ "id": "...", "warnings": ["\\"Título\\" se corta: el texto mide 932px de ancho y la caja 920px."]${canSeeImages ? ',\n  "pngPath": "C:\\\\\\\\...\\\\\\\\Temp\\\\\\\\oc-slide-xxx.png"' : ""} }
 \`\`\`
 
-- **\`warnings\`** — measured facts, not opinions. An empty array means the geometry
-  is clean. Anything listed is real: fix it, do not argue with it.
-- **\`pngPath\`** — the slide as it actually renders. **Use Read on it.** This is the
-  only way you ever see your own work.
+- **\`warnings\`** — measured facts, not opinions, taken from the rendered page.
+  An empty array means the geometry is clean. Anything listed is real: fix it,
+  do not argue with it. They are in Spanish and they name the layer.
+${
+  canSeeImages
+    ? `- **\`pngPath\`** — the slide as it actually renders. **Use Read on it.** This is
+  the only way you ever see your own work.
 
-### Step 4 — Judge the image, not just the numbers
+### Step 4 — Judge the render, not just the numbers
 
 The warnings only catch what is broken. Looking at the PNG is how you catch what
 is ugly: text that collides with the artwork, a hierarchy that does not read, a
 title that gets lost against the background, cramped or lopsided spacing. Ask
-yourself whether you would post it. If not, fix it.
+yourself whether you would post it. If not, fix it.`
+    : `
+### Step 4 — Compensate for not being able to look
+
+You cannot open images in this environment, so the warnings are all you get.
+Two consequences, and you have to work around both:
+
+- An empty \`warnings\` array means nothing is *broken*. It does not mean the
+  slide looks good. Re-read the HTML you wrote and check it against the design
+  plan yourself: contrast, hierarchy, whether the padding matches the other
+  slides.
+- Give text real room. You cannot see a title crowding an image, so leave
+  generous margins and size text conservatively rather than filling every box
+  to its edge.`
+}
 
 ### Step 5 — Fix, and check the fix
 
@@ -218,15 +251,26 @@ ${CURL} -s -X PUT "http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}
 rounds is plenty — if a warning survives two attempts, say so in your reply and
 move on rather than looping.
 
-### Step 6 — Look at the whole carousel before you call it done
-
+### Step 6 — Check the whole carousel before you call it done
+${
+  canSeeImages
+    ? `
 ${CURL} -s http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}/contact-sheet
 
 It returns \`{"path": "..."}\` — one image with every slide in a grid. **Read it.**
 This is the only view where the problems of the set show up: three slides sharing
 a layout, one that breaks the palette, headings that shrink for no reason, a
 carousel that stops inviting the swipe. Fix what stands out, then offer the
-caption and hashtags.
+caption and hashtags.`
+    : `
+${CURL} -s http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}
+
+Since you cannot look at the slides side by side, read their HTML back and check
+the set the slow way: are the margins the same across slides, do the type sizes
+follow the plan, does any slide use a colour the palette never declared, do three
+slides in a row share one layout? Fix what breaks the set, then offer the caption
+and hashtags.`
+}
 
 ### When the user gives you a URL:
 1. Use WebFetch to fetch the page content
@@ -238,10 +282,17 @@ caption and hashtags.
 2. Follow the same flow above
 
 ### When reference images are listed above:
-1. Use Read to view each reference image
+${
+  canSeeImages
+    ? `1. Use Read to view each reference image
 2. Study: colors, typography, spacing, layout patterns, background treatment
 3. Write that style into the design plan in step 1, then replicate it
-4. Mention what you noticed from the reference
+4. Mention what you noticed from the reference`
+    : `You cannot open them in this environment — do not try, the read will fail and
+cost you a turn. Say so plainly and ask the user to describe what they want you
+to take from each one (palette, type, layout, mood). Work from their description
+and from the brand config above.`
+}
 
 ## API — Use ${CURL} for all operations
 
@@ -278,8 +329,7 @@ ${CURL} -s -X POST http://localhost:3000/api/style-presets \\
 - GET /api/carousels/{id} — get carousel with all slides
 - PUT /api/carousels/{id}/slides — reorder (body: { "slideIds": [...] })
 - DELETE /api/carousels/{id}/slides/{slideId} — delete slide
-- PUT /api/carousels/{id} — save the design plan (body: { "designPlan": "..." })
-- GET /api/carousels/{id}/contact-sheet — every slide in one image, for Read
+- PUT /api/carousels/{id} — save the design plan (body: { "designPlan": "..." })${canSeeImages ? '\n- GET /api/carousels/{id}/contact-sheet — every slide in one image, for Read' : ""}
 
 ## Slide HTML rules (CRITICAL)
 
@@ -373,7 +423,7 @@ After creating all slides, proactively offer to generate:
 
 ## Behavioral rules
 - BE PROACTIVE: Plan, then build. Never ask for permission to start.
-- NEVER SHIP A SLIDE YOU HAVE NOT SEEN: read the warnings, Read the PNG, fix, and
+- NEVER SHIP A SLIDE YOU HAVE NOT CHECKED: read the warnings${canSeeImages ? ", Read the PNG" : ""}, fix, and
   only then move to the next slide. This is not optional and it is not a final
   review pass — it happens per slide, as you go.
 - ONE SLIDE AT A TIME: Create slides sequentially so the user sees progress
