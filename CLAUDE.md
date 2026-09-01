@@ -29,6 +29,8 @@ AI-powered Instagram carousel builder. Next.js 16 + React 19 + TypeScript + Tail
 - `src/components/editor/LayersPanel.tsx` — Layer list: reorder, rename, visibility, lock
 - `src/lib/canvas-utils.ts` — Geometry (rotation, resize under rotation, bounding boxes, align/distribute, zoom/pan) plus the slide DOM contract (groups, locks, layer order, paste)
 - `src/lib/slide-history.ts` — Pure undo/redo stack with a cursor
+- `src/lib/slide-audit.ts` — Renders a slide once and takes both answers off that page: the measurements the agent reasons about and the PNG it looks at. Also builds the carousel's contact sheet
+- `src/lib/slide-audit-rules.ts` — The pure half: measured boxes in, warnings out. Import-free so the self-check runs it without Chrome
 - `src/lib/element-style.ts` — Text effects, image filters, frames, shadows and flip, all as pure string builders/parsers over native CSS
 - `src/components/editor/ContextToolbar.tsx` — The toolbar row; one variant per selection type
 - `src/components/editor/inspector/use-element-style.ts` — One read of the selected element, shared by the toolbar and the panel so they can never disagree
@@ -52,8 +54,9 @@ All at localhost:3000:
 - `GET /api/images` — recent images for the editor's drag-and-drop panel
 - `GET/POST /api/carousels` — List/create carousels
 - `GET/PUT/DELETE /api/carousels/[id]` — Single carousel
-- `POST /api/carousels/[id]/slides` — Add slide
-- `PUT/DELETE /api/carousels/[id]/slides/[slideId]` — Update/delete slide
+- `POST /api/carousels/[id]/slides` — Add slide. Always audits: the response carries `warnings` (measured geometry defects) and `pngPath` (the render, for the agent to `Read`). `?audit=0` skips it
+- `GET /api/carousels/[id]/contact-sheet` — Every slide in one image, four to a row. Returns `{ path }`
+- `PUT/DELETE /api/carousels/[id]/slides/[slideId]` — Update/delete slide. `?audit=1` re-measures and re-renders; without it nothing touches Chrome, because this is the autosave path
 - `PUT /api/carousels/[id]/slides` — Reorder slides (body: { slideIds: [...] })
 - `POST /api/carousels/[id]/slides/[slideId]/duplicate` — Duplicate a slide in place
 - `POST /api/carousels/[id]/slides/[slideId]/undo` — Undo slide change
@@ -80,10 +83,18 @@ Static assets:
 - Slides are exported **one at a time**: Chrome composites only the foreground tab, so concurrent screenshots hang until the protocol timeout
 - The agent subprocess drives the app with curl against these same API routes; on Windows the prompt says `curl.exe`, because Codex shells out through PowerShell where bare `curl` is Invoke-WebRequest
 - Generated images always land in `public/uploads/` as `.png` — the PNG export inlines that path and silently drops anything else
+- `findUploadRefs()` in `src/lib/upload-paths.ts` is the one place that knows how a `/uploads/` reference can be written, and it has to match all three quote forms. The canvas stores what the browser reserialises, so a style it touched comes back as `url(&quot;…&quot;)`; the agent writes `url('…')`; bare `url(…)` is legal too. Matching only literal quotes dropped every canvas-edited image from the export *and* from the audit render — the path stayed relative, resolved against `about:blank`, and never loaded, so the agent approved slides whose main image was missing. Import-free, like `slide-audit-rules.ts`, so the self-check covers it
 - Insertion goes through one channel: a panel hands `SlideCanvas` a `DragPayload` (html + natural size), and the same payload serves both a click (drops it centred) and a drag (drops it under the cursor). Images are just a payload with a `previewUrl`
 - Every insert affordance arms the drag through `armInsert()` in `rail/panel-kit.tsx`, which calls `setPointerCapture`. Without it the drag dies the moment the cursor crosses into the slide: pointer events fire in the iframe's realm and the parent `window` — where the drop listener lives — never hears another one
 - Everything a panel can insert is authored in **slide pixels** and previewed by CSS-scaling the real markup, so what you see in the panel is exactly what lands on the slide
 - Manipulable state lives in `data-*` attributes only (`data-oc-lock`, `data-oc-group`, `data-oc-hidden`, `data-oc-name`); hiding a layer also writes `display:none` inline, because the export renders raw HTML with none of our stylesheets
+- The system prompt grows with the deck, because it carries the full HTML of every slide: ~17KB empty, 43KB at four slides, 53KB at nine. Neither engine may take it as a command-line argument — Windows caps a command line at 32767 chars and the spawn dies with `ENAMETOOLONG`. Claude gets it via `--append-system-prompt-file` (a file in `os.tmpdir()`), Codex via stdin. Anything else added to that prompt has to respect the same rule
+- Codex runs `workspace-write`, so `writable_roots` has to include `os.tmpdir()`: the prompt tells it to stage long JSON bodies there (writing them inside the project reloads the dev server and kills the chat stream), and without the root that write comes back as "patch rejected: writing outside of the project"
+- Codex's Windows sandbox helper fails to start now and then (`orchestrator_helper_exit_nonzero`), and every image read in that run dies with it. It is transient — Codex reads PNGs fine, inside the workspace and out of it, verified directly — so the prompt tells the agent to note the failure and carry on with the warnings rather than retry or abandon. Never diagnose this as "Codex cannot read images"
+- The agent never ships a slide it has not seen: creating one returns measured `warnings` plus a `pngPath` it is told to `Read`, and the contact sheet closes the carousel. The warnings only ever advise — a slide is saved before it is measured, and a Chrome that failed to start must never turn a good write into an error
+- The audit checks geometry and nothing else (off-canvas, cut-off text, zero size, empty boxes). Contrast, collision and Instagram's safe area were deliberately left out: they need a judgement call about intent, and a warning the agent learns to ignore is worse than no warning
+- The audit PNG is captured at two thirds (`AUDIT_PNG_SCALE`), 720x900 for 4:5. An image in the agent's context is billed by area, and on a measured nine-slide run looking at renders was 31k of the 131k tokens the conversation grew by. Two thirds costs 44% of that and still renders 24px body text legibly. It must be `clip.scale`, never `deviceScaleFactor`: the viewport stays 1080-wide so every measurement is unaffected — verified with a deliberately broken slide that still reported all three warnings at exact CSS pixels
+- Codex runs in **code mode**: shell calls arrive wrapped in JavaScript (`tools.exec_command({"cmd":"…"})`), and writing a file, viewing an image and generating one arrive as `file_change` / `image_view` / `extension` items rather than `command_execution`. All of them need a status line, and unlike `command_execution` they are accepted on `item.completed` too, because code mode does not reliably announce a start. Without this the status line showed the last shell command for minutes and working runs looked hung — measured silences of 3.9 and 3.0 minutes with no event at all, which is why `ChatPanel` also shows a clock once a status is 20s old
 - `npm run check:canvas` runs the geometry, history, element and effect self-check (snapping, rotated resize, bounding boxes, align/distribute, zoom-about-cursor, undo cursor, filter round-trips, effect clearing, flip vs rotation)
 - Every text effect writes only properties listed in `TEXT_EFFECT_PROPS`; switching effects clears that whole set first, which is what stops a neon glow from surviving under a new outline
 - Double-click is detected from `pointerdown`, not from `dblclick`: `preventDefault()` on a pointerdown suppresses the compatibility mouse events, `dblclick` included

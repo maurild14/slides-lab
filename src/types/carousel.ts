@@ -31,6 +31,13 @@ export interface Carousel {
   referenceImages: ReferenceImage[];
   caption?: string;
   hashtags?: string[];
+  /**
+   * The design decisions the agent committed to before writing any HTML —
+   * arc, palette, type scale, layout per slide. Kept so a later session
+   * editing one slide respects the choices the carousel was built on instead
+   * of improvising a second style.
+   */
+  designPlan?: string;
   chatSessionId: string | null;
   /** The conversation with the agent, kept next to the slides it produced. */
   chatMessages?: ChatMessage[];

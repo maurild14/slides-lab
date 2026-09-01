@@ -118,6 +118,22 @@ const claude: Engine = {
   supportsImagegen: false,
 
   buildLaunch: ({ prompt, systemPrompt, sessionId }) => {
+    // The prompt carries the full HTML of every slide in the carousel, so it
+    // grows with the deck: ~17KB empty, 43KB at four slides, 53KB at nine.
+    // Windows caps a command line at 32767 characters, so passing it as an
+    // argument stopped the spawn outright with ENAMETOOLONG once a carousel
+    // had four slides. The -file variant reads it off disk instead, and has
+    // no such ceiling.
+    //
+    // ponytail: one file per server process, overwritten each turn. Two chats
+    // running concurrently in the same dev server would race on it — give it
+    // the session id if that ever becomes a real workflow.
+    const promptFile = path.join(
+      os.tmpdir(),
+      `oc-system-prompt-${process.pid}.txt`
+    );
+    fs.writeFileSync(promptFile, systemPrompt, "utf-8");
+
     const args = [
       "-p",
       prompt,
@@ -125,8 +141,8 @@ const claude: Engine = {
       "stream-json",
       "--include-partial-messages",
       "--verbose",
-      "--append-system-prompt",
-      systemPrompt,
+      "--append-system-prompt-file",
+      promptFile,
       "--allowedTools",
       "Bash",
       "WebFetch",
@@ -194,17 +210,66 @@ const claude: Engine = {
 
 // -------------------------------------------------------------------- codex
 
+/** Last path segment of a plain path or a file:// URL, for status lines. */
+function baseName(p: unknown): string {
+  if (typeof p !== "string" || !p) return "archivo";
+  let clean = p.replace(/^file:\/{2,3}/, "");
+  try {
+    clean = decodeURIComponent(clean);
+  } catch {
+    // a stray % in a filename is not worth losing the status line over
+  }
+  return clean.split(/[\\/]/).filter(Boolean).pop() ?? "archivo";
+}
+
+/**
+ * The long-running items code mode reports: writing a file, looking at a
+ * render, generating an image. Returns null for everything else.
+ */
+export function statusForSlowItem(item: Record<string, unknown>): string | null {
+  if (item.type === "file_change") {
+    const changes = item.changes;
+    const first = Array.isArray(changes)
+      ? (changes[0] as { path?: string } | undefined)?.path
+      : Object.keys((changes as Record<string, unknown>) ?? {})[0];
+    return `Escribiendo ${baseName(first)}…`;
+  }
+  if (item.type === "patch_apply") {
+    return `Escribiendo ${baseName(item.path)}…`;
+  }
+  if (item.type === "image_view") {
+    return `Mirando ${baseName(item.path)}…`;
+  }
+  // image_gen arrives as a generic extension item tagged by `kind`.
+  if (
+    item.type === "extension" &&
+    typeof item.kind === "string" &&
+    item.kind.startsWith("image_gen")
+  ) {
+    return "Generando imagen…";
+  }
+  return null;
+}
+
 /** Shell command → short human status line. */
 function summarizeCommand(command: string): string {
   // Windows commands arrive wrapped in a fully-qualified powershell.exe call
   // with doubled backslashes; the interesting part is what comes after it.
-  const flat = command
+  let flat = command
     .replace(/\\\\/g, "\\")
     .replace(/^"?[A-Za-z]:\\.*?(powershell|pwsh|cmd)\.exe"?\s*(-Command)?\s*/i, "")
     .replace(/^(bash|sh|zsh)\s+-l?c\s*/i, "")
     .replace(/^['"]|['"]$/g, "")
     .replace(/\s+/g, " ")
     .trim();
+
+  // Code mode hands us JavaScript, not a command: the shell line lives inside
+  // `tools.exec_command({"cmd":"…"})`. Without unwrapping it, every status line
+  // is the same wrapper prefix and says nothing about what is running.
+  const wrapped = flat.match(
+    /tools\.exec_command\(\s*\{\s*"cmd"\s*:\s*"((?:[^"\\]|\\.)*)"/
+  );
+  if (wrapped) flat = wrapped[1].replace(/\\"/g, '"').replace(/\\\\/g, "\\");
 
   if (/generated_images|image_gen/i.test(flat)) return "Guardando imagen…";
 
@@ -239,6 +304,13 @@ const codex: Engine = {
       // has to allow network. Approvals must be off: exec has no TTY to ask on.
       "-c",
       "sandbox_workspace_write.network_access=true",
+      // The prompt tells it to stage long JSON bodies in the OS temp dir,
+      // because writing them inside the project reloads the dev server and
+      // kills the chat stream. workspace-write forbids that by default, so
+      // the write came back as "patch rejected: writing outside of the
+      // project" and the run died with the carousel half built.
+      "-c",
+      `sandbox_workspace_write.writable_roots=["${os.tmpdir().replace(/\\/g, "/")}"]`,
       "-c",
       "approval_policy=never",
       // The user's global MCP servers are irrelevant here and cost ~4s of
@@ -304,6 +376,14 @@ const codex: Engine = {
           seenMessage = true;
           return [{ type: "token", text: prefix + text }];
         }
+
+        // Writing a slide, viewing a render and generating an image are the
+        // three slowest things the agent does, and none of them used to emit a
+        // status: the line kept showing the last shell command for minutes and
+        // the run looked dead. Unlike command_execution these are accepted on
+        // completion too, because code mode does not always announce a start.
+        const slow = statusForSlowItem(item);
+        if (slow) return [{ type: "status", text: slow }];
 
         if (event.type !== "item.started") return [];
 
