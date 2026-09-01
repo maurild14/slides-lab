@@ -214,10 +214,15 @@ export async function POST(request: NextRequest) {
           }
         });
 
-        // Timeout: kill subprocess after 8 minutes (autonomous mode creates many slides)
+        // The agent now measures, looks at and corrects every slide, which costs
+        // real time: measured on a nine-slide build, ~4 min planning before the
+        // first slide and ~1 min per slide after it, plus ~50s per correction.
+        // The old 8-minute cap killed those runs halfway through.
+        let timedOut = false;
         const timeout = setTimeout(() => {
+          timedOut = true;
           killTree(childProcess);
-        }, 480_000);
+        }, 1_500_000);
 
         childProcess.on("error", (err) => {
           clearTimeout(timeout);
@@ -250,8 +255,40 @@ export async function POST(request: NextRequest) {
           }
         });
 
-        childProcess.on("exit", (code) => {
+        childProcess.on("exit", async (code) => {
           clearTimeout(timeout);
+
+          // A kill from our own timer looks exactly like a crash from here, and
+          // the generic "exited with code 1" sent the user hunting through MCP
+          // noise for a cause that was ours. Say what happened, and that the
+          // slides it did finish are already saved.
+          if (timedOut) {
+            const saved = carouselId ? await getCarousel(carouselId) : null;
+            const n = saved?.slides.length ?? 0;
+            try {
+              send(
+                encoder.encode(
+                  `event: error\ndata: ${JSON.stringify({
+                    error: `Se acabó el tiempo (25 min). ${
+                      n > 0
+                        ? `Quedaron ${n} slide${n === 1 ? "" : "s"} guardado${n === 1 ? "" : "s"}.`
+                        : "No alcanzó a guardar ningún slide."
+                    } Pedime que siga y continúo desde donde quedó.`,
+                    timedOut: true,
+                  })}\n\n`
+                )
+              );
+              send(
+                encoder.encode(
+                  `event: done\ndata: ${JSON.stringify({ sessionId: resolvedSessionId, timedOut: true })}\n\n`
+                )
+              );
+              close();
+            } catch {
+              // stream already closed
+            }
+            return;
+          }
 
           // Windows refused to start the process — nothing ran, so retry once.
           if (attempt === 0 && !sawOutput && isWindowsStartupFailure(code)) {
