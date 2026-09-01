@@ -18,6 +18,7 @@ import {
 } from "../src/lib/element-style.ts";
 import { reflowTransform, scaleStyleLengths } from "../src/lib/slide-reflow.ts";
 import { findIssues, type MeasuredBox } from "../src/lib/slide-audit-rules.ts";
+import { ENGINES, statusForSlowItem } from "../src/lib/agents.ts";
 import {
   alignOffset,
   boxFromPoints,
@@ -757,6 +758,74 @@ const fake = (
   );
 }
 
+// --------------------------------------------------------- agent status lines
+{
+  const item = (over: Record<string, unknown>) =>
+    ENGINES.codex.createParser()(JSON.stringify({ type: "item.started", item: over }));
+
+  // Code mode wraps every shell call in JavaScript. The status has to be the
+  // command, not the wrapper prefix every call shares.
+  assert.deepEqual(
+    item({
+      type: "command_execution",
+      command:
+        'const r = await tools.exec_command({"cmd":"curl.exe -s -X PUT \'http://localhost:3000/api/carousels/abc/slides/def\'"});',
+    }),
+    [{ type: "status", text: "PUT /carousels/abc/slides/def" }],
+    "a wrapped curl reports the route it hits"
+  );
+
+  assert.deepEqual(
+    item({
+      type: "command_execution",
+      command:
+        'const r = await tools.exec_command({"cmd":"Copy-Item -LiteralPath \'C:\\\\Users\\\\m\\\\.codex\\\\generated_images\\\\a\\\\e.png\'"});',
+    }),
+    [{ type: "status", text: "Guardando imagen…" }],
+    "copying out of generated_images still reads as saving an image"
+  );
+
+  // The three items that used to emit nothing, which is what made a working
+  // run look hung for minutes at a time.
+  assert.deepEqual(
+    statusForSlowItem({
+      type: "file_change",
+      changes: { "C:\\Users\\m\\AppData\\Local\\Temp\\pryzmo-slides.ps1": { type: "add" } },
+    }),
+    "Escribiendo pryzmo-slides.ps1…"
+  );
+  assert.deepEqual(
+    statusForSlowItem({
+      type: "image_view",
+      path: "file:///C:/Users/m/Desktop/Slides%20Lab/public/uploads/magnifier.png",
+    }),
+    "Mirando magnifier.png…",
+    "a percent-encoded file:// URL still yields a readable name"
+  );
+  assert.equal(
+    statusForSlowItem({ type: "extension", kind: "image_gen.generation" }),
+    "Generando imagen…"
+  );
+  assert.equal(
+    statusForSlowItem({ type: "command_execution", command: "ls" }),
+    null,
+    "ordinary items are left to the existing branches"
+  );
+
+  // Unlike command_execution, these are accepted on completion too: code mode
+  // does not reliably announce a start for them.
+  assert.deepEqual(
+    ENGINES.codex.createParser()(
+      JSON.stringify({
+        type: "item.completed",
+        item: { type: "image_view", path: "/tmp/oc-slide-1.png" },
+      })
+    ),
+    [{ type: "status", text: "Mirando oc-slide-1.png…" }],
+    "a completed image_view still reports"
+  );
+}
+
 console.log(
-  "canvas geometry + history + elements + effects + reflow + audit: all checks passed"
+  "canvas geometry + history + elements + effects + reflow + audit + status: all checks passed"
 );

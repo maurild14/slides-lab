@@ -10,6 +10,13 @@ import { AlertCircle, Plug } from "lucide-react";
 import type { ChatMessage as Message, ReferenceImage } from "@/types/carousel";
 import type { EngineId, EngineStatus } from "@/lib/agents";
 
+/** ms → "45s" / "3:12", for the how-long-has-this-been-running clock. */
+function formatElapsed(ms: number): string {
+  const total = Math.floor(ms / 1000);
+  if (total < 60) return `${total}s`;
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
 interface ChatPanelProps {
   carouselId: string;
   referenceImages?: ReferenceImage[];
@@ -52,7 +59,10 @@ export function ChatPanel({
   const [loaded, setLoaded] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
+  const [status, setStatus] = useState<{ text: string; at: number } | null>(
+    null
+  );
+  const [now, setNow] = useState(() => Date.now());
   const [engine, setEngine] = useState<EngineId>("claude");
   const [error, setError] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -143,6 +153,15 @@ export function ChatPanel({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, visible]);
+
+  // The stream goes fully silent while the model writes a long slide — 3.9 min
+  // on a measured run — so the last status line looks frozen and the run looks
+  // dead. A clock is the only thing that separates "slow" from "hung".
+  useEffect(() => {
+    if (!isStreaming) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [isStreaming]);
 
   const handleSend = useCallback(
     async (message: string, attachments: ChatAttachment[] = []) => {
@@ -240,7 +259,12 @@ ${message}`
           }
 
           if (data.type === "status" && typeof data.text === "string") {
-            setStatus(data.text);
+            const text = data.text;
+            // Repeating the same line (an item announced on both start and
+            // completion) must not restart the clock, or it never reads true.
+            setStatus((prev) =>
+              prev?.text === text ? prev : { text, at: Date.now() }
+            );
             return;
           }
 
@@ -435,7 +459,12 @@ ${message}`
             className="h-1.5 w-1.5 rounded-full bg-accent shrink-0 animate-pulse"
             aria-hidden
           />
-          <span className="truncate font-mono">{status}</span>
+          <span className="truncate font-mono">{status.text}</span>
+          {now - status.at >= 20_000 && (
+            <span className="ml-auto shrink-0 font-mono tabular-nums">
+              {formatElapsed(now - status.at)}
+            </span>
+          )}
         </div>
       )}
 

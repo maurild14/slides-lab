@@ -26,6 +26,9 @@ export interface SlideAudit {
   pngPath: string;
 }
 
+/** Capture scale for the PNG the agent looks at. See `auditSlide`. */
+const AUDIT_PNG_SCALE = 2 / 3;
+
 /** Read every element the user could click, as laid out. Runs in the page. */
 function collectBoxes(): MeasuredBox[] {
   // The prompt asks for one root div holding every element as a direct child,
@@ -83,9 +86,15 @@ export async function auditSlide(
     // a frame that never arrives. Same reason as the exporter.
     await page.bringToFront();
 
+    // The agent reads this PNG into its context, where an image is billed by
+    // area. Measured on a nine-slide run, looking at renders was 31k of the
+    // 131k tokens the conversation grew by — 24% spent on pixels. Two thirds
+    // costs 44% of that and still renders 24px body text at 16px, which is
+    // legible; the viewport stays 1080-wide, so every measurement below is
+    // unaffected. Scale, never deviceScaleFactor: that one changes layout.
     const png = await page.screenshot({
       type: "png",
-      clip: { x: 0, y: 0, width, height, scale: 1 },
+      clip: { x: 0, y: 0, width, height, scale: AUDIT_PNG_SCALE },
     });
     const boxes = (await page.evaluate(collectBoxes)) as MeasuredBox[];
 
