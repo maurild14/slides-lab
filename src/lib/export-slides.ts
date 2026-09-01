@@ -4,6 +4,7 @@ import path from "path";
 import sharp from "sharp";
 import { wrapSlideHtml, extractFontFamilies } from "./slide-html";
 import { getInlinedFontCSS } from "./fonts";
+import { findUploadRefs } from "./upload-paths";
 import type { Slide, AspectRatio } from "@/types/carousel";
 import { DIMENSIONS } from "@/types/carousel";
 
@@ -34,12 +35,9 @@ export async function getBrowser(): Promise<Browser> {
  */
 async function inlineImages(html: string): Promise<string> {
   const uploadDir = path.resolve(process.cwd(), "public");
-  const imgRegex = /(?:src=["']|url\(["']?)(\/uploads\/[^"'\s)]+)/g;
-  const matches = [...html.matchAll(imgRegex)];
 
   let result = html;
-  for (const match of matches) {
-    const imgPath = match[1];
+  for (const imgPath of findUploadRefs(html)) {
     try {
       const fullPath = path.join(uploadDir, imgPath);
       const buffer = await readFile(fullPath);
@@ -51,7 +49,10 @@ async function inlineImages(html: string): Promise<string> {
             ? "image/jpeg"
             : "image/webp";
       const base64 = buffer.toString("base64");
-      result = result.replace(imgPath, `data:${mime};base64,${base64}`);
+      // replaceAll, not replace: the same file used by two elements would
+      // otherwise keep the second reference pointing at a path that no longer
+      // resolves once the document is loaded from memory.
+      result = result.replaceAll(imgPath, `data:${mime};base64,${base64}`);
     } catch {
       // Keep original path — Puppeteer can fetch from localhost
     }

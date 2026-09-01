@@ -19,6 +19,7 @@ import {
 import { reflowTransform, scaleStyleLengths } from "../src/lib/slide-reflow.ts";
 import { findIssues, type MeasuredBox } from "../src/lib/slide-audit-rules.ts";
 import { ENGINES, statusForSlowItem } from "../src/lib/agents.ts";
+import { findUploadRefs } from "../src/lib/upload-paths.ts";
 import {
   alignOffset,
   boxFromPoints,
@@ -826,6 +827,55 @@ const fake = (
   );
 }
 
+// ------------------------------------------------------------- upload inlining
+{
+  // The escaped form is what the canvas produces, and missing it shipped
+  // carousels whose images were simply absent from the PNG.
+  assert.deepEqual(
+    findUploadRefs('<div style="background-image: url(&quot;/uploads/a.png&quot;)"></div>'),
+    ["/uploads/a.png"],
+    "a canvas-reserialised url() is found"
+  );
+  assert.deepEqual(
+    findUploadRefs("<div style=\"background-image: url('/uploads/b.png')\"></div>"),
+    ["/uploads/b.png"],
+    "a hand-written url() is found"
+  );
+  assert.deepEqual(
+    findUploadRefs('<div style="background-image: url(/uploads/c.png)"></div>'),
+    ["/uploads/c.png"],
+    "an unquoted url() is found"
+  );
+  assert.deepEqual(
+    findUploadRefs('<img src="/uploads/d.png">'),
+    ["/uploads/d.png"],
+    "a plain img src is found"
+  );
+
+  // The closing entity must not be swallowed into the path, or the file read
+  // fails and the reference is left untouched — the original bug, one step on.
+  assert.equal(
+    findUploadRefs('url(&quot;/uploads/e.png&quot;)')[0].endsWith(".png"),
+    true,
+    "the path stops before the closing entity"
+  );
+
+  // One read, one replacement pass, both references rewritten.
+  assert.deepEqual(
+    findUploadRefs(
+      '<img src="/uploads/f.png"><div style="background:url(&quot;/uploads/f.png&quot;)"></div>'
+    ),
+    ["/uploads/f.png"],
+    "a file used twice is listed once"
+  );
+
+  assert.deepEqual(
+    findUploadRefs('<img src="/other/g.png"><div style="background:url(#grad)"></div>'),
+    [],
+    "only /uploads/ is inlined"
+  );
+}
+
 console.log(
-  "canvas geometry + history + elements + effects + reflow + audit + status: all checks passed"
+  "canvas geometry + history + elements + effects + reflow + audit + status + uploads: all checks passed"
 );
