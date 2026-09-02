@@ -11,7 +11,7 @@ import {
   PanelGroup,
   PanelShell,
   SearchInput,
-  armInsert,
+  insertProps,
 } from "./panel-kit";
 import type { AspectRatio } from "@/types/carousel";
 import { DIMENSIONS } from "@/types/carousel";
@@ -289,7 +289,7 @@ export function ImagesPanel({
               <div key={img.url} className="relative">
                 <button
                   type="button"
-                  onPointerDown={(e) => armInsert(e, () => insertImage(img.url))}
+                  {...insertProps(() => insertImage(img.url))}
                   title={`${img.name} — arrastrala o tocala`}
                   aria-label={`Insertar ${img.name}`}
                   className="oc-press oc-focus block aspect-square w-full cursor-grab overflow-hidden rounded-md border border-border hover:border-accent active:cursor-grabbing"

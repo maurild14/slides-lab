@@ -136,10 +136,27 @@ export function armInsert(e: React.PointerEvent, insert: () => void) {
   try {
     e.currentTarget.setPointerCapture(e.pointerId);
   } catch {
-    // No active pointer (a keyboard-triggered press). The click path still
+    // Nothing to capture (a synthetic pointer event). The insert below still
     // drops the item in the middle of the slide.
   }
   insert();
+}
+
+/**
+ * Both halves of an insert control, for spreading onto the button.
+ *
+ * The click half is not decoration: `pointerdown` never fires for a keyboard
+ * press — Enter and Space synthesise a bare `click` with `detail === 0` — so a
+ * tile wired to the pointer alone was dead to the keyboard, whatever the
+ * panel's copy promised about "tocalo".
+ */
+export function insertProps(insert: () => void) {
+  return {
+    onPointerDown: (e: React.PointerEvent) => armInsert(e, insert),
+    onClick: (e: React.MouseEvent) => {
+      if (e.detail === 0) insert();
+    },
+  };
 }
 
 /**
@@ -166,11 +183,9 @@ export function InsertTile({
       type="button"
       title={`${spec.label} — arrastralo o tocalo`}
       aria-label={`Insertar ${spec.label}`}
-      onPointerDown={(e) =>
-        armInsert(e, () =>
-          onInsert({ html: spec.html, width: spec.width, height: spec.height })
-        )
-      }
+      {...insertProps(() =>
+        onInsert({ html: spec.html, width: spec.width, height: spec.height })
+      )}
       className={cn(
         "oc-press oc-focus group flex aspect-square cursor-grab items-center justify-center overflow-hidden rounded-md border border-border bg-surface p-2 active:cursor-grabbing",
         "hover:border-accent hover:bg-accent-soft",
@@ -233,11 +248,9 @@ export function InsertRow({
       type="button"
       title={`${spec.label} — arrastralo o tocalo`}
       aria-label={`Insertar ${spec.label}`}
-      onPointerDown={(e) =>
-        armInsert(e, () =>
-          onInsert({ html: spec.html, width: spec.width, height: spec.height })
-        )
-      }
+      {...insertProps(() =>
+        onInsert({ html: spec.html, width: spec.width, height: spec.height })
+      )}
       className="oc-press oc-focus flex w-full cursor-grab flex-col items-start gap-0.5 rounded-md border border-border bg-surface px-3 py-2.5 text-left hover:border-accent hover:bg-accent-soft active:cursor-grabbing"
     >
       <span className="w-full truncate text-foreground">{sample}</span>

@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Agent scratch, gitignored. Without this `npm run lint` — the gate the
+    // docs tell you to run — fails on a throwaway file the agent left behind.
+    ".tmp-slides/**",
   ]),
 ]);
 

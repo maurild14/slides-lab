@@ -121,7 +121,7 @@ export function ContextToolbar({
         className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-1"
       >
         {selectionCount > 1 ? (
-          <MultiControls commands={commands} onOpenAdvanced={onOpenAdvanced} />
+          <MultiControls commands={commands} />
         ) : !props ? null : kind === "text" || kind === "icon" ? (
           <>
             {kind === "text" && (
@@ -220,7 +220,11 @@ export function ContextToolbar({
               onChange={(hex) => setStyle({ color: hex })}
             />
 
-            {kind === "text" && (
+            {/* `isTextLike` and not `kind === "text"`: a box that holds text
+                *and* a child element reads as text here, but the advanced
+                panel refuses to render its text sections for it — the button
+                opened nothing at all. */}
+            {kind === "text" && props.isTextLike && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -317,13 +321,18 @@ export function ContextToolbar({
                 />
               </PopoverContent>
             </Popover>
-            <IconButton
-              label="Posición y tamaño exactos"
-              size="sm"
-              onClick={() => onOpenAdvanced("position")}
-            >
-              <Move className="h-4 w-4" aria-hidden />
-            </IconButton>
+            {/* The advanced panel only carries "Posición" for an absolutely
+                positioned element — on anything in normal flow this used to
+                be a button that did nothing. */}
+            {props.isFloating && (
+              <IconButton
+                label="Posición y tamaño exactos"
+                size="sm"
+                onClick={() => onOpenAdvanced("position")}
+              >
+                <Move className="h-4 w-4" aria-hidden />
+              </IconButton>
+            )}
           </>
         )}
 
@@ -425,13 +434,7 @@ export function ContextToolbar({
   );
 }
 
-function MultiControls({
-  commands,
-  onOpenAdvanced,
-}: {
-  commands: CanvasCommands;
-  onOpenAdvanced: (section: string) => void;
-}) {
+function MultiControls({ commands }: { commands: CanvasCommands }) {
   return (
     <>
       <span className="px-2 text-label tabular-nums text-muted-foreground">
@@ -476,13 +479,6 @@ function MultiControls({
           Desagrupar
         </Button>
       )}
-      <IconButton
-        label="Espaciado y posición"
-        size="sm"
-        onClick={() => onOpenAdvanced("position")}
-      >
-        <Move className="h-4 w-4" aria-hidden />
-      </IconButton>
     </>
   );
 }

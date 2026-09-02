@@ -332,6 +332,9 @@ export default function CarouselEditorPage({ params }: PageProps) {
       title: `¿Pasar el carrusel a ${ratio}?`,
       description: `Podemos reescalar el contenido de los ${current.length} slides para que entre en el lienzo nuevo. Es una aproximación: revisá cada slide después. Cada uno guarda su versión anterior, así que se puede volver atrás desde “Versión anterior”.`,
       confirmLabel: "Reajustar el contenido",
+      // Nothing is deleted here, and every slide keeps its previous version.
+      // The dialog defaults to destructive, so it has to say otherwise.
+      variant: "default",
       secondaryLabel: "Solo cambiar el lienzo",
       onSecondary: () => {
         setAspectRatio(ratio);
@@ -430,11 +433,21 @@ export default function CarouselEditorPage({ params }: PageProps) {
   const applyStyle = useCallback(
     (property: string, value: string) => {
       if (selection.length === 0 || slideLocked) return;
+      const prop = property.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
       for (const el of selection) {
-        el.style.setProperty(
-          property.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`),
-          value
-        );
+        el.style.setProperty(prop, value);
+        // A colour alone draws nothing on an element with no border: picking
+        // "Borde" in the brand panel and then a swatch looked like a dead
+        // button on every shape that did not already have one.
+        const win = el.ownerDocument.defaultView;
+        if (
+          prop === "border-color" &&
+          win &&
+          Number.parseFloat(win.getComputedStyle(el).borderTopWidth) === 0
+        ) {
+          el.style.setProperty("border-style", "solid");
+          el.style.setProperty("border-width", "2px");
+        }
       }
       editor.commit();
     },
@@ -517,6 +530,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
       description:
         "Se reemplaza el fondo de cada uno. Cada slide guarda su versión anterior, así que se puede volver atrás de a uno.",
       confirmLabel: "Aplicar a todas",
+      variant: "default",
       onConfirm: () => {
         applyToOtherSlides((html) => applyBackgroundToHtml(html, slideBackground));
       },
@@ -532,6 +546,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
       description:
         "Se agrega arriba de todo, en la misma posición. No reemplaza nada de lo que ya tienen.",
       confirmLabel: "Aplicar a todas",
+      variant: "default",
       onConfirm: () => {
         applyToOtherSlides((html) => appendElementToHtml(html, markup));
       },

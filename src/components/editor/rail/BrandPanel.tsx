@@ -7,7 +7,7 @@ import { Segmented } from "@/components/ui/controls";
 import { cn } from "@/lib/utils";
 import { DROP_WIDTH_RATIO } from "@/lib/canvas-utils";
 import type { DragPayload } from "@/lib/slide-elements";
-import { PanelEmpty, PanelGroup, PanelShell, armInsert } from "./panel-kit";
+import { PanelEmpty, PanelGroup, PanelShell, insertProps } from "./panel-kit";
 import type { BrandConfig } from "@/types/brand";
 import type { AspectRatio } from "@/types/carousel";
 import { DIMENSIONS } from "@/types/carousel";
@@ -148,17 +148,15 @@ export function BrandPanel({
         {brand.logoPath ? (
           <button
             type="button"
-            onPointerDown={(e) =>
-              armInsert(e, () => {
-                const width = Math.round(slideW * DROP_WIDTH_RATIO);
-                onInsert({
-                  html: `<img src="${brand.logoPath}" alt="${brand.name || "Logo"}" style="width:${width}px;height:auto">`,
-                  width,
-                  height: width,
-                  previewUrl: brand.logoPath!,
-                });
-              })
-            }
+            {...insertProps(() => {
+              const width = Math.round(slideW * DROP_WIDTH_RATIO);
+              onInsert({
+                html: `<img src="${brand.logoPath}" alt="${brand.name || "Logo"}" style="width:${width}px;height:auto">`,
+                width,
+                height: width,
+                previewUrl: brand.logoPath!,
+              });
+            })}
             aria-label="Insertar el logo"
             title="Logo — arrastralo o tocalo"
             className="oc-press oc-focus flex h-28 w-full cursor-grab items-center justify-center rounded-md border border-border bg-muted/40 p-4 hover:border-accent active:cursor-grabbing"

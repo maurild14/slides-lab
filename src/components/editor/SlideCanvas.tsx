@@ -224,6 +224,28 @@ export function SlideCanvas({
     [iframeRef, dimensions]
   );
 
+  /**
+   * Whether a pointer button is down right now, anywhere in this document.
+   *
+   * A panel arms an insert on `pointerdown`, so this is true for a mouse or a
+   * touch and false for a keyboard press — which is how the drop below knows
+   * there is no pointerup coming and it has to place the item itself.
+   */
+  const pointerDownRef = useRef(false);
+  useEffect(() => {
+    const down = () => (pointerDownRef.current = true);
+    const up = () => (pointerDownRef.current = false);
+    // Capture, so this lands before React's own handler arms the insert.
+    window.addEventListener("pointerdown", down, true);
+    window.addEventListener("pointerup", up, true);
+    window.addEventListener("pointercancel", up, true);
+    return () => {
+      window.removeEventListener("pointerdown", down, true);
+      window.removeEventListener("pointerup", up, true);
+      window.removeEventListener("pointercancel", up, true);
+    };
+  }, []);
+
   const getDoc = useCallback((): Document | null => {
     try {
       return iframeRef.current?.contentDocument ?? null;
@@ -1163,6 +1185,28 @@ export function SlideCanvas({
     if (!dragItem) return;
     let moved = false;
 
+    const drop = (point: { x: number; y: number } | null, m: SlideMetrics) => {
+      if (!point) return;
+      const el = insertSnippet(m.doc, dragItem.html, point, m.slideW, m.slideH, {
+        width: dragItem.width,
+        height: dragItem.height,
+      });
+      if (el) {
+        latest.current.onSelectionChange([el]);
+        latest.current.onCommit();
+      }
+    };
+
+    // Armed by a keyboard press on a panel tile: there is no pointer, so no
+    // pointerup is ever coming and the item used to sit armed forever —
+    // "Insertar" did nothing until you happened to click somewhere else.
+    if (!pointerDownRef.current) {
+      const m = readMetrics();
+      if (m) drop({ x: m.slideW / 2, y: m.slideH / 2 }, m);
+      onDragResolved();
+      return;
+    }
+
     const onMove = (e: PointerEvent) => {
       moved = true;
       const m = readMetrics();
@@ -1179,22 +1223,14 @@ export function SlideCanvas({
       if (m) {
         // A plain click drops the image in the middle of the slide. Dragging is
         // the nice path, but it must never be the only one.
-        const point = moved
-          ? isInsideSlide(e.clientX, e.clientY, m)
-            ? toSlideCoords(e.clientX, e.clientY, m)
-            : null
-          : { x: m.slideW / 2, y: m.slideH / 2 };
-
-        if (point) {
-          const el = insertSnippet(m.doc, dragItem.html, point, m.slideW, m.slideH, {
-            width: dragItem.width,
-            height: dragItem.height,
-          });
-          if (el) {
-            latest.current.onSelectionChange([el]);
-            latest.current.onCommit();
-          }
-        }
+        drop(
+          moved
+            ? isInsideSlide(e.clientX, e.clientY, m)
+              ? toSlideCoords(e.clientX, e.clientY, m)
+              : null
+            : { x: m.slideW / 2, y: m.slideH / 2 },
+          m
+        );
       }
       setGhost(null);
       onDragResolved();

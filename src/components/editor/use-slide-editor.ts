@@ -82,6 +82,9 @@ export function useSlideEditor({
     const id = slide?.id;
     if (!id) return;
     return () => {
+      // Reading the ref *at cleanup time* is the point: the pin has to move to
+      // whatever was last saved, not to what it held when the effect ran.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       const saved = savedRef.current[id];
       setLocalHtml((prev) =>
         saved !== undefined && prev[id] !== saved ? { ...prev, [id]: saved } : prev

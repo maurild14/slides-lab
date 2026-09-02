@@ -348,14 +348,15 @@ ${message}`
           for (const line of buffer.split("\n")) handleLine(line);
         }
       } catch (err) {
-        if (err instanceof Error && err.name === "AbortError") return;
-        const message = err instanceof Error ? err.message : "Ocurrió un error inesperado";
-        setError(message);
-        // Remove empty assistant message on error
+        // Either way the bubble we opened for the answer has to go if nothing
+        // ever landed in it — "Detener" used to leave an empty one behind for
+        // the rest of the conversation.
         setMessages((prev) =>
-          prev.filter(
-            (m) => m.id !== assistantId || m.content.length > 0
-          )
+          prev.filter((m) => m.id !== assistantId || m.content.length > 0)
+        );
+        if (err instanceof Error && err.name === "AbortError") return;
+        setError(
+          err instanceof Error ? err.message : "Ocurrió un error inesperado"
         );
       } finally {
         setIsStreaming(false);
