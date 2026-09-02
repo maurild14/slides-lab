@@ -17,6 +17,15 @@ export type AgentEvent =
   | { type: "token"; text: string }
   | { type: "result"; text: string }
   | { type: "status"; text: string }
+  /** Plan consumption + token count. `totalTokens` is absolute (it replaces
+   *  what the client has), `tokens` is a turn's delta (it adds). */
+  | {
+      type: "usage";
+      tokens?: number;
+      totalTokens?: number;
+      planUsedPct?: number;
+      planLabel?: string;
+    }
   | { type: "error"; error: string; subtype?: string };
 
 export type LaunchInput = {
@@ -44,7 +53,18 @@ export type Engine = {
   createParser: () => (line: string) => AgentEvent[];
   /** Returns a reason string when the CLI is installed but unusable. */
   checkAuth?: (binPath: string) => string | null;
+  /** For engines that don't put plan usage in their stream: dig it out after
+   *  the turn. Called on exit with the resolved session id. */
+  readPlanUsage?: (
+    sessionId: string
+  ) => Extract<AgentEvent, { type: "usage" }> | null;
 };
+
+/** Rate-limit window → the label shown next to the percentage. */
+function windowLabel(minutes: number): string {
+  if (minutes % 1440 === 0) return `${minutes / 1440} d`;
+  return `${Math.round(minutes / 60)} h`;
+}
 
 // ---------------------------------------------------------------- discovery
 
@@ -169,6 +189,25 @@ const claude: Engine = {
       return [{ type: "session", id: event.session_id as string }];
     }
 
+    // The CLI forwards the plan's own rate-limit headers as their own event.
+    // `utilization` is a fraction of the window (0-1); the window closest to
+    // full is the one that will actually block the next turn.
+    if (event.type === "rate_limit_event") {
+      const info = event.rate_limit_info as Record<string, unknown> | undefined;
+      const windows = (info?.unifiedWindows ?? {}) as Record<
+        string,
+        { utilization?: number } | undefined
+      >;
+      const read = (key: string, label: string) =>
+        windows[key]
+          ? { planLabel: label, planUsedPct: (windows[key]?.utilization ?? 0) * 100 }
+          : null;
+      // Claude's plan is spent in five-hour blocks; the weekly window is the
+      // slower ceiling behind it and only stands in when the block is missing.
+      const window = read("five_hour", "5 h") ?? read("seven_day", "7 d");
+      return window ? [{ type: "usage", ...window }] : [];
+    }
+
     if (event.type === "assistant" && event.message) {
       const msg = event.message as Record<string, unknown>;
       if (msg.type !== "message" || !Array.isArray(msg.content)) return [];
@@ -186,6 +225,19 @@ const claude: Engine = {
       const out: AgentEvent[] = [];
       if (event.session_id) {
         out.push({ type: "session", id: event.session_id as string });
+      }
+      // Per turn, not per session: the client accumulates. Cache reads count,
+      // because that is what the plan is charged for.
+      const usage = event.usage as Record<string, number> | undefined;
+      if (usage) {
+        out.push({
+          type: "usage",
+          tokens:
+            (usage.input_tokens ?? 0) +
+            (usage.output_tokens ?? 0) +
+            (usage.cache_creation_input_tokens ?? 0) +
+            (usage.cache_read_input_tokens ?? 0),
+        });
       }
       if (event.is_error || (event.subtype && event.subtype !== "success")) {
         out.push({
@@ -363,6 +415,19 @@ const codex: Engine = {
         ];
       }
 
+      // A turn's own tokens. The plan percentage never reaches this stream —
+      // `readPlanUsage` digs it (and the session total) out of the rollout.
+      if (event.type === "turn.completed") {
+        const u = event.usage as Record<string, number> | undefined;
+        if (!u) return [];
+        return [
+          {
+            type: "usage",
+            tokens: (u.input_tokens ?? 0) + (u.output_tokens ?? 0),
+          },
+        ];
+      }
+
       if (event.type === "item.started" || event.type === "item.completed") {
         const item = event.item as Record<string, unknown> | undefined;
         if (!item) return [];
@@ -401,6 +466,62 @@ const codex: Engine = {
       }
 
       return [];
+    };
+  },
+
+  /**
+   * `codex exec --json` never emits the plan's rate limits, but the CLI writes
+   * them into the thread's rollout log after every turn, alongside the running
+   * token total. The rollout is named after the thread id, so one glob finds it.
+   * ponytail: reads the whole JSONL; it is local and this runs once per turn.
+   */
+  readPlanUsage: (sessionId) => {
+    const root = path.join(
+      process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex"),
+      "sessions"
+    );
+    // Nested by date (sessions/YYYY/MM/DD), and a resumed thread keeps writing
+    // to the file it was created in, so the date is not ours to guess.
+    const suffix = `-${sessionId}.jsonl`;
+    const hit = fs
+      .readdirSync(root, { recursive: true, encoding: "utf-8" })
+      .filter((name) => name.endsWith(suffix))
+      .sort()
+      .pop();
+    if (!hit) return null;
+    const file = path.join(root, hit);
+
+    const text = fs.readFileSync(file, "utf-8");
+    const at = text.lastIndexOf('"type":"token_count"');
+    if (at < 0) return null;
+    const start = text.lastIndexOf("\n", at) + 1;
+    const end = text.indexOf("\n", at);
+    let payload: Record<string, unknown>;
+    try {
+      payload = (JSON.parse(text.slice(start, end < 0 ? undefined : end)) as {
+        payload?: Record<string, unknown>;
+      }).payload ?? {};
+    } catch {
+      return null;
+    }
+
+    const info = payload.info as
+      | { total_token_usage?: { total_tokens?: number } }
+      | undefined;
+    const limits = payload.rate_limits as
+      | Record<string, { used_percent?: number; window_minutes?: number } | null>
+      | undefined;
+    // Codex bills against a weekly window, so of the two it reports we want
+    // the longer one — which of primary/secondary holds it varies by plan.
+    const window = [limits?.primary, limits?.secondary]
+      .filter((w): w is { used_percent?: number; window_minutes?: number } => !!w)
+      .sort((a, b) => (b.window_minutes ?? 0) - (a.window_minutes ?? 0))[0];
+
+    return {
+      type: "usage",
+      totalTokens: info?.total_token_usage?.total_tokens,
+      planUsedPct: window?.used_percent,
+      planLabel: window ? windowLabel(window.window_minutes ?? 0) : undefined,
     };
   },
 

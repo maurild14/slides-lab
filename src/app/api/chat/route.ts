@@ -326,6 +326,17 @@ export async function POST(request: NextRequest) {
             }
           }
 
+          // Codex keeps its plan usage out of the stream and in the thread's
+          // rollout log, so it can only be read once the turn is over.
+          if (engine.readPlanUsage && resolvedSessionId) {
+            try {
+              const usage = engine.readPlanUsage(resolvedSessionId);
+              if (usage) send(encoder.encode(toSse(usage)));
+            } catch {
+              // a missing rollout must never turn a good run into an error
+            }
+          }
+
           try {
             send(
               encoder.encode(

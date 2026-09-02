@@ -17,6 +17,15 @@ function formatElapsed(ms: number): string {
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
 
+/** 21230 -> "21,2k". The session total is the number people watch. */
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(".", ",")}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(".", ",")}k`;
+  return String(n);
+}
+
+type Usage = { tokens: number; planUsedPct?: number; planLabel?: string };
+
 interface ChatPanelProps {
   carouselId: string;
   referenceImages?: ReferenceImage[];
@@ -64,6 +73,7 @@ export function ChatPanel({
   );
   const [now, setNow] = useState(() => Date.now());
   const [engine, setEngine] = useState<EngineId>("claude");
+  const [usage, setUsage] = useState<Usage>({ tokens: 0 });
   const [error, setError] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -71,6 +81,7 @@ export function ChatPanel({
 
   // Sessions are per engine: a Claude session id means nothing to Codex.
   const sessionKey = `chat-session-${carouselId}-${engine}`;
+  const usageKey = `chat-usage-${carouselId}-${engine}`;
   const anyEngineAvailable = engines.some((e) => e.available);
 
   // The history lives with the carousel on disk, so it survives a reload and
@@ -110,6 +121,17 @@ export function ChatPanel({
     setSessionId(localStorage.getItem(sessionKey));
   }, [sessionKey]);
 
+  // Tokens are a running total for the session, so they live where the session
+  // id lives. The plan percentage is a live reading; the last one is kept only
+  // so the line is not blank until the first turn of a reloaded page ends.
+  useEffect(() => {
+    try {
+      setUsage(JSON.parse(localStorage.getItem(usageKey) ?? "") as Usage);
+    } catch {
+      setUsage({ tokens: 0 });
+    }
+  }, [usageKey]);
+
   const handleEngineChange = useCallback(
     (next: EngineId) => {
       setEngine(next);
@@ -139,7 +161,9 @@ export function ChatPanel({
     setSessionId(null);
     localStorage.removeItem(`chat-messages-${carouselId}`);
     localStorage.removeItem(sessionKey);
-  }, [carouselId, sessionKey]);
+    setUsage({ tokens: 0 });
+    localStorage.removeItem(usageKey);
+  }, [carouselId, sessionKey, usageKey]);
 
   const handleStopGenerating = useCallback(() => {
     abortRef.current?.abort();
@@ -258,6 +282,31 @@ ${message}`
             return;
           }
 
+          if (data.type === "usage") {
+            setUsage((prev) => {
+              // `totalTokens` is the engine's own running total and replaces
+              // ours; `tokens` is one turn and adds to it.
+              const next: Usage = {
+                tokens:
+                  typeof data.totalTokens === "number"
+                    ? data.totalTokens
+                    : prev.tokens +
+                      (typeof data.tokens === "number" ? data.tokens : 0),
+                planUsedPct:
+                  typeof data.planUsedPct === "number"
+                    ? data.planUsedPct
+                    : prev.planUsedPct,
+                planLabel:
+                  typeof data.planLabel === "string"
+                    ? data.planLabel
+                    : prev.planLabel,
+              };
+              localStorage.setItem(usageKey, JSON.stringify(next));
+              return next;
+            });
+            return;
+          }
+
           if (data.type === "status" && typeof data.text === "string") {
             const text = data.text;
             // Repeating the same line (an item announced on both start and
@@ -319,6 +368,7 @@ ${message}`
       isStreaming,
       sessionId,
       sessionKey,
+      usageKey,
       engine,
       carouselId,
       onBeforeSend,
@@ -378,6 +428,25 @@ ${message}`
     </button>
   );
 
+  const engineLabel = engines.find((e) => e.id === engine)?.label ?? engine;
+  // The plan reads as what is left, because that is the number you act on;
+  // the tokens stay a count of what was actually spent. The engine's name is
+  // in the selector right above, so the line only needs the two numbers —
+  // anything longer wraps to a second row in this column.
+  const planLeft =
+    usage.planUsedPct === undefined
+      ? null
+      : Math.max(0, 100 - usage.planUsedPct);
+  const usageLine = [
+    planLeft !== null &&
+      `Plan ${planLeft.toFixed(planLeft < 10 ? 1 : 0)}% libre${
+        usage.planLabel ? ` (${usage.planLabel})` : ""
+      }`,
+    usage.tokens > 0 && `${formatTokens(usage.tokens)} tokens`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <div className="h-full flex flex-col">
       <ConfirmDialog
@@ -409,6 +478,16 @@ ${message}`
           onChange={handleEngineChange}
           disabled={isStreaming}
         />
+        {usageLine && (
+          <p
+            className="mt-2 text-micro text-muted-foreground tabular-nums"
+            title={`Plan ${engineLabel}: queda ${planLeft?.toFixed(1) ?? "?"}%${
+              usage.planLabel ? ` de la ventana de ${usage.planLabel}` : ""
+            } · ${usage.tokens.toLocaleString("es-AR")} tokens consumidos en esta sesión`}
+          >
+            {usageLine}
+          </p>
+        )}
       </div>
 
       <ReferenceImages

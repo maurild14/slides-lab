@@ -18,6 +18,7 @@
     "start": "next start",
     "lint": "eslint",
     "doctor": "node scripts/doctor.mjs",
+    "check:agents": "node scripts/check-agents.ts",
     "check:canvas": "node scripts/check-canvas.ts",
     "build:icons": "node scripts/build-icon-catalog.mjs"
   },
