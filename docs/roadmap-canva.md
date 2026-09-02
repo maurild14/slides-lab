@@ -1,5 +1,10 @@
 # Slides Lab → editor tipo Canva
 
+> **Read this when** you want the history behind the Canva-style editor: what was
+> asked for, in what order, and what was left out. It is an **archived plan**, all
+> phases shipped — for how the editor works today read [canvas.md](canvas.md), and
+> for why it is built this way read [decisions.md](decisions.md).
+
 Roadmap conceptual por fases. Descripción de requerimientos y funcionalidad, no de implementación.
 
 ---

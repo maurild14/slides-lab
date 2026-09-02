@@ -29,6 +29,7 @@
 - [Architecture](#-architecture)
 - [Tech stack](#-tech-stack)
 - [Project structure](#-project-structure)
+- [Documentation](#-documentation)
 - [Configuration](#%EF%B8%8F-configuration)
 - [Troubleshooting](#-troubleshooting)
 - [Roadmap](#%EF%B8%8F-roadmap)
@@ -257,7 +258,8 @@ slides-lab/
 ├── .claude/
 │   └── commands/             ← /start, /stop, /reset, /doctor (Claude Code slash commands)
 ├── data/                     ← user state (gitignored): brand, carousels, templates, exports
-├── docs/screenshots/         ← README assets
+├── docs/                     ← one page per topic (see Documentation below)
+│   └── screenshots/          ← README assets
 ├── public/uploads/           ← user uploads (gitignored): logos, reference images
 ├── scripts/
 │   ├── setup.mjs             ← npm install + seed data dirs + Claude CLI detection (cross-platform)
@@ -285,13 +287,41 @@ slides-lab/
 │   │   ├── canvas-utils.ts          ← slide/screen coordinate math + snapping
 │   │   └── ...
 │   └── types/                ← shared TypeScript types
-├── CLAUDE.md                 ← architecture doc for AI assistants working on this code
+├── AGENTS.md                 ← the contract every AI agent reads: commands, rules, docs map
+├── CLAUDE.md                 ← Claude Code specifics; imports AGENTS.md
 ├── LICENSE                   ← MIT
 ├── README.md                 ← you are here
 ├── next.config.ts
 ├── package.json
 └── tsconfig.json
 ```
+
+---
+
+## 📚 Documentation
+
+This README is the tour. The working documentation lives in [`docs/`](./docs/),
+one page per topic, and is written for whoever — or whatever — is about to change
+the code:
+
+| Page | Covers |
+| --- | --- |
+| [architecture](./docs/architecture.md) | Processes, data flow, module map |
+| [api](./docs/api.md) | Every HTTP route |
+| [data-model](./docs/data-model.md) | Types, JSON storage, locking, version history |
+| [agent-engines](./docs/agent-engines.md) | The CLI subprocess, the system prompt, usage metering |
+| [slide-html](./docs/slide-html.md) | What a slide stores and how it is rendered |
+| [canvas](./docs/canvas.md) | The editor: selection, gestures, layers, undo, autosave |
+| [audit](./docs/audit.md) | How the agent sees what it wrote |
+| [export](./docs/export.md) | PNG / JPG / PDF / ZIP and Puppeteer |
+| [ui](./docs/ui.md) | Tokens, copy, errors, accessibility |
+| [imagegen-policy](./docs/imagegen-policy.md) | When the agent generates an image (injected into the prompt) |
+| [workflows](./docs/workflows.md) | Setup, dev loop, verification, troubleshooting |
+| [decisions](./docs/decisions.md) | What was deliberately left simple, and when to add it |
+
+[`AGENTS.md`](./AGENTS.md) is the entry point for AI coding agents: the commands,
+the rules that cost a real bug, and the map into `docs/`.
+[`CLAUDE.md`](./CLAUDE.md) imports it and adds only what is Claude Code specific.
 
 ---
 
@@ -370,8 +400,9 @@ Open ideas — PRs welcome. Tick what you ship, add your own.
 
 PRs welcome. The bar:
 
-- **Run `npm run doctor` and `npm run build`** before opening a PR — both should pass clean.
-- **Follow the file conventions** in [`CLAUDE.md`](./CLAUDE.md) — components ≤ 300 lines, types in `src/types/`, libs in `src/lib/`, `cn()` from `src/lib/utils.ts` for class merging, all data writes through `src/lib/data.ts`.
+- **Run `npm run check:canvas`, `npm run check:agents`, `npm run lint` and `npm run build`** before opening a PR — all four should pass clean. There is no test framework; new pure logic gets an `assert` in one of the two check scripts.
+- **Follow the conventions** in [`AGENTS.md`](./AGENTS.md) — components ≤ 300 lines, types in `src/types/`, libs in `src/lib/`, `cn()` from `src/lib/utils.ts` for class merging, all data writes through `src/lib/data.ts`.
+- **Update the `docs/` page you invalidated**, in the same commit.
 - **Don't touch the slide rendering contract.** `wrapSlideHtml()` in `src/lib/slide-html.ts` is the seam between preview and export. Change it carefully and test the export round-trip.
 - **Animations follow [Emil Kowalski's philosophy](https://animations.dev)** — CSS-first, custom easings (already defined as CSS variables in `globals.css`), respect `prefers-reduced-motion`. See the `oc-*` utility classes already in `globals.css` before authoring new ones.
 
