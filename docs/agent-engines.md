@@ -22,6 +22,35 @@ Two engines are registered in `src/lib/agents.ts`; the user picks per message.
 | Session resume | `--resume <id>` | `exec resume <id>` |
 | Native image generation | no | yes (`gpt-image-2`, billed to the ChatGPT plan) |
 | Auth probe | none | `codex login status` |
+| Model | `--model <alias>` | `-m <slug>` |
+| Reasoning effort | `--effort <level>` | `-c model_reasoning_effort=<level>` |
+
+## Picking a model and an effort level
+
+The chat panel has three dropdowns: engine, model, effort. Model and effort
+both default to `""`, which passes **no flag at all** and leaves the CLI on
+whatever its own config names — that is the safe state, and the one to keep
+working if a slug is ever retired upstream.
+
+The lists live in `agents.ts` (`CLAUDE_MODELS`, `CODEX_MODELS`, `EFFORTS`) and
+ride out to the browser on `EngineStatus`, so there is one copy and it is the
+same one `buildLaunch` validates against. Both CLIs happen to take the same
+five levels; Codex's `ultra` exists on three models only and is left out rather
+than offered where it 400s. Regenerate the Codex list from `codex debug models`
+(keep `visibility === "list"`); Claude's aliases track its latest releases and
+do not need regenerating.
+
+**`model` and `effort` are strings from a browser that end up in the argv of a
+CLI that runs shell commands.** `pickChoice()` inside `buildLaunch` drops
+anything not offered by name, and that is the only check — put nothing between
+the request body and `buildLaunch` that could be mistaken for one.
+`check:agents` asserts that `--dangerously-skip-permissions` as a model name
+never reaches argv.
+
+Both flags are re-sent on a resumed session, so a thread follows the dropdowns
+instead of staying pinned to what it was created with. For Codex they must go
+**before** the `-` that switches the prompt to stdin — anything after it is
+read as prompt text.
 
 ## The `Engine` contract
 

@@ -33,6 +33,8 @@ export async function POST(request: NextRequest) {
     carouselId?: string;
     stylePresetId?: string;
     engine?: EngineId;
+    model?: string;
+    effort?: string;
     attachments?: Array<{ url?: string; name?: string }>;
   };
   try {
@@ -103,6 +105,11 @@ export async function POST(request: NextRequest) {
     prompt: promptText,
     systemPrompt,
     sessionId,
+    // Unvalidated on purpose: `buildLaunch` runs both through `pickChoice`,
+    // so the check that keeps browser input out of argv sits in the one place
+    // every caller goes through, including the self-checks.
+    model: body.model,
+    effort: body.effort,
   });
 
   const encoder = new TextEncoder();

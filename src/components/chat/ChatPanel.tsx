@@ -73,6 +73,10 @@ export function ChatPanel({
   );
   const [now, setNow] = useState(() => Date.now());
   const [engine, setEngine] = useState<EngineId>("claude");
+  // "" is the engine's own default: the CLI reads its own config and we pass
+  // no flag. Both are validated again server-side before they reach argv.
+  const [model, setModel] = useState("");
+  const [effort, setEffort] = useState("");
   const [usage, setUsage] = useState<Usage>({ tokens: 0 });
   const [error, setError] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -82,6 +86,11 @@ export function ChatPanel({
   // Sessions are per engine: a Claude session id means nothing to Codex.
   const sessionKey = `chat-session-${carouselId}-${engine}`;
   const usageKey = `chat-usage-${carouselId}-${engine}`;
+  // So is the model — `opus` means nothing to Codex and `gpt-6-astra` means
+  // nothing to Claude. The effort levels do line up, but keying them the same
+  // way keeps one rule for the whole panel.
+  const modelKey = `chat-model-${carouselId}-${engine}`;
+  const effortKey = `chat-effort-${carouselId}-${engine}`;
   const anyEngineAvailable = engines.some((e) => e.available);
 
   // The history lives with the carousel on disk, so it survives a reload and
@@ -132,12 +141,34 @@ export function ChatPanel({
     }
   }, [usageKey]);
 
+  // Follow the engine's own model and effort the same way the session does.
+  useEffect(() => {
+    setModel(localStorage.getItem(modelKey) ?? "");
+    setEffort(localStorage.getItem(effortKey) ?? "");
+  }, [modelKey, effortKey]);
+
   const handleEngineChange = useCallback(
     (next: EngineId) => {
       setEngine(next);
       localStorage.setItem(`chat-engine-${carouselId}`, next);
     },
     [carouselId]
+  );
+
+  const handleModelChange = useCallback(
+    (next: string) => {
+      setModel(next);
+      localStorage.setItem(modelKey, next);
+    },
+    [modelKey]
+  );
+
+  const handleEffortChange = useCallback(
+    (next: string) => {
+      setEffort(next);
+      localStorage.setItem(effortKey, next);
+    },
+    [effortKey]
   );
 
   // Save whenever the log settles. Debounced, so a stream writes once when it
@@ -234,6 +265,8 @@ ${message}`
             sessionId,
             carouselId,
             engine,
+            model,
+            effort,
             attachments,
           }),
           signal: abortRef.current.signal,
@@ -371,6 +404,8 @@ ${message}`
       sessionKey,
       usageKey,
       engine,
+      model,
+      effort,
       carouselId,
       onBeforeSend,
       onStreamStart,
@@ -477,6 +512,10 @@ ${message}`
           engines={engines}
           value={engine}
           onChange={handleEngineChange}
+          model={model}
+          onModelChange={handleModelChange}
+          effort={effort}
+          onEffortChange={handleEffortChange}
           disabled={isStreaming}
         />
         {usageLine && (

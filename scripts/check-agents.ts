@@ -108,4 +108,65 @@ assert.deepEqual(ENGINES.codex.readPlanUsage!(id), {
 assert.equal(ENGINES.codex.readPlanUsage!("no-such-thread"), null);
 fs.rmSync(home, { recursive: true, force: true });
 
-console.log("agents: usage checks pass");
+// ------------------------------------------------- model / effort selection
+
+// `model` and `effort` come off a JSON body from the browser and end up as
+// arguments to a CLI that runs shell commands, so the only thing standing
+// between the two is `pickChoice` inside buildLaunch. These assert both that
+// a real choice reaches the right flag and that a made-up one never does.
+const base = { prompt: "hi", systemPrompt: "sys" };
+
+const claudeDefault = ENGINES.claude.buildLaunch(base).args;
+assert.ok(!claudeDefault.includes("--model"), "no model flag without a choice");
+assert.ok(!claudeDefault.includes("--effort"), "no effort flag without a choice");
+
+const claudePicked = ENGINES.claude.buildLaunch({
+  ...base,
+  model: "haiku",
+  effort: "low",
+}).args;
+assert.deepEqual(
+  claudePicked.slice(claudePicked.indexOf("--model")),
+  ["--model", "haiku", "--effort", "low"]
+);
+
+const codexPicked = ENGINES.codex.buildLaunch({
+  ...base,
+  model: "gpt-5.4-mini",
+  effort: "high",
+}).args;
+assert.deepEqual(
+  codexPicked.slice(codexPicked.indexOf("-m")),
+  ["-m", "gpt-5.4-mini", "-c", "model_reasoning_effort=high", "-"]
+);
+// "-" makes the CLI read the prompt from stdin, so anything after it would be
+// swallowed as prompt text instead of parsed as a flag.
+assert.equal(codexPicked.at(-1), "-", "stdin marker stays last");
+
+for (const engineId of ["claude", "codex"] as const) {
+  const args = ENGINES[engineId].buildLaunch({
+    ...base,
+    model: "--dangerously-skip-permissions",
+    effort: "; rm -rf /",
+  }).args;
+  assert.ok(
+    !args.includes("--dangerously-skip-permissions") &&
+      !args.includes("; rm -rf /"),
+    `${engineId}: an unlisted model or effort must never reach argv`
+  );
+}
+
+// A resumed thread follows the dropdowns rather than staying pinned to what it
+// was created with — both CLIs take the flags on resume.
+assert.ok(
+  ENGINES.codex
+    .buildLaunch({ ...base, sessionId: "abc", model: "gpt-5.5" })
+    .args.includes("gpt-5.5")
+);
+assert.ok(
+  ENGINES.claude
+    .buildLaunch({ ...base, sessionId: "abc", model: "opus" })
+    .args.includes("opus")
+);
+
+console.log("agents: usage + model selection checks pass");

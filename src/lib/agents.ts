@@ -32,6 +32,11 @@ export type LaunchInput = {
   prompt: string;
   systemPrompt: string;
   sessionId?: string;
+  /** Both are user choices from the chat panel, and both are dropped unless
+   *  they name one of the offered options — see `pickChoice`. Empty or unknown
+   *  means "pass no flag", i.e. whatever the CLI's own config says. */
+  model?: string;
+  effort?: string;
 };
 
 export type Launch = {
@@ -59,6 +64,70 @@ export type Engine = {
     sessionId: string
   ) => Extract<AgentEvent, { type: "usage" }> | null;
 };
+
+// ------------------------------------------------- models and effort levels
+
+/** One entry in the model / effort dropdowns. */
+export type EngineChoice = { id: string; label: string };
+
+/**
+ * Both CLIs happen to take the same five levels: `claude --effort <level>`
+ * and `codex -c model_reasoning_effort=<level>`. Codex also has `ultra`, on
+ * three of its models only; it is left out rather than offered where it 400s.
+ */
+const EFFORTS: EngineChoice[] = [
+  { id: "low", label: "Esfuerzo bajo" },
+  { id: "medium", label: "Esfuerzo medio" },
+  { id: "high", label: "Esfuerzo alto" },
+  { id: "xhigh", label: "Esfuerzo muy alto" },
+  { id: "max", label: "Esfuerzo máximo" },
+];
+
+/**
+ * ponytail: hand-kept lists. Codex can enumerate its own catalog
+ * (`codex debug models`, keep `visibility === "list"`), but that is a 400KB
+ * subprocess per call and Claude has no equivalent, so both stay static. The
+ * cost of one going stale is bounded: picking nothing passes no flag and the
+ * CLI uses its own configured model, so a dead slug is only ever something the
+ * user chose by name — and the engine says so in words. Regenerate from the
+ * same command.
+ */
+const CLAUDE_MODELS: EngineChoice[] = [
+  // `claude --help`: an alias tracks the latest release of that model.
+  { id: "opus", label: "Opus" },
+  { id: "sonnet", label: "Sonnet" },
+  { id: "haiku", label: "Haiku" },
+  { id: "fable", label: "Fable" },
+];
+
+const CODEX_MODELS: EngineChoice[] = [
+  { id: "gpt-6-astra", label: "GPT-6-Astra" },
+  { id: "gpt-5.6-sol", label: "GPT-5.6-Sol" },
+  { id: "gpt-5.6-terra", label: "GPT-5.6-Terra" },
+  { id: "gpt-5.6-luna", label: "GPT-5.6-Luna" },
+  { id: "gpt-5.5", label: "GPT-5.5" },
+  { id: "gpt-5.4-mini", label: "GPT-5.4-Mini" },
+  { id: "gpt-5.3-codex-spark", label: "GPT-5.3-Codex-Spark" },
+];
+
+const MODELS: Record<EngineId, EngineChoice[]> = {
+  claude: CLAUDE_MODELS,
+  codex: CODEX_MODELS,
+};
+
+/**
+ * The trust boundary. `model` and `effort` arrive as JSON from the browser and
+ * end up as arguments to a CLI that runs shell commands, so anything not
+ * offered by name is dropped instead of forwarded: an unknown value means the
+ * engine's own default, never a flag we did not mean to pass.
+ */
+function pickChoice(
+  choices: EngineChoice[],
+  value: string | undefined
+): string | undefined {
+  if (!value) return undefined;
+  return choices.some((c) => c.id === value) ? value : undefined;
+}
 
 /** Rate-limit window → the label shown next to the percentage. */
 function windowLabel(minutes: number): string {
@@ -137,7 +206,7 @@ const claude: Engine = {
   bin: "claude",
   supportsImagegen: false,
 
-  buildLaunch: ({ prompt, systemPrompt, sessionId }) => {
+  buildLaunch: ({ prompt, systemPrompt, sessionId, model, effort }) => {
     // The prompt carries the full HTML of every slide in the carousel, so it
     // grows with the deck: ~17KB empty, 43KB at four slides, 53KB at nine.
     // Windows caps a command line at 32767 characters, so passing it as an
@@ -173,6 +242,13 @@ const claude: Engine = {
       "--name",
       "carrusel-chat",
     ];
+    // Both are "for the current session", so they are re-sent on a --resume
+    // too: the panel's dropdowns are what the next turn runs on, not what the
+    // first turn happened to start with.
+    const pickedModel = pickChoice(CLAUDE_MODELS, model);
+    if (pickedModel) args.push("--model", pickedModel);
+    const pickedEffort = pickChoice(EFFORTS, effort);
+    if (pickedEffort) args.push("--effort", pickedEffort);
     if (sessionId) args.push("--resume", sessionId);
     return { args };
   },
@@ -345,7 +421,7 @@ const codex: Engine = {
   bin: "codex",
   supportsImagegen: true,
 
-  buildLaunch: ({ prompt, systemPrompt, sessionId }) => {
+  buildLaunch: ({ prompt, systemPrompt, sessionId, model, effort }) => {
     const flags = [
       "--json",
       // Set through -c rather than -s: `exec resume` rejects -s, and this way
@@ -372,9 +448,17 @@ const codex: Engine = {
       // `mcp_servers.<name>.enabled=false`, one flag per server, works, and
       // that means parsing the user's config.toml for names.
       // ponytail: not worth 4s; do it if the handshakes ever get slower.
-      // "-" makes the CLI read the prompt from stdin instead of argv.
-      "-",
     ];
+    // `exec resume` takes -m too, so a resumed thread follows the dropdown
+    // instead of staying pinned to whatever it was created with.
+    const pickedModel = pickChoice(CODEX_MODELS, model);
+    if (pickedModel) flags.push("-m", pickedModel);
+    const pickedEffort = pickChoice(EFFORTS, effort);
+    if (pickedEffort) flags.push("-c", `model_reasoning_effort=${pickedEffort}`);
+    // "-" makes the CLI read the prompt from stdin instead of argv. Last,
+    // because everything after it would be read as the prompt.
+    flags.push("-");
+
     const args = sessionId
       ? ["exec", "resume", sessionId, ...flags]
       : ["exec", ...flags];
@@ -564,6 +648,11 @@ export type EngineStatus = {
   available: boolean;
   supportsImagegen: boolean;
   reason?: string;
+  /** What the model / effort dropdowns offer for this engine. They ride along
+   *  with the status so the lists live in exactly one place — the same
+   *  constants `buildLaunch` validates against. */
+  models: EngineChoice[];
+  efforts: EngineChoice[];
 };
 
 // ponytail: module-level cache, no TTL — probing costs a subprocess and the
@@ -576,6 +665,8 @@ export function getEngineStatus(engine: Engine): EngineStatus {
     id: engine.id,
     label: engine.label,
     supportsImagegen: engine.supportsImagegen,
+    models: MODELS[engine.id],
+    efforts: EFFORTS,
   };
 
   const binPath = findEnginePath(engine);

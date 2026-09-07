@@ -40,9 +40,27 @@ import type { EngineStatus } from "@/lib/agents";
 
 // Assume both engines work until /api/chat/check answers, so the panel doesn't
 // flash an "install a CLI" empty state on every page load.
+// Empty model/effort lists on purpose: this is what the panel shows for the
+// moment before /api/chat/check answers, and the real lists live server-side
+// next to the validation. Both dropdowns still have their "the CLI decides"
+// option, which is the default anyway.
 const OPTIMISTIC_ENGINES: EngineStatus[] = [
-  { id: "claude", label: "Claude", available: true, supportsImagegen: false },
-  { id: "codex", label: "Codex", available: true, supportsImagegen: true },
+  {
+    id: "claude",
+    label: "Claude",
+    available: true,
+    supportsImagegen: false,
+    models: [],
+    efforts: [],
+  },
+  {
+    id: "codex",
+    label: "Codex",
+    available: true,
+    supportsImagegen: true,
+    models: [],
+    efforts: [],
+  },
 ];
 
 interface PageProps {
