@@ -86,7 +86,7 @@ path is handed to a shell.
 | `GET/POST /api/style-presets` | `POST` requires `name` and `designRules` |
 | `GET/DELETE /api/style-presets/[id]` | A preset is injected into the system prompt when passed to `/api/chat` |
 | `GET /api/fonts` | A curated Google Fonts list, hardcoded — not a live fetch |
-| `POST /api/upload` | `multipart/form-data`, field `file`, max 10 MB |
+| `POST /api/upload` | `multipart/form-data`, field `file`, max 20 MB |
 
 `/api/upload` validates by **magic bytes**, not by extension or the declared
 MIME type, and accepts images (PNG, JPG, WebP) as well as font files (WOFF2,

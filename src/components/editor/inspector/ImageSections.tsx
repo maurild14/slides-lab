@@ -57,7 +57,7 @@ export function ImageSections({ props: p, api, onUpload, focus }: Props) {
         <input
           ref={fileRef}
           type="file"
-          accept="image/png,image/jpeg,image/webp"
+          accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
           className="hidden"
           onChange={async (e) => {
             const file = e.target.files?.[0];

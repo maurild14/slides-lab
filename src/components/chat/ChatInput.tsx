@@ -32,8 +32,11 @@ const SUGGESTIONS = [
 ];
 
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp"];
+// Windows hands files an empty `file.type` when the extension has no registry
+// MIME mapping, so a plain .png got refused before it ever reached the server.
+const ACCEPTED_EXT = /\.(png|jpe?g|webp)$/i;
 const MAX_ATTACHMENTS = 4;
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
 
 export function ChatInput({
   onSend,
@@ -62,12 +65,12 @@ export function ChatInput({
   const uploading = attachments.some((a) => a.uploading);
 
   const uploadFile = useCallback(async (file: File) => {
-    if (!ACCEPTED_TYPES.includes(file.type)) {
-      setNotice(`«${file.name}» no es PNG, JPG ni WebP.`);
+    if (!ACCEPTED_TYPES.includes(file.type) && !ACCEPTED_EXT.test(file.name)) {
+      setNotice(`«${file.name}» no es PNG, JPG, JPEG ni WebP.`);
       return;
     }
     if (file.size > MAX_FILE_SIZE) {
-      setNotice(`«${file.name}» pesa más de 10 MB.`);
+      setNotice(`«${file.name}» pesa más de 20 MB.`);
       return;
     }
     if (attachments.length >= MAX_ATTACHMENTS) {
@@ -280,7 +283,7 @@ export function ChatInput({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/png,image/jpeg,image/webp"
+        accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
         multiple
         className="hidden"
         onChange={(e) => {

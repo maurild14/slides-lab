@@ -27,7 +27,7 @@ export function LogoUpload({ value, onChange }: LogoUploadProps) {
         if (!res.ok) throw new Error();
         onChange((await res.json()).url);
       } catch {
-        setError("No se pudo subir el logo. Tiene que ser PNG, JPG o WebP de hasta 10 MB.");
+        setError("No se pudo subir el logo. Tiene que ser PNG, JPG, JPEG o WebP de hasta 20 MB.");
       } finally {
         setUploading(false);
       }
@@ -41,7 +41,7 @@ export function LogoUpload({ value, onChange }: LogoUploadProps) {
       <input
         ref={fileRef}
         type="file"
-        accept="image/png,image/jpeg,image/webp"
+        accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
@@ -111,7 +111,7 @@ export function LogoUpload({ value, onChange }: LogoUploadProps) {
                 Arrastrá tu logo o tocá para elegirlo
               </span>
               <span className="text-micro text-muted-foreground">
-                PNG, JPG o WebP, hasta 10 MB
+                PNG, JPG, JPEG o WebP, hasta 20 MB
               </span>
             </>
           )}

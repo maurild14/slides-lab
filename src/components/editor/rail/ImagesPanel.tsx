@@ -182,7 +182,7 @@ export function ImagesPanel({
           <input
             ref={fileRef}
             type="file"
-            accept="image/png,image/jpeg,image/webp"
+            accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
             multiple
             hidden
             onChange={(e) => {

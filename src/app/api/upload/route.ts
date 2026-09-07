@@ -5,7 +5,7 @@ import sharp from "sharp";
 import { generateId } from "@/lib/utils";
 
 const UPLOAD_DIR = path.resolve(process.cwd(), "public/uploads");
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
 // Magic bytes for allowed image types
 const MAGIC_BYTES: Record<string, number[][]> = {
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
 
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { error: "File too large (max 10MB)" },
+        { error: "File too large (max 20MB)" },
         { status: 400 }
       );
     }

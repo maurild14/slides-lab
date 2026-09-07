@@ -7,6 +7,8 @@ import { DialogShell } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { ReferenceImage } from "@/types/carousel";
 
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
+
 interface ReferenceImagesProps {
   carouselId: string;
   images: ReferenceImage[];
@@ -26,6 +28,15 @@ export function ReferenceImages({
 
   const handleUpload = useCallback(
     async (file: File) => {
+      // One canned "tiene que ser PNG…" used to cover every failure, so an
+      // oversized file, a Sharp crash and a 404 on the carousel all read as
+      // "formato equivocado". Each step says what actually went wrong.
+      if (file.size > MAX_FILE_SIZE) {
+        setError(
+          `«${file.name}» pesa ${(file.size / 1024 / 1024).toFixed(1)} MB. El máximo son 20 MB.`
+        );
+        return;
+      }
       setUploading(true);
       setError(null);
       try {
@@ -35,7 +46,14 @@ export function ReferenceImages({
           method: "POST",
           body: formData,
         });
-        if (!uploadRes.ok) throw new Error();
+        if (!uploadRes.ok) {
+          setError(
+            uploadRes.status === 400
+              ? `No se pudo subir «${file.name}». Tiene que ser PNG, JPG, JPEG o WebP.`
+              : `El servidor no pudo procesar «${file.name}» (error ${uploadRes.status}).`
+          );
+          return;
+        }
         const uploadData = await uploadRes.json();
 
         const res = await fetch(`/api/carousels/${carouselId}/references`, {
@@ -43,10 +61,15 @@ export function ReferenceImages({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url: uploadData.url, name: file.name }),
         });
-        if (!res.ok) throw new Error();
+        if (!res.ok) {
+          setError(
+            "La imagen se subió pero no se pudo agregar al carrusel. Probá de nuevo."
+          );
+          return;
+        }
         onImagesChange();
       } catch {
-        setError("No se pudo subir la imagen. Tiene que ser PNG, JPG o WebP de hasta 10 MB.");
+        setError("No se pudo subir la imagen. Revisá la conexión y probá de nuevo.");
       } finally {
         setUploading(false);
       }
@@ -77,7 +100,7 @@ export function ReferenceImages({
       <input
         ref={fileRef}
         type="file"
-        accept="image/png,image/jpeg,image/webp"
+        accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
@@ -109,7 +132,9 @@ export function ReferenceImages({
             e.preventDefault();
             setOver(false);
             const file = e.dataTransfer.files[0];
-            if (file && file.type.startsWith("image/")) handleUpload(file);
+            // Dropping a file with an empty `file.type` (common on Windows)
+            // used to do nothing at all; let handleUpload report the reason.
+            if (file) handleUpload(file);
           }}
           onDragOver={(e) => {
             e.preventDefault();
