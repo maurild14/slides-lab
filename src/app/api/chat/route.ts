@@ -185,12 +185,20 @@ export async function POST(request: NextRequest) {
           return;
         }
 
+        // A turn that failed for a real reason (`turn.failed`, a top-level
+        // `error`) already said why on stdout. Repeating "exited with code 1"
+        // with 8KB of MCP stderr on top buried the actual message — a run died
+        // on "the 'gpt-6-astra' model requires a newer version of Codex" and
+        // what surfaced was four failed MCP handshakes.
+        let sawError = false;
+
         const emit = (line: string) => {
           for (const event of parse(line)) {
             if (event.type === "session") {
               resolvedSessionId = event.id;
               continue;
             }
+            if (event.type === "error") sawError = true;
             send(encoder.encode(toSse(event)));
           }
         };
@@ -302,7 +310,7 @@ export async function POST(request: NextRequest) {
           // process remaining buffer
           if (buffer.trim()) emit(buffer);
 
-          if (code && code !== 0) {
+          if (code && code !== 0 && !sawError) {
             console.error(`[chat] ${engine.label} subprocess exited non-zero ${JSON.stringify({
               enginePath,
               platform: process.platform,

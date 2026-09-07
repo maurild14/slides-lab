@@ -62,9 +62,23 @@ prompt tells it to stage long JSON bodies there, because writing them inside the
 project triggers Fast Refresh and the reload kills the chat stream. Without that
 root the write came back as "patch rejected: writing outside of the project" and
 the run died with the carousel half built. `approval_policy=never` (exec has no
-TTY to ask on), `network_access=true` (it talks to localhost), and
-`mcp_servers={}` — the user's global MCP servers are irrelevant here and cost
-~4s of failed auth handshakes per turn.
+TTY to ask on) and `network_access=true` (it talks to localhost).
+
+**The user's global MCP servers load on every turn** and cost ~4s of failed auth
+handshakes. `-c mcp_servers={}` does *not* stop that: `-c` merges into the config
+table, it does not replace it — `codex mcp list -c mcp_servers={}` still lists
+every server. The only thing that works is one
+`-c mcp_servers.<name>.enabled=false` per name read out of the user's
+`config.toml`. Not worth 4s, but their stderr is loud, which is why a real
+failure must never be reported as `exited with code N` plus that stderr.
+
+**A stale `CODEX_CLI_PATH` looks exactly like a crash.** `.env.local` pins the
+binary, `findEnginePath` trusts the override before anything else, and the
+Codex desktop app updates its own copy without touching that one. A CLI older
+than the `model` pinned in `~/.codex/config.toml` gets a 400 —
+"the 'gpt-6-astra' model requires a newer version of Codex" — which arrives as
+`turn.failed` on stdout and exit 1. Check `codex --version` against
+`npm view @openai/codex version` before believing anything on stderr.
 
 **On Windows the prompt says `curl.exe`.** Codex shells out through PowerShell,
 where bare `curl` is `Invoke-WebRequest` and takes different flags.

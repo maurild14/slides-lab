@@ -365,10 +365,13 @@ const codex: Engine = {
       `sandbox_workspace_write.writable_roots=["${os.tmpdir().replace(/\\/g, "/")}"]`,
       "-c",
       "approval_policy=never",
-      // The user's global MCP servers are irrelevant here and cost ~4s of
-      // failed auth handshakes on every turn.
-      "-c",
-      "mcp_servers={}",
+      // There used to be a `-c mcp_servers={}` here to skip the user's global
+      // MCP servers (~4s of failed auth handshakes per turn). It never did
+      // anything: `-c` merges into the config table, it does not replace it —
+      // `codex mcp list -c mcp_servers={}` still lists every server. Only
+      // `mcp_servers.<name>.enabled=false`, one flag per server, works, and
+      // that means parsing the user's config.toml for names.
+      // ponytail: not worth 4s; do it if the handshakes ever get slower.
       // "-" makes the CLI read the prompt from stdin instead of argv.
       "-",
     ];
