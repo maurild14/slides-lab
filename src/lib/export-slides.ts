@@ -1,10 +1,10 @@
-import puppeteer, { type Browser } from "puppeteer";
+import puppeteer, { type Browser, type Page } from "puppeteer";
 import { readFile } from "fs/promises";
 import path from "path";
 import sharp from "sharp";
 import { wrapSlideHtml, extractFontFamilies } from "./slide-html";
 import { getInlinedFontCSS } from "./fonts";
-import { findUploadRefs } from "./upload-paths";
+import { findUploadRefs, resolveUploadPath } from "./upload-paths";
 import type { Slide, AspectRatio } from "@/types/carousel";
 import { DIMENSIONS } from "@/types/carousel";
 
@@ -22,11 +22,42 @@ export async function getBrowser(): Promise<Browser> {
   if (!browser || !browser.isConnected()) {
     browser = await puppeteer.launch({
       headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu"],
+      // Chrome refuses to start sandboxed as root (Docker, some CI), and only
+      // there. Everywhere else the sandbox stays on: the pages render HTML
+      // the agent wrote.
+      args:
+        process.getuid?.() === 0
+          ? ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu"]
+          : ["--disable-gpu"],
     });
     exportCount = 0;
   }
   return browser;
+}
+
+const ALLOWED_HOSTS = new Set(["fonts.gstatic.com", "fonts.googleapis.com"]);
+
+/**
+ * A tab for rendering slide HTML. Slide HTML is written by the agent (or
+ * pasted by anyone), so it gets no scripts and no network beyond Google Fonts:
+ * a slide with `<img src="http://localhost:3000/api/...">` or a script could
+ * otherwise reach the API, the LAN or file:// from inside the exporter.
+ * Measuring still works — page.evaluate goes over CDP, not page scripts.
+ */
+export async function newSlidePage(br: Browser): Promise<Page> {
+  const page = await br.newPage();
+  await page.setJavaScriptEnabled(false);
+  await page.setRequestInterception(true);
+  page.on("request", (req) => {
+    const url = req.url();
+    let host = "";
+    try {
+      host = new URL(url).hostname;
+    } catch {}
+    if (url.startsWith("data:") || ALLOWED_HOSTS.has(host)) req.continue();
+    else req.abort();
+  });
+  return page;
 }
 
 /**
@@ -39,7 +70,8 @@ async function inlineImages(html: string): Promise<string> {
   let result = html;
   for (const imgPath of findUploadRefs(html)) {
     try {
-      const fullPath = path.join(uploadDir, imgPath);
+      const fullPath = resolveUploadPath(uploadDir, imgPath);
+      if (!fullPath) continue;
       const buffer = await readFile(fullPath);
       const ext = path.extname(imgPath).toLowerCase();
       const mime =
@@ -54,7 +86,8 @@ async function inlineImages(html: string): Promise<string> {
       // resolves once the document is loaded from memory.
       result = result.replaceAll(imgPath, `data:${mime};base64,${base64}`);
     } catch {
-      // Keep original path — Puppeteer can fetch from localhost
+      // Keep the original path. It will not load — the page has no network —
+      // and the slide exports without that image instead of failing whole.
     }
   }
 
@@ -121,7 +154,7 @@ export async function exportSlide(
   const fullHtml = await buildSlideDocument(slide.html, aspectRatio);
 
   const br = await getBrowser();
-  const page = await br.newPage();
+  const page = await newSlidePage(br);
 
   try {
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
@@ -218,7 +251,7 @@ export async function exportCarouselPdf(
   }
 
   const br = await getBrowser();
-  const page = await br.newPage();
+  const page = await newSlidePage(br);
   try {
     await page.setContent(
       `<!DOCTYPE html><html><head><style>

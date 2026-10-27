@@ -7,6 +7,7 @@ import {
   buildSlideDocument,
   exportAllSlides,
   getBrowser,
+  newSlidePage,
 } from "./export-slides";
 import { getCarousel } from "./carousels";
 import { findIssues, type MeasuredBox } from "./slide-audit-rules";
@@ -72,7 +73,7 @@ export async function auditSlide(
   const fullHtml = await buildSlideDocument(slide.html, aspectRatio);
 
   const browser = await getBrowser();
-  const page = await browser.newPage();
+  const page = await newSlidePage(browser);
   try {
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
     await page.setContent(fullHtml, {
@@ -159,7 +160,7 @@ export async function contactSheet(carousel: Carousel): Promise<string> {
     .join("");
 
   const browser = await getBrowser();
-  const page = await browser.newPage();
+  const page = await newSlidePage(browser);
   try {
     await page.setViewport({ width: sheetW, height: sheetH });
     await page.setContent(

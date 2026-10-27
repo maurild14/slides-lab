@@ -19,7 +19,7 @@ import {
 import { reflowTransform, scaleStyleLengths } from "../src/lib/slide-reflow.ts";
 import { findIssues, type MeasuredBox } from "../src/lib/slide-audit-rules.ts";
 import { ENGINES, statusForSlowItem } from "../src/lib/agents.ts";
-import { findUploadRefs } from "../src/lib/upload-paths.ts";
+import { findUploadRefs, resolveUploadPath } from "../src/lib/upload-paths.ts";
 import {
   alignOffset,
   boxFromPoints,
@@ -874,6 +874,9 @@ const fake = (
     [],
     "only /uploads/ is inlined"
   );
+
+  assert.equal(resolveUploadPath("/srv/public", "/uploads/../x"), null, "traversal out of uploads is rejected");
+  assert.ok(resolveUploadPath("/srv/public", "/uploads/a.png"), "a plain upload resolves");
 }
 
 console.log(

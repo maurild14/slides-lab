@@ -60,14 +60,22 @@ inlines that path and silently drops anything else.
 downloading the blob directly saved every export as `download` with no
 extension. And revoking the blob URL in the same tick cancels the download.
 
-**Failed inlining is not fatal.** If a file cannot be read the original path is
-kept: Puppeteer can still fetch it from localhost.
+**Failed inlining is not fatal.** If a file cannot be read, or resolves outside
+`public/uploads` (`/uploads/../…`), the original path is kept and the image
+simply does not load — the slide still exports.
+
+**Slide pages are locked down** (`newSlidePage()`, used by export, audit and the
+contact sheet): JavaScript off, and request interception lets through only
+`data:` and Google Fonts. Slide HTML is agent-written; without this a slide
+could fetch the API, the LAN or `file://` from inside the exporter.
 
 ## Browser lifecycle
 
 One singleton browser, relaunched every `MAX_EXPORTS_BEFORE_RESTART` (50) exports
-or whenever it drops the connection. Launched headless with `--no-sandbox
---disable-setuid-sandbox --disable-gpu`.
+or whenever it drops the connection. Launched headless with `--disable-gpu`; the
+Chrome sandbox stays on unless the process runs as root (Docker, some CI), where
+Chrome cannot start sandboxed and `--no-sandbox --disable-setuid-sandbox` are
+added.
 
 Route `maxDuration` is 120s. A carousel of 20 slides at ~1s each fits; if that
 ever stops being true, the fix is a job, not a longer timeout.

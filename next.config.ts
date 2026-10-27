@@ -2,6 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["sharp", "archiver", "puppeteer"],
+  experimental: {
+    // src/proxy.ts makes Next buffer every /api body, truncating past 10MB by
+    // default — a 20MB upload would arrive cut in half. 20MB plus multipart
+    // overhead.
+    proxyClientMaxBodySize: "25mb",
+  },
   async headers() {
     return [
       {

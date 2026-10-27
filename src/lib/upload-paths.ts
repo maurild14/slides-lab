@@ -4,6 +4,7 @@
  * Import-free on purpose, like `slide-audit-rules.ts`: the self-check runs it
  * under plain node, which resolves neither the `@/` alias nor puppeteer.
  */
+import path from "node:path";
 
 /**
  * Every `/uploads/…` reference, in `src=` and in CSS `url()`.
@@ -23,4 +24,16 @@ export const UPLOAD_REF_RE =
 /** The distinct `/uploads/…` paths `html` refers to, in first-seen order. */
 export function findUploadRefs(html: string): string[] {
   return [...new Set([...html.matchAll(UPLOAD_REF_RE)].map((m) => m[1]))];
+}
+
+/**
+ * The file on disk an `/uploads/…` reference points at, or null when it
+ * resolves outside `public/uploads`. The regex above happily matches
+ * `/uploads/../../package.json`, and the exporter used to read whatever that
+ * landed on and inline it into a document Chrome rendered.
+ */
+export function resolveUploadPath(publicDir: string, ref: string): string | null {
+  const uploads = path.resolve(publicDir, "uploads");
+  const full = path.resolve(publicDir, "." + ref);
+  return full.startsWith(uploads + path.sep) ? full : null;
 }
