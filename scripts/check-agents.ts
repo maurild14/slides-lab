@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { ENGINES } from "../src/lib/agents.ts";
+import { ENGINES, absPathRule } from "../src/lib/agents.ts";
 
 // --- Claude: the plan's rate-limit event and the turn's token count.
 // Both lines are verbatim from `claude -p --output-format stream-json`.
@@ -169,4 +169,35 @@ assert.ok(
     .args.includes("opus")
 );
 
-console.log("agents: usage + model selection checks pass");
+// The session id comes from the browser too, and lands right after --resume.
+const uuid = "01a05f30-c2a2-79f1-becb-9195a977a96c";
+for (const engineId of ["claude", "codex"] as const) {
+  const evil = ENGINES[engineId].buildLaunch({
+    ...base,
+    sessionId: "--dangerously-skip-permissions",
+  }).args;
+  assert.ok(
+    !evil.includes("--dangerously-skip-permissions") &&
+      !evil.includes("--resume") &&
+      !evil.includes("resume"),
+    `${engineId}: a non-UUID session id starts a fresh session`
+  );
+  assert.ok(
+    ENGINES[engineId].buildLaunch({ ...base, sessionId: uuid }).args.includes(uuid),
+    `${engineId}: a real session id still resumes`
+  );
+}
+
+// The user's message is up to 50,000 chars — it must travel on stdin, never
+// in argv (Windows caps a command line at 32767).
+const long = "x".repeat(50_000);
+const claudeLong = ENGINES.claude.buildLaunch({ ...base, prompt: long });
+assert.ok(!claudeLong.args.includes(long), "claude: prompt is not an argument");
+assert.equal(claudeLong.stdin, long, "claude: prompt rides on stdin");
+
+// Claude's shell is curl only; a bare `Bash` would allow any command.
+assert.ok(!claudeLong.args.includes("Bash"), "claude: no unrestricted Bash");
+assert.equal(absPathRule("C:\\Users\\x\\Temp\\d"), "//c/Users/x/Temp/d/**");
+assert.equal(absPathRule("/tmp/d"), "//tmp/d/**");
+
+console.log("agents: usage + model selection + launch boundary checks pass");

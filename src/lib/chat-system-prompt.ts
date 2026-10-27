@@ -289,7 +289,10 @@ caption and hashtags.
 NEVER write files inside the project directory (public/uploads is the one exception —
 generated images belong there). The dev server watches everything else and any write
 reloads the page, killing the chat stream mid-answer. For long HTML, write the body
-to a file in ${privateTmpDir()} and pass it with ${CURL} -d @file.
+to a file in ${privateTmpDir()}${
+    // Claude's shell is limited to curl (agents.ts), so `cat > file` is denied.
+    engine === "claude" ? " with your Write tool, not a shell redirect," : ""
+  } and pass it with ${CURL} -d @file.
 ${shellNote}
 
 ### Create a slide:

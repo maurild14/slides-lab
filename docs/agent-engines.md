@@ -19,7 +19,9 @@ Two engines are registered in `src/lib/agents.ts`; the user picks per message.
 | Binary | `claude` | `codex` |
 | Path override | `CLAUDE_CLI_PATH` | `CODEX_CLI_PATH` |
 | System prompt travels via | `--append-system-prompt-file` (a file in `privateTmpDir()`) | stdin |
+| User's message travels via | stdin | stdin (after the system prompt) |
 | Session resume | `--resume <id>` | `exec resume <id>` |
+| Shell | `curl` / `curl.exe` only, writes only in `privateTmpDir()` | Codex sandbox (`workspace-write`) |
 | Native image generation | no | yes (`gpt-image-2`, billed to the ChatGPT plan) |
 | Auth probe | none | `codex login status` |
 | Model | `--model <alias>` | `-m <slug>` |
@@ -46,6 +48,10 @@ anything not offered by name, and that is the only check — put nothing between
 the request body and `buildLaunch` that could be mistaken for one.
 `check:agents` asserts that `--dangerously-skip-permissions` as a model name
 never reaches argv.
+
+The session id crosses the same boundary and lands right after `--resume`, so
+`pickSessionId()` keeps only a UUID (`/^[0-9a-f-]{36}$/i`); anything else starts
+a fresh session. Also asserted in `check:agents`.
 
 Both flags are re-sent on a resumed session, so a thread follows the dropdowns
 instead of staying pinned to what it was created with. For Codex they must go
@@ -94,7 +100,21 @@ nine. Windows caps a command line at 32767 chars and the spawn died with
 `ENAMETOOLONG` once a carousel had four slides. Claude reads it from a file,
 Codex from stdin. On Windows the Codex binary is a `.cmd`, so the spawn goes
 through `cmd.exe` whose limit is 8191 — well under even an empty prompt. Anything
-added to that prompt has to respect the same rule.
+added to that prompt has to respect the same rule. The user's message too: it can
+be 50,000 chars, so both engines read it from stdin (`claude -p` with no
+positional prompt reads stdin).
+
+**Claude's `--allowedTools` is `Bash(curl *)`, `Bash(curl.exe *)`, an
+`Edit(//<privateTmpDir>/**)` rule, `WebFetch` and `Read`.** It used to be bare
+`Bash`, i.e. any command, with fetched web pages in the input. That is
+everything the prompt asks for: curl against the API, and long bodies written
+with the Write tool into the temp dir (Edit rules are what gate Write). Claude
+Code checks each subcommand of a compound command, and `-p` has nobody to ask,
+so anything else is denied — verified with `touch`, `node -e` and a
+`curl …; echo > file` compound. Claude Code's built-in read-only commands (`ls`,
+`cat`, `whoami`…) still run; they cannot be configured away and read no more
+than `Read` already can. Allow rules in the user's own `~/.claude` settings
+still apply on top.
 
 **Codex runs `workspace-write` with `os.tmpdir()` in `writable_roots`.** The
 prompt tells it to stage long JSON bodies there, because writing them inside the

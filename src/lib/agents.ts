@@ -130,6 +130,17 @@ function pickChoice(
 }
 
 /**
+ * Same boundary for the session id: `--resume <id>` / `exec resume <id>` take
+ * it straight from the browser, so `--dangerously-skip-permissions` would be
+ * read as a flag. Both CLIs mint UUIDs; anything else starts a fresh session.
+ */
+function pickSessionId(value: string | undefined): string | undefined {
+  return typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value)
+    ? value
+    : undefined;
+}
+
+/**
  * One private directory per server process for every file the agent is handed
  * or stages: the system prompt, slide renders, contact sheets, JSON bodies.
  * They used to sit straight in os.tmpdir() under predictable names
@@ -150,6 +161,18 @@ export function privateTmpDir(): string {
     g.__slidesLabTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "slides-lab-"));
   }
   return g.__slidesLabTmpDir;
+}
+
+/**
+ * A directory → Claude Code's absolute-path rule for everything under it:
+ * `//` anchors at the filesystem root, and Windows paths are matched in POSIX
+ * form, so `C:\Users\x` has to be written `//c/Users/x`.
+ */
+export function absPathRule(dir: string): string {
+  const posix = dir
+    .replace(/\\/g, "/")
+    .replace(/^([A-Za-z]):/, (_, drive: string) => `/${drive.toLowerCase()}`);
+  return `/${posix}/**`;
 }
 
 /** Rate-limit window → the label shown next to the percentage. */
@@ -243,17 +266,27 @@ const claude: Engine = {
     const promptFile = path.join(privateTmpDir(), "system-prompt.txt");
     fs.writeFileSync(promptFile, systemPrompt, "utf-8");
 
+    // No prompt after -p: the CLI reads it from stdin. The user's message can
+    // be a 50,000-char pasted article, past the same Windows ceiling.
     const args = [
       "-p",
-      prompt,
       "--output-format",
       "stream-json",
       "--include-partial-messages",
       "--verbose",
       "--append-system-prompt-file",
       promptFile,
+      // A bare `Bash` let the agent run anything, and its input includes
+      // fetched web pages. The prompt only ever asks for curl against the
+      // API, plus writing long bodies into the private temp dir — Edit rules
+      // are what gate the Write tool. Anything else is denied, since -p has no
+      // one to ask.
+      // ponytail: curl itself can still `-o` anywhere; pin the URL in the rule
+      // if that ever matters more than the agent's freedom with flags.
       "--allowedTools",
-      "Bash",
+      "Bash(curl *)",
+      "Bash(curl.exe *)",
+      `Edit(${absPathRule(privateTmpDir())})`,
       "WebFetch",
       "Read",
       "--max-budget-usd",
@@ -269,8 +302,9 @@ const claude: Engine = {
     if (pickedModel) args.push("--model", pickedModel);
     const pickedEffort = pickChoice(EFFORTS, effort);
     if (pickedEffort) args.push("--effort", pickedEffort);
-    if (sessionId) args.push("--resume", sessionId);
-    return { args };
+    const resume = pickSessionId(sessionId);
+    if (resume) args.push("--resume", resume);
+    return { args, stdin: prompt };
   },
 
   createParser: () => (line: string): AgentEvent[] => {
@@ -481,8 +515,9 @@ const codex: Engine = {
     // because everything after it would be read as the prompt.
     flags.push("-");
 
-    const args = sessionId
-      ? ["exec", "resume", sessionId, ...flags]
+    const resume = pickSessionId(sessionId);
+    const args = resume
+      ? ["exec", "resume", resume, ...flags]
       : ["exec", ...flags];
 
     // The system prompt rides in on stdin rather than `-c
