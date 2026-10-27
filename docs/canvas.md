@@ -120,7 +120,7 @@ preview in the panel: non-destructive, and the export inlines it untouched.
   (`slide-history.ts`, `MAX_HISTORY` = 60). The server's five-version history is
   the cross-session safety net, not this — see [data-model.md](data-model.md).
 - **Autosave is the only save path.** The explicit flush points are slide change,
-  page unload (beacon), before export, and before the agent writes.
+  page unload (`keepalive` PUT), before export, and before the agent writes.
 - **The editable slide's HTML prop is pinned once the iframe loads**
   (`use-slide-editor.ts`), so saving never reloads the iframe and destroys the
   selection.

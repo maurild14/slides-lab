@@ -206,18 +206,24 @@ export function useSlideEditor({
     for (const id of slideIds) delete savedRef.current[id];
   }, []);
 
-  // Leaving the page. A fetch started here is cancelled with the document, so
-  // this is the one place that has to use a beacon.
+  // Leaving the page. A plain fetch started here is cancelled with the
+  // document; `keepalive` outlives it. This used to be sendBeacon, which can
+  // only POST — the route takes PUT, so the last edit before closing the tab
+  // was never saved.
+  // ponytail: keepalive bodies cap at 64KB; a slide is ~3KB. Past that the
+  // fetch rejects and the edit is lost exactly as before.
   useEffect(() => {
     const onLeave = () => {
       const current = unloadRef.current.slideId;
       const html = snapshot();
       if (!current || html === null || savedRef.current[current] === html) return;
       savedRef.current[current] = html;
-      navigator.sendBeacon?.(
-        `/api/carousels/${carouselId}/slides/${current}`,
-        new Blob([JSON.stringify({ html })], { type: "application/json" })
-      );
+      fetch(`/api/carousels/${carouselId}/slides/${current}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ html }),
+        keepalive: true,
+      }).catch(() => {});
     };
 
     // A tab that gets discarded in the background never fires beforeunload.

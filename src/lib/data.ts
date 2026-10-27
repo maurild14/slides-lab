@@ -1,4 +1,4 @@
-import { readFile, writeFile, rename, mkdir } from "fs/promises";
+import { readFile, writeFile, rename, mkdir, copyFile } from "fs/promises";
 import path from "path";
 import { Mutex } from "async-mutex";
 
@@ -28,10 +28,15 @@ async function readRaw<T>(filename: string): Promise<T> {
     return JSON.parse(raw) as T;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new Error(`Data file not found: ${filename}`);
+      throw Object.assign(new Error(`Data file not found: ${filename}`), {
+        code: "ENOENT",
+      });
     }
     if (err instanceof SyntaxError) {
-      throw new Error(`Data file corrupted: ${filename} — ${err.message}`);
+      throw Object.assign(
+        new Error(`Data file corrupted: ${filename} — ${err.message}`),
+        { corrupt: true }
+      );
     }
     throw err;
   }
@@ -86,7 +91,17 @@ export async function mutateData<T, R>(
     let data: T;
     try {
       data = await readRaw<T>(filename);
-    } catch {
+    } catch (err) {
+      // Only a file that does not exist yet starts from the fallback. A corrupt
+      // one used to as well, and the write below then replaced every carousel
+      // with an empty list. Keep a copy to recover from and write nothing.
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+        if ((err as { corrupt?: boolean }).corrupt) {
+          const filePath = path.join(DATA_DIR, filename);
+          await copyFile(filePath, `${filePath}.corrupt-${Date.now()}`);
+        }
+        throw err;
+      }
       data = fallback;
     }
     const result = await mutate(data);

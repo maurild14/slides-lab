@@ -74,7 +74,7 @@ explains it.
 6. **Errors surface where they happened**, in a `role="alert"` line. There is no
    toast system. Silence on a failed mutation is a bug.
 7. **Autosave is the only save path.** Explicit flushes: slide change, page
-   unload (beacon), before export, before the agent writes.
+   unload (`keepalive` PUT), before export, before the agent writes.
 8. **On Windows the agent's prompt says `curl.exe`**, because Codex shells out
    through PowerShell where bare `curl` is `Invoke-WebRequest`.
 

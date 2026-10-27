@@ -68,6 +68,10 @@ await mutateData<CarouselsData, Slide>(FILE, EMPTY, (data) => {
   error anywhere.
 - **Writes are atomic**: write `file.tmp`, then `rename`. A crash mid-write
   leaves the previous file intact rather than a truncated one.
+- **The fallback is only for a missing file (`ENOENT`).** A file that does not
+  parse is copied to `<name>.corrupt-<timestamp>` and the error is thrown with
+  nothing written — it used to take the fallback, and the write replaced every
+  carousel with an empty list.
 - **`async-mutex` is not reentrant.** The locking wrappers must never call each
   other; `readRaw`/`writeRaw` hold no lock and do the actual IO.
 - **`ABORT_WRITE`** is how you say "nothing changed" or "not found" — it returns
