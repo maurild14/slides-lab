@@ -11,8 +11,9 @@ npm run setup      # creates /data, seeds defaults, writes .env.local, checks en
 npm run dev        # :3000
 ```
 
-Requires Node ≥ 20 (Next.js 16). In Claude Code, `/start` does all three plus the
-port check and opens the browser; `/doctor` audits the environment.
+Requires Node ≥ 22.18 (the `check:*` scripts run `.ts` straight through Node).
+In Claude Code, `/start` does all three plus the port check and opens the
+browser; `/doctor` audits the environment.
 
 `.env.local` is optional and holds only path overrides:
 

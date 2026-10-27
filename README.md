@@ -360,8 +360,8 @@ Drop screenshots into the chat panel's "Reference Images" section. Stored under 
 
 ## 🩺 Troubleshooting
 
-**`/start` says "Node v18 detected, need ≥20."**
-Next.js 16 requires Node 20+. Install via [nodejs.org](https://nodejs.org) or [nvm](https://github.com/nvm-sh/nvm).
+**`/start` says "Node v20 detected, need ≥22.18."**
+The `check:*` scripts run `.ts` files straight through Node, which needs 22.18+, and Puppeteer 25 needs 22. Install via [nodejs.org](https://nodejs.org) or [nvm](https://github.com/nvm-sh/nvm).
 
 **`/start` says "Claude CLI not found."**
 Install [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and authenticate. The setup script searches `~/.local/bin/claude`, `/usr/local/bin/claude`, `/opt/homebrew/bin/claude`, `~/.npm-global/bin/claude`, and `$CLAUDE_CLI_PATH`. If yours lives elsewhere, set `CLAUDE_CLI_PATH` in `.env.local`.

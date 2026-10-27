@@ -45,11 +45,13 @@ function tryRun(binPath, args) {
 }
 
 // 1. Node version
-const major = Number(process.versions.node.split(".")[0]);
-if (major >= 20) {
+// 22.18 is the first release that runs .ts without a flag, which the check:*
+// scripts rely on; puppeteer 25 needs 22 anyway.
+const [major, minor] = process.versions.node.split(".").map(Number);
+if (major > 22 || (major === 22 && minor >= 18)) {
   add(CHECK, "Node", `v${process.versions.node}`);
 } else {
-  add(FAIL, "Node", `v${process.versions.node} (need ≥20 — install from https://nodejs.org)`, true);
+  add(FAIL, "Node", `v${process.versions.node} (need ≥22.18 — install from https://nodejs.org)`, true);
 }
 
 // 2. AI engines — at least one is required, both is better

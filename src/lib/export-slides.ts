@@ -19,7 +19,7 @@ export async function getBrowser(): Promise<Browser> {
     browser = null;
     exportCount = 0;
   }
-  if (!browser || !browser.isConnected()) {
+  if (!browser || !browser.connected) {
     browser = await puppeteer.launch({
       headless: true,
       // Chrome refuses to start sandboxed as root (Docker, some CI), and only

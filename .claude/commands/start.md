@@ -18,7 +18,7 @@ User-supplied port (optional): $ARGUMENTS
 
 ## Steps
 
-1. **Verify Node ≥ 20.** Parse the version above. If MISSING or major version < 20, tell the user to install Node 20+ from https://nodejs.org and stop.
+1. **Verify Node ≥ 22.18.** Parse the version above. If MISSING or older than 22.18, tell the user to install Node 22.18+ from https://nodejs.org and stop.
 
 2. **Pick port.** Use `$ARGUMENTS` if non-empty, else 3000. Call this `<port>`.
 
