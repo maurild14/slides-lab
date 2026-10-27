@@ -5,6 +5,17 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // eslint-plugin-react-hooks 7.1 (pulled in by eslint-config-next 16.4) now
+  // flags nine effects and refs that worked under 7.0. Warnings until they are
+  // rewritten and checked in the browser, so a security bump does not carry
+  // a UI refactor.
+  {
+    rules: {
+      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/immutability": "warn",
+      "react-hooks/refs": "warn",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
