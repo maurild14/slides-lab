@@ -37,3 +37,19 @@ export function resolveUploadPath(publicDir: string, ref: string): string | null
   const full = path.resolve(publicDir, "." + ref);
   return full.startsWith(uploads + path.sep) ? full : null;
 }
+
+/**
+ * A reference image or chat attachment URL: one image directly in uploads.
+ * The agent is told to `Read` the file it maps to, so `/uploads/../../x` here
+ * used to mean "read any file on this machine".
+ */
+const UPLOAD_IMAGE_URL_RE = /^\/uploads\/[\w-]+\.(png|jpe?g|webp)$/;
+
+export function isUploadImageUrl(url: unknown): url is string {
+  return typeof url === "string" && UPLOAD_IMAGE_URL_RE.test(url);
+}
+
+/** Where a validated upload URL lives on disk. Derived, never stored. */
+export function uploadImagePath(url: string): string {
+  return path.resolve(process.cwd(), "public", url.slice(1));
+}

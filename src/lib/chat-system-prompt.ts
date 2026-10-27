@@ -5,6 +5,7 @@ import type { Carousel } from "@/types/carousel";
 import type { StylePreset } from "@/types/style-preset";
 import { DIMENSIONS, MAX_SLIDES } from "@/types/carousel";
 import type { EngineId } from "@/lib/agents";
+import { isUploadImageUrl, uploadImagePath } from "@/lib/upload-paths";
 
 // On Windows the Codex CLI shells out through PowerShell, where bare `curl` is
 // an alias for Invoke-WebRequest and every flag below would be rejected.
@@ -92,6 +93,19 @@ already has.
 ${blocks}`;
 }
 
+/**
+ * The path is derived from `url`, re-validated here, never from a stored
+ * absolute path: those used to be saved as given (`/../../x` read any file),
+ * and the old ones point at folders the project has since moved out of.
+ */
+function buildReferencesSection(carousel: Carousel): string {
+  const refs = (carousel.referenceImages ?? []).filter((r) => isUploadImageUrl(r.url));
+  if (refs.length === 0) return "";
+  return `\n## Reference images (use Read to view these)\n${refs
+    .map((r) => `- "${r.name}" → ${uploadImagePath(r.url)}`)
+    .join("\n")}`;
+}
+
 export function buildSystemPrompt(
   brand: BrandConfig,
   carousel?: Carousel | null,
@@ -118,7 +132,7 @@ Use professional defaults: dark text on white/light backgrounds, Inter font, cle
 ${carousel.slides.length > 0 ? carousel.slides.map((s) => `  - Slide ${s.order + 1} (ID: ${s.id})${s.notes ? ` — ${s.notes}` : ""}`).join("\n") : "  (no slides yet)"}
 ${carousel.designPlan ? `\n## Design plan already agreed for this carousel\nFollow it. Do not invent a second style — if the user asks for something it does not cover, extend the plan and save it again.\n\n${carousel.designPlan}` : ""}
 ${buildExistingSlidesSection(carousel)}
-${(carousel.referenceImages?.length ?? 0) > 0 ? `\n## Reference images (use Read to view these)\n${carousel.referenceImages.map((r) => `- "${r.name}" → ${r.absPath}`).join("\n")}` : ""}`
+${buildReferencesSection(carousel)}`
     : "";
 
   const presetSection = stylePreset

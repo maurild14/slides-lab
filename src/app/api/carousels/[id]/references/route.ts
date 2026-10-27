@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import path from "path";
 import { addReferenceImage, removeReferenceImage, getCarousel } from "@/lib/carousels";
 import { generateId, now } from "@/lib/utils";
+import { isUploadImageUrl } from "@/lib/upload-paths";
 
 export async function GET(
   _request: Request,
@@ -24,17 +24,17 @@ export async function POST(
     const body = await request.json();
     const { url, name } = body as { url?: string; name?: string };
 
-    if (!url || typeof url !== "string") {
-      return NextResponse.json({ error: "url is required" }, { status: 400 });
+    if (!isUploadImageUrl(url)) {
+      return NextResponse.json(
+        { error: "url must be an image in /uploads/ (png, jpg or webp)" },
+        { status: 400 }
+      );
     }
-
-    const absPath = path.resolve(process.cwd(), "public", url.replace(/^\//, ""));
 
     const ref = {
       id: generateId(),
       url,
-      absPath,
-      name: name || "Reference image",
+      name: typeof name === "string" && name ? name : "Reference image",
       addedAt: now(),
     };
 

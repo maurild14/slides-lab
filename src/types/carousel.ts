@@ -10,8 +10,7 @@ export interface Slide {
 
 export interface ReferenceImage {
   id: string;
-  url: string;       // e.g. "/uploads/abc.png"
-  absPath: string;    // absolute path for Claude to Read
+  url: string;       // e.g. "/uploads/abc.png"; the disk path is derived from it
   name: string;       // original filename or description
   addedAt: string;
 }

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { updateSlide, deleteSlide } from "@/lib/carousels";
 import { auditForCarousel } from "@/lib/slide-audit";
+import { isString, pickFields } from "@/lib/pick-fields";
+import type { Slide } from "@/types/carousel";
 
 export async function PUT(
   request: Request,
@@ -8,8 +10,12 @@ export async function PUT(
 ) {
   const { id, slideId } = await params;
   try {
-    const body = await request.json();
-    const slide = await updateSlide(id, slideId, body);
+    // `previousVersions`, `order` and `id` are server-owned.
+    const updates = pickFields<Slide>(await request.json(), { html: isString, notes: isString });
+    if (!updates) {
+      return NextResponse.json({ error: "Invalid fields" }, { status: 400 });
+    }
+    const slide = await updateSlide(id, slideId, updates);
     if (!slide) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }

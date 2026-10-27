@@ -19,14 +19,21 @@ shapes are listed per route below.
 | `GET /api/carousels` | — | `{ carousels: Carousel[] }` |
 | `POST /api/carousels` | `{ name, aspectRatio? }` — ratio defaults to `4:5` | `Carousel`, 201 |
 | `GET /api/carousels/[id]` | — | `Carousel` |
-| `PUT /api/carousels/[id]` | Partial `Carousel` | updated `Carousel` |
+| `PUT /api/carousels/[id]` | `{ name?, aspectRatio?, tags?, chatSessionId?, chatMessages?, caption?, hashtags?, designPlan? }` | updated `Carousel` |
 | `DELETE /api/carousels/[id]` | — | `{ success: true }` |
 | `POST /api/carousels/[id]/duplicate` | — | the new `Carousel`, 201 |
 | `GET/PUT /api/carousels/[id]/caption` | `{ caption?, hashtags? }` | `{ caption, hashtags }` |
 | `GET/POST/DELETE /api/carousels/[id]/references` | `POST { url, name? }`; `DELETE ?refId=` | the reference list |
 
-`references` stores both the public `/uploads/...` URL and the resolved absolute
-path, because the agent reads the file off disk with its `Read` tool.
+`references` stores only the public URL, which must match
+`/uploads/<name>.(png|jpg|jpeg|webp)`. The agent reads the file off disk with its
+`Read` tool, so the system prompt derives the absolute path from the URL on every
+turn instead of trusting a stored one. `/api/chat` attachments use the same check.
+
+`PUT /api/carousels/[id]`, `PUT .../slides/[slideId]` and `PUT /api/brand` keep
+an explicit whitelist (`src/lib/pick-fields.ts`): unknown keys are dropped, a
+known key with the wrong type is a 400. `slides`, `referenceImages`, `id` and the
+timestamps cannot be written through them.
 
 ## Slides
 

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { spawn } from "child_process";
-import path from "path";
 import crossSpawn from "cross-spawn";
 import {
   type AgentEvent,
@@ -13,6 +12,7 @@ import { buildSystemPrompt } from "@/lib/chat-system-prompt";
 import { getBrand } from "@/lib/brand";
 import { getCarousel } from "@/lib/carousels";
 import { getPreset } from "@/lib/style-presets";
+import { isUploadImageUrl, uploadImagePath } from "@/lib/upload-paths";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     ? attachments
         .filter(
           (a): a is { url: string; name?: string } =>
-            !!a && typeof a.url === "string" && a.url.startsWith("/uploads/")
+            !!a && isUploadImageUrl(a.url)
         )
         .slice(0, 8)
     : [];
@@ -79,13 +79,8 @@ export async function POST(request: NextRequest) {
   let promptText = message.trim();
   if (safeAttachments.length > 0) {
     const lines = safeAttachments.map((a, i) => {
-      const absPath = path.resolve(
-        process.cwd(),
-        "public",
-        a.url.replace(/^\//, "")
-      );
       const label = a.name ? ` — ${a.name}` : "";
-      return `  ${i + 1}. ${absPath}${label}`;
+      return `  ${i + 1}. ${uploadImagePath(a.url)}${label}`;
     });
     const intro = promptText
       ? "\n\n## Attached images for this message\nThe user attached the following image(s). Use the Read tool to view each one and let them inform your response (style, content, references, etc.):\n"

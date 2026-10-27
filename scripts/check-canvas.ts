@@ -19,7 +19,7 @@ import {
 import { reflowTransform, scaleStyleLengths } from "../src/lib/slide-reflow.ts";
 import { findIssues, type MeasuredBox } from "../src/lib/slide-audit-rules.ts";
 import { ENGINES, statusForSlowItem } from "../src/lib/agents.ts";
-import { findUploadRefs, resolveUploadPath } from "../src/lib/upload-paths.ts";
+import { findUploadRefs, isUploadImageUrl, resolveUploadPath } from "../src/lib/upload-paths.ts";
 import {
   alignOffset,
   boxFromPoints,
@@ -877,6 +877,11 @@ const fake = (
 
   assert.equal(resolveUploadPath("/srv/public", "/uploads/../x"), null, "traversal out of uploads is rejected");
   assert.ok(resolveUploadPath("/srv/public", "/uploads/a.png"), "a plain upload resolves");
+
+  // References and chat attachments: the agent Reads whatever path this maps to.
+  assert.equal(isUploadImageUrl("/uploads/../x"), false, "traversal in a reference url is rejected");
+  assert.equal(isUploadImageUrl("/../../x"), false, "a url outside uploads is rejected");
+  assert.equal(isUploadImageUrl("/uploads/abc.png"), true, "a plain upload url passes");
 }
 
 console.log(

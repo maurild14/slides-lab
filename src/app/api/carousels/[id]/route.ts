@@ -1,5 +1,27 @@
 import { NextResponse } from "next/server";
 import { getCarousel, updateCarousel, deleteCarousel } from "@/lib/carousels";
+import type { Carousel } from "@/types/carousel";
+import {
+  either,
+  isObjectArray,
+  isString,
+  isStringArray,
+  oneOf,
+  pickFields,
+} from "@/lib/pick-fields";
+
+// Everything a client may change. `slides`, `referenceImages`, `id` and the
+// timestamps have their own routes or are server-owned.
+const EDITABLE = {
+  name: isString,
+  aspectRatio: oneOf("1:1", "4:5", "9:16"),
+  tags: isStringArray,
+  chatSessionId: either(isString, oneOf(null)),
+  chatMessages: isObjectArray,
+  caption: isString,
+  hashtags: isStringArray,
+  designPlan: isString,
+};
 
 export async function GET(
   _request: Request,
@@ -19,8 +41,11 @@ export async function PUT(
 ) {
   const { id } = await params;
   try {
-    const body = await request.json();
-    const updated = await updateCarousel(id, body);
+    const updates = pickFields<Carousel>(await request.json(), EDITABLE);
+    if (!updates) {
+      return NextResponse.json({ error: "Invalid fields" }, { status: 400 });
+    }
+    const updated = await updateCarousel(id, updates);
     if (!updated) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
