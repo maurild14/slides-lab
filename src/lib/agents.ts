@@ -129,6 +129,29 @@ function pickChoice(
   return choices.some((c) => c.id === value) ? value : undefined;
 }
 
+/**
+ * One private directory per server process for every file the agent is handed
+ * or stages: the system prompt, slide renders, contact sheets, JSON bodies.
+ * They used to sit straight in os.tmpdir() under predictable names
+ * (`oc-slide-<id>.png`), so any other local user could pre-create or swap the
+ * file the agent was told to Read. mkdtemp picks an unguessable name and
+ * creates it 0700 on POSIX; on Windows %TEMP% is already per-user.
+ *
+ * Lives here rather than in its own module because the check scripts import
+ * this file under plain node, which resolves no extensionless sibling import.
+ * On globalThis because Next bundles a module once per route, and each copy
+ * would otherwise mint its own directory.
+ * ponytail: never cleaned up; the OS temp sweeper gets it. Add an exit hook if
+ * renders ever pile up between reboots.
+ */
+export function privateTmpDir(): string {
+  const g = globalThis as { __slidesLabTmpDir?: string };
+  if (!g.__slidesLabTmpDir || !fs.existsSync(g.__slidesLabTmpDir)) {
+    g.__slidesLabTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "slides-lab-"));
+  }
+  return g.__slidesLabTmpDir;
+}
+
 /** Rate-limit window → the label shown next to the percentage. */
 function windowLabel(minutes: number): string {
   if (minutes % 1440 === 0) return `${minutes / 1440} d`;
@@ -217,10 +240,7 @@ const claude: Engine = {
     // ponytail: one file per server process, overwritten each turn. Two chats
     // running concurrently in the same dev server would race on it — give it
     // the session id if that ever becomes a real workflow.
-    const promptFile = path.join(
-      os.tmpdir(),
-      `oc-system-prompt-${process.pid}.txt`
-    );
+    const promptFile = path.join(privateTmpDir(), "system-prompt.txt");
     fs.writeFileSync(promptFile, systemPrompt, "utf-8");
 
     const args = [
@@ -401,7 +421,9 @@ function summarizeCommand(command: string): string {
 
   if (/generated_images|image_gen/i.test(flat)) return "Guardando imagen…";
 
-  const api = flat.match(/https?:\/\/localhost:\d+\/api\/([^\s"']+)/);
+  const api = flat.match(
+    /https?:\/\/(?:localhost|127\.0\.0\.1):\d+\/api\/([^\s"']+)/
+  );
   if (api) {
     const method = flat.match(/-X\s+(GET|POST|PUT|DELETE|PATCH)/i)?.[1] ?? "GET";
     const resource = api[1]

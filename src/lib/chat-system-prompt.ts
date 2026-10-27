@@ -4,13 +4,24 @@ import type { BrandConfig } from "@/types/brand";
 import type { Carousel } from "@/types/carousel";
 import type { StylePreset } from "@/types/style-preset";
 import { DIMENSIONS, MAX_SLIDES } from "@/types/carousel";
-import type { EngineId } from "@/lib/agents";
+import { type EngineId, privateTmpDir } from "@/lib/agents";
 import { isUploadImageUrl, uploadImagePath } from "@/lib/upload-paths";
 
 // On Windows the Codex CLI shells out through PowerShell, where bare `curl` is
 // an alias for Invoke-WebRequest and every flag below would be rejected.
 // `curl.exe` is the real binary and ships with Windows 10+.
 const CURL = process.platform === "win32" ? "curl.exe" : "curl";
+
+/**
+ * Where the agent's curl goes. `localhost:3000` was hardcoded, so a server on
+ * any other port had the agent writing to whatever owned :3000 — or to nothing.
+ * 127.0.0.1 because that is the only interface the server binds; `localhost`
+ * can resolve to ::1 first and miss it. Next stores the bound port in PORT,
+ * the same value src/proxy.ts checks the Host header against.
+ */
+function apiBase(): string {
+  return `http://127.0.0.1:${process.env.PORT || "3000"}`;
+}
 
 /** Editable at docs/imagegen-policy.md — no code change, no restart. */
 function readImagegenPolicy(): string {
@@ -40,7 +51,7 @@ Always copy it there before you finish. Then reference it in slide HTML as /uplo
       : `You do NOT generate images yourself. Call the project's image endpoint, which runs the
 generator and saves the PNG for you:
 
-  ${CURL} -s -X POST http://localhost:3000/api/images/generate \\
+  ${CURL} -s -X POST ${apiBase()}/api/images/generate \\
     -H "Content-Type: application/json" \\
     -d '{"prompt": "...", "size": "1024x1024", "transparent": true}'
 
@@ -196,7 +207,7 @@ Never start with slide 1's markup. First write the plan, in one short block:
 
 Then save it, so a later session editing one slide does not invent a second style:
 
-${CURL} -s -X PUT http://localhost:3000/api/carousels/${carousel?.id || "{ID}"} \\
+${CURL} -s -X PUT ${apiBase()}/api/carousels/${carousel?.id || "{ID}"} \\
   -H "Content-Type: application/json" \\
   -d '{"designPlan": "YOUR PLAN HERE"}'
 
@@ -217,7 +228,7 @@ Creating a slide now responds with two extra fields:
 
 \`\`\`json
 { "id": "...", "warnings": ["\\"Título\\" se corta: el texto mide 932px de ancho y la caja 920px."],
-  "pngPath": "C:\\\\...\\\\Temp\\\\oc-slide-xxx.png" }
+  "pngPath": "C:\\\\...\\\\slides-lab-xxx\\\\slide-xxx.png" }
 \`\`\`
 
 - **\`warnings\`** — measured facts, not opinions. An empty array means the geometry
@@ -240,7 +251,7 @@ yourself whether you would post it. If not, fix it.
 
 ### Step 5 — Fix, and check the fix
 
-${CURL} -s -X PUT "http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}/slides/{SLIDE_ID}?audit=1" \\
+${CURL} -s -X PUT "${apiBase()}/api/carousels/${carousel?.id || "{ID}"}/slides/{SLIDE_ID}?audit=1" \\
   -H "Content-Type: application/json" \\
   -d '{"html": "CORRECTED_HTML"}'
 
@@ -250,7 +261,7 @@ move on rather than looping.
 
 ### Step 6 — Look at the whole carousel before you call it done
 
-${CURL} -s http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}/contact-sheet
+${CURL} -s ${apiBase()}/api/carousels/${carousel?.id || "{ID}"}/contact-sheet
 
 It returns \`{"path": "..."}\` — one image with every slide in a grid. **Read it.**
 This is the only view where the problems of the set show up: three slides sharing
@@ -277,30 +288,30 @@ caption and hashtags.
 
 NEVER write files inside the project directory (public/uploads is the one exception —
 generated images belong there). The dev server watches everything else and any write
-reloads the page, killing the chat stream mid-answer. For long HTML, write the temp
-file to the OS temp dir ($TMPDIR, %TEMP%) and pass it with ${CURL} -d @file.
+reloads the page, killing the chat stream mid-answer. For long HTML, write the body
+to a file in ${privateTmpDir()} and pass it with ${CURL} -d @file.
 ${shellNote}
 
 ### Create a slide:
-${CURL} -s -X POST http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}/slides \\
+${CURL} -s -X POST ${apiBase()}/api/carousels/${carousel?.id || "{ID}"}/slides \\
   -H "Content-Type: application/json" \\
   -d '{"html": "YOUR_HTML_HERE", "notes": "description"}'
 
 ### Update a slide (add ?audit=1 to re-measure and re-render it):
-${CURL} -s -X PUT "http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}/slides/{SLIDE_ID}?audit=1" \\
+${CURL} -s -X PUT "${apiBase()}/api/carousels/${carousel?.id || "{ID}"}/slides/{SLIDE_ID}?audit=1" \\
   -H "Content-Type: application/json" \\
   -d '{"html": "UPDATED_HTML"}'
 
 ### Delete a slide:
-${CURL} -s -X DELETE http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}/slides/{SLIDE_ID}
+${CURL} -s -X DELETE ${apiBase()}/api/carousels/${carousel?.id || "{ID}"}/slides/{SLIDE_ID}
 
 ### Save caption + hashtags:
-${CURL} -s -X PUT http://localhost:3000/api/carousels/${carousel?.id || "{ID}"}/caption \\
+${CURL} -s -X PUT ${apiBase()}/api/carousels/${carousel?.id || "{ID}"}/caption \\
   -H "Content-Type: application/json" \\
   -d '{"caption": "Your caption text...", "hashtags": ["tag1", "tag2", "tag3"]}'
 
 ### Save as style preset:
-${CURL} -s -X POST http://localhost:3000/api/style-presets \\
+${CURL} -s -X POST ${apiBase()}/api/style-presets \\
   -H "Content-Type: application/json" \\
   -d '{"name": "Style Name", "designRules": "description of visual rules...", "aspectRatio": "${carousel?.aspectRatio || "4:5"}"}'
 

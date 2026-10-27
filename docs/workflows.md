@@ -27,7 +27,7 @@ browser; `/doctor` audits the environment.
 
 - Keep one dev server up. **Writing files inside the project triggers Fast
   Refresh, and the reload kills any in-flight chat stream** — that is why the
-  agent is told to stage scratch files in `os.tmpdir()`, and why `.tmp-slides/`
+  agent is told to stage scratch files in its private temp dir, and why `.tmp-slides/`
   is git-ignored.
 - **After any `npm install`, delete `.next`.** Turbopack's cache goes stale and
   the dev server loops on Fast Refresh forever.
@@ -70,7 +70,7 @@ carousel, a few slides, an export.
 | Symptom | Cause |
 | --- | --- |
 | Dev server loops on Fast Refresh | Stale Turbopack cache — delete `.next` |
-| Chat stream dies mid-build | Something wrote inside the project. Stage in `os.tmpdir()` |
+| Chat stream dies mid-build | Something wrote inside the project. Stage in the temp dir the prompt names |
 | `ENAMETOOLONG` on spawn | The system prompt reached the command line. It must go via file (Claude) or stdin (Codex) |
 | `patch rejected: writing outside of the project` | `os.tmpdir()` missing from Codex's `writable_roots` |
 | `orchestrator_helper_exit_nonzero`, image reads fail | Transient Codex sandbox helper failure. Note it and carry on — **not** "Codex cannot read images" |

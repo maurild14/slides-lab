@@ -1,4 +1,3 @@
-import os from "os";
 import path from "path";
 import { writeFile } from "fs/promises";
 import type { Slide, Carousel, AspectRatio } from "@/types/carousel";
@@ -10,6 +9,7 @@ import {
   newSlidePage,
 } from "./export-slides";
 import { getCarousel } from "./carousels";
+import { privateTmpDir } from "./agents";
 import { findIssues, type MeasuredBox } from "./slide-audit-rules";
 
 export { findIssues, type MeasuredBox } from "./slide-audit-rules";
@@ -99,10 +99,10 @@ export async function auditSlide(
     });
     const boxes = (await page.evaluate(collectBoxes)) as MeasuredBox[];
 
-    // os.tmpdir(), never the project: the dev server watches it and a write
+    // The temp dir, never the project: the dev server watches it and a write
     // reloads the page, killing the chat stream mid-answer. Fixed name per
     // slide so re-auditing overwrites instead of piling up.
-    const pngPath = path.join(os.tmpdir(), `oc-slide-${slide.id}.png`);
+    const pngPath = path.join(privateTmpDir(), `slide-${slide.id}.png`);
     await writeFile(pngPath, png);
 
     return { warnings: findIssues(boxes, width, height), pngPath };
@@ -177,7 +177,7 @@ export async function contactSheet(carousel: Carousel): Promise<string> {
     await page.bringToFront();
     const png = await page.screenshot({ type: "png", fullPage: true });
 
-    const sheetPath = path.join(os.tmpdir(), `oc-sheet-${carousel.id}.png`);
+    const sheetPath = path.join(privateTmpDir(), `sheet-${carousel.id}.png`);
     await writeFile(sheetPath, png);
     return sheetPath;
   } finally {

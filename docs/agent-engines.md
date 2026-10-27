@@ -18,7 +18,7 @@ Two engines are registered in `src/lib/agents.ts`; the user picks per message.
 | --- | --- | --- |
 | Binary | `claude` | `codex` |
 | Path override | `CLAUDE_CLI_PATH` | `CODEX_CLI_PATH` |
-| System prompt travels via | `--append-system-prompt-file` (a file in `os.tmpdir()`) | stdin |
+| System prompt travels via | `--append-system-prompt-file` (a file in `privateTmpDir()`) | stdin |
 | Session resume | `--resume <id>` | `exec resume <id>` |
 | Native image generation | no | yes (`gpt-image-2`, billed to the ChatGPT plan) |
 | Auth probe | none | `codex login status` |
@@ -77,6 +77,16 @@ bash shim first and `CreateProcess` cannot run that, so a real `.cmd`/`.exe` is
 preferred.
 
 ## Hard-won rules
+
+**Everything the agent reads or stages lives in `privateTmpDir()`**: the system
+prompt file, slide renders, contact sheets, JSON bodies. It is one `mkdtemp`
+directory per server process (0700 on POSIX). The files used to sit straight in
+`os.tmpdir()` under predictable names (`oc-slide-<id>.png`), so another local
+user could plant or swap the image the agent was told to Read.
+
+**The prompt's API base is `http://127.0.0.1:<PORT>`**, read from the `PORT`
+Next sets once it binds — the same value `src/proxy.ts` checks `Host` against.
+A hardcoded `localhost:3000` sent the agent to whatever owned that port.
 
 **Never put the system prompt on the command line.** It carries the full HTML of
 every slide, so it grows with the deck: ~17KB empty, 43KB at four slides, 53KB at

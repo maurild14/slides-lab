@@ -13,11 +13,13 @@ const memoryCache = new Map<string, string>();
 export async function getInlinedFontCSS(
   families: string[]
 ): Promise<string> {
-  if (families.length === 0) return "";
-
   const parts: string[] = [];
 
+  // The name comes out of the slide's own HTML and becomes a file name in the
+  // disk cache, so `../../x` wrote outside it. Google Fonts families are
+  // letters, digits and spaces; anything else gets the system fallback.
   for (const family of families) {
+    if (!/^[A-Za-z0-9 ]{1,64}$/.test(family)) continue;
     const cached = await getCachedFont(family);
     if (cached) {
       parts.push(cached);

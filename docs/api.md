@@ -5,7 +5,9 @@ at `http://localhost:3000`, bound to `127.0.0.1` only; there is no auth, no
 versioning and no remote host. `src/proxy.ts` guards every `/api/*` route: `403`
 unless `Host` is `localhost:<port>` or `127.0.0.1:<port>` (DNS rebinding), and
 `403` on a non-GET/HEAD whose `Origin` is present and not that host (CSRF).
-Requests without `Origin` — the agent's curl — pass.
+Requests without `Origin` — the agent's curl — pass. `next.config.ts` adds the
+CSP (`'unsafe-eval'` in dev only; `img-src 'self' data: blob:`, the same set the
+export resolves; `frame-ancestors 'none'`), `nosniff` and `no-referrer`.
 The agent subprocess is a client of exactly these routes — see
 [agent-engines.md](agent-engines.md).
 
