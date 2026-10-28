@@ -174,6 +174,7 @@ export function SlideCanvas({
   const editRef = useRef<{ el: HTMLElement; stop: () => void } | null>(null);
   /** Last press, so a second one on the same element reads as a double click. */
   const lastDownRef = useRef<{ el: HTMLElement; at: number } | null>(null);
+  const tryTextEditRef = useRef<(hit: HTMLElement | null, point: { x: number; y: number }) => boolean>(() => false);
   const spaceRef = useRef(false);
   const panRef = useRef(pan);
   useEffect(() => {
@@ -391,6 +392,8 @@ export function SlideCanvas({
         ) {
           return;
         }
+        // A completed drag must not count as the first half of a double click.
+        lastDownRef.current = null;
         moved = true;
         opts.onMove(e);
       };
@@ -772,6 +775,20 @@ export function SlideCanvas({
       };
     };
 
+    // Presses can start in the iframe and finish on the selection overlay.
+    const tryTextEdit = (hit: HTMLElement | null, point: { x: number; y: number }) => {
+      const now = Date.now();
+      const last = lastDownRef.current;
+      const isDouble = hit !== null && last !== null && last.el === hit && now - last.at < 400;
+      lastDownRef.current = hit ? { el: hit, at: now } : null;
+      if (!isDouble || !hit || isLocked(hit) || elementKind(hit) !== "text") return false;
+      lastDownRef.current = null;
+      latest.current.onSelectionChange([hit]);
+      startEditing(hit, point.x, point.y);
+      return true;
+    };
+    tryTextEditRef.current = tryTextEdit;
+
     const onPointerDown = (event: Event) => {
       const e = event as PointerEvent;
       const editing = editRef.current;
@@ -799,22 +816,8 @@ export function SlideCanvas({
       const hit =
         raw && isSelectable(raw) && raw !== root ? resolveTarget(raw, root) : null;
 
-      // Our own double-click detection: preventDefault on a pointerdown
-      // suppresses the compatibility mouse events, dblclick included, so the
-      // browser never reports one on a canvas that drags.
-      const now = Date.now();
-      const last = lastDownRef.current;
-      const isDouble =
-        hit !== null && last !== null && last.el === hit && now - last.at < 400;
-      lastDownRef.current = hit ? { el: hit, at: now } : null;
-
       e.preventDefault();
-
-      if (isDouble && hit && !isLocked(hit) && elementKind(hit) === "text") {
-        latest.current.onSelectionChange([hit]);
-        startEditing(hit, origin.x, origin.y);
-        return;
-      }
+      if (tryTextEdit(hit, origin)) return;
 
       if (!hit) {
         startMarquee(origin, toSlide, html, e.pointerId, screen, e.shiftKey);
@@ -920,6 +923,8 @@ export function SlideCanvas({
     doc.addEventListener("wheel", onWheel, { passive: false, capture: true });
 
     return () => {
+      tryTextEditRef.current = () => false;
+      lastDownRef.current = null;
       // React flushes passive cleanups after the DOM node is already detached,
       // and a discarded frame throws SecurityError on any access. Its listeners
       // died with it, so there is nothing left to remove.
@@ -1271,6 +1276,8 @@ export function SlideCanvas({
       const target = e.currentTarget;
 
       if (kind === "move") {
+        const selected = latest.current.selection;
+        if (e.button === 0 && selected.length === 1 && tryTextEditRef.current(selected[0], origin)) return;
         startMove(latest.current.selection, origin, toSlide, target, e.pointerId, screen);
       } else if (kind === "resize" && handle) {
         startResize(handle, origin, toSlide, target, e.pointerId, screen);

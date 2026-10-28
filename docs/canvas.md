@@ -48,6 +48,8 @@ zoom-about-cursor, snapping against sibling boxes, and the slide DOM contract
 - **Double-click is detected from `pointerdown`, not `dblclick`.**
   `preventDefault()` on a pointerdown suppresses the compatibility mouse events,
   `dblclick` included.
+  The iframe and the selection overlay share the same detector: selecting a
+  text on the first press moves the second press into the parent document.
 - Middle-drag pans; the hand cursor shows while the wheel button is held.
 - The wheel belongs to the canvas — the document itself does not scroll.
 
@@ -147,3 +149,7 @@ preview in the panel: non-destructive, and the export inlines it untouched.
 `npm run check:canvas` covers snapping, rotated resize, bounding boxes,
 align/distribute, zoom-about-cursor, the undo cursor, filter round-trips, effect
 clearing, and flip vs rotation. New geometry or history logic goes in there.
+
+With one dev or production server running, `node scripts/check-editor.mjs`
+checks selected/unselected text editing and the move, resize and rotate gestures
+in Puppeteer. It creates and removes its own carousel through the API.
