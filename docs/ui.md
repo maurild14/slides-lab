@@ -62,9 +62,28 @@ Do not write a second one.
 
 ## Copy
 
-User-facing prose is **Spanish** (`castellano`), including screen-reader text.
-Code, comments and these docs are English. Keep the accents: `día`, `tamaño`,
-`configuración`.
+The UI ships in **English** (the default) and **Spanish** (`castellano`, voseo),
+switched from the language select in the top bar. The choice is a cookie,
+`slides-lab-locale`, so the server reads it too: the root layout renders
+`<html lang>` from it, and `/api/chat` tells the agent which language to reply in.
+
+Every user-facing string — screen-reader text included — is English source text
+passed through `t()`:
+
+```tsx
+const t = useT(); // src/components/locale-provider.tsx
+t("Delete “{name}”?", { name });
+```
+
+Its Spanish lives in `src/lib/i18n-es.ts`, keyed by the exact English string.
+A missing entry falls back to English, so `npm run check:canvas` scans every
+literal `t("…")` and fails on one without a Spanish entry or with mismatched
+`{placeholders}`. Labels kept in arrays (`TABS`, effect presets, catalog
+labels) are English too and translated where they render — `t(tab.label)` —
+which that scan cannot see, so add their entries by hand.
+
+Keep the accents in Spanish: `día`, `tamaño`, `configuración`. API error
+bodies stay English: they are the HTTP contract, and the agent reads them too.
 
 ## Accessibility floor
 

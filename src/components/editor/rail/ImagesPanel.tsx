@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, Loader2, Replace, Sparkles, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -57,6 +58,7 @@ export function ImagesPanel({
   selectedImage,
   onReplace,
 }: Props) {
+  const t = useT();
   const [prompt, setPrompt] = useState("");
   const [fullBleed, setFullBleed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -90,16 +92,16 @@ export function ImagesPanel({
       try {
         for (const file of list) {
           const url = await onUpload(file);
-          if (!url) throw new Error(`No se pudo subir ${file.name}`);
+          if (!url) throw new Error(t("Couldn't upload {name}", { name: file.name }));
           setImages((prev) => [{ url, name: file.name }, ...prev]);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "No se pudo subir");
+        setError(err instanceof Error ? err.message : t("Couldn't upload"));
       } finally {
         setUploading(false);
       }
     },
-    [onUpload]
+    [onUpload, t]
   );
 
   const handleGenerate = useCallback(async () => {
@@ -119,16 +121,17 @@ export function ImagesPanel({
       });
       const data: { url?: string; error?: string; detail?: string } = await res.json();
       if (!res.ok || !data.url) {
-        throw new Error(data.detail || data.error || "No se pudo generar");
+        // The route's own messages are English; stderr in `detail` stays raw.
+        throw new Error(data.detail || t(data.error || "Couldn't generate"));
       }
       setImages((prev) => [{ url: data.url!, name: data.url! }, ...prev]);
       setPrompt("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo generar");
+      setError(err instanceof Error ? err.message : t("Couldn't generate"));
     } finally {
       setBusy(false);
     }
-  }, [prompt, busy, fullBleed, aspectRatio]);
+  }, [prompt, busy, fullBleed, aspectRatio, t]);
 
   const { width: slideW } = DIMENSIONS[aspectRatio];
   const dropWidth = Math.round(slideW * DROP_WIDTH_RATIO);
@@ -146,11 +149,11 @@ export function ImagesPanel({
 
   return (
     <PanelShell
-      title="Imágenes"
-      description="Subí, generá, o arrastrá una al slide."
+      title={t("Images")}
+      description={t("Upload, generate, or drag one onto the slide.")}
       onClose={onClose}
     >
-      <PanelGroup title="Subir">
+      <PanelGroup title={t("Upload")}>
         <div
           onDragOver={(e) => {
             e.preventDefault();
@@ -169,7 +172,7 @@ export function ImagesPanel({
         >
           <Upload className="h-5 w-5 text-muted-foreground" aria-hidden />
           <p className="text-label text-muted-foreground">
-            Soltá archivos acá — PNG, JPG o WebP.
+            {t("Drop files here — PNG, JPG or WebP.")}
           </p>
           <Button
             variant="outline"
@@ -177,7 +180,7 @@ export function ImagesPanel({
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
           >
-            {uploading ? "Subiendo…" : "Elegir archivos"}
+            {uploading ? t("Uploading…") : t("Choose files")}
           </Button>
           <input
             ref={fileRef}
@@ -193,7 +196,7 @@ export function ImagesPanel({
         </div>
       </PanelGroup>
 
-      <PanelGroup title="Generar con IA">
+      <PanelGroup title={t("Generate with AI")}>
         {canGenerate ? (
           <div className="flex flex-col gap-2">
             <textarea
@@ -204,8 +207,8 @@ export function ImagesPanel({
               }}
               rows={3}
               disabled={busy}
-              aria-label="Qué imagen querés generar"
-              placeholder="Flecha zigzag dibujada a mano, negra…"
+              aria-label={t("What image do you want to generate")}
+              placeholder={t("Hand-drawn zigzag arrow, black…")}
               className="w-full resize-none rounded-md border border-border bg-surface px-3 py-2 text-body leading-relaxed outline-none placeholder:text-muted-foreground focus-visible:shadow-[0_0_0_2px_var(--surface),0_0_0_4px_var(--ring)] disabled:opacity-50"
             />
             <label className="flex cursor-pointer items-center gap-2 text-label text-muted-foreground">
@@ -216,7 +219,7 @@ export function ImagesPanel({
                 disabled={busy}
                 className="h-4 w-4 cursor-pointer accent-accent"
               />
-              Fondo completo ({SIZE_FOR_RATIO[aspectRatio]})
+              {t("Full background ({size})", { size: SIZE_FOR_RATIO[aspectRatio] })}
             </label>
             <Button
               variant="accent"
@@ -226,26 +229,26 @@ export function ImagesPanel({
               {busy ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  Generando…
+                  {t("Generating…")}
                 </>
               ) : (
                 <>
                   <Sparkles className="h-4 w-4" aria-hidden />
-                  Generar
+                  {t("Generate")}
                 </>
               )}
             </Button>
             {busy && (
               <p className="text-center text-micro text-muted-foreground">
-                Tarda entre 15 y 60 segundos.
+                {t("Takes between 15 and 60 seconds.")}
               </p>
             )}
           </div>
         ) : (
           <PanelEmpty>
-            Para generar imágenes instalá el Codex CLI y ejecutá{" "}
+            {t("To generate images, install the Codex CLI and run")}{" "}
             <code className="rounded bg-muted px-1 py-0.5 text-micro">codex login</code>.
-            Subir y arrastrar sigue andando.
+            {t("Uploading and dragging still work.")}
           </PanelEmpty>
         )}
       </PanelGroup>
@@ -257,12 +260,12 @@ export function ImagesPanel({
         </p>
       )}
 
-      <PanelGroup title="Galería">
+      <PanelGroup title={t("Gallery")}>
         {images.length > 6 && (
           <div className="mb-2">
             <SearchInput
-              label="Buscar en la galería"
-              placeholder="Buscar por nombre…"
+              label={t("Search the gallery")}
+              placeholder={t("Search by name…")}
               value={query}
               onChange={setQuery}
             />
@@ -271,14 +274,14 @@ export function ImagesPanel({
         {selectedImage && (
           <p className="mb-2 flex items-center gap-1.5 text-label text-muted-foreground">
             <Replace className="h-4 w-4 shrink-0" aria-hidden />
-            Hay una imagen seleccionada: usá “Reemplazar” en su tarjeta.
+            {t("An image is selected: use “Replace” on its card.")}
           </p>
         )}
         {visible.length === 0 ? (
           <PanelEmpty>
             {images.length === 0
-              ? "Todavía no hay imágenes. Subí una o generala con IA."
-              : `Ninguna imagen se llama “${query}”.`}
+              ? t("No images yet. Upload one or generate it with AI.")
+              : t("No image is called “{query}”.", { query })}
           </PanelEmpty>
         ) : (
           <div className="grid grid-cols-3 gap-2">
@@ -290,8 +293,8 @@ export function ImagesPanel({
                 <button
                   type="button"
                   {...insertProps(() => insertImage(img.url))}
-                  title={`${img.name} — arrastrala o tocala`}
-                  aria-label={`Insertar ${img.name}`}
+                  title={t("{label} — drag it or click it", { label: img.name })}
+                  aria-label={t("Insert {label}", { label: img.name })}
                   className="oc-press oc-focus block aspect-square w-full cursor-grab overflow-hidden rounded-md border border-border hover:border-accent active:cursor-grabbing"
                   style={ALPHA_BG}
                 >
@@ -307,10 +310,10 @@ export function ImagesPanel({
                   <button
                     type="button"
                     onClick={() => onReplace(img.url)}
-                    aria-label={`Reemplazar la imagen seleccionada por ${img.name}`}
+                    aria-label={t("Replace the selected image with {name}", { name: img.name })}
                     className="oc-press oc-focus absolute inset-x-1 bottom-1 cursor-pointer rounded-sm bg-foreground/85 py-1 text-micro font-medium text-background hover:bg-foreground"
                   >
-                    Reemplazar
+                    {t("Replace")}
                   </button>
                 )}
               </div>

@@ -31,6 +31,7 @@ import {
 } from "@/lib/slide-batch";
 import { stripInspectorAttrs } from "@/lib/inspector-utils";
 import { cn } from "@/lib/utils";
+import { useT } from "@/components/locale-provider";
 import type { DragPayload } from "@/lib/slide-elements";
 import type { BrandConfig } from "@/types/brand";
 import { DEFAULT_BRAND, withBrandDefaults } from "@/types/brand";
@@ -70,6 +71,7 @@ interface PageProps {
 export default function CarouselEditorPage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
+  const t = useT();
   const [carousel, setCarousel] = useState<Carousel | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
@@ -347,13 +349,13 @@ export default function CarouselEditorPage({ params }: PageProps) {
     // slide's content sitting where it was on a canvas of another shape.
     setConfirmState({
       open: true,
-      title: `¿Pasar el carrusel a ${ratio}?`,
-      description: `Podemos reescalar el contenido de los ${current.length} slides para que entre en el lienzo nuevo. Es una aproximación: revisá cada slide después. Cada uno guarda su versión anterior, así que se puede volver atrás desde “Versión anterior”.`,
-      confirmLabel: "Reajustar el contenido",
+      title: t("Switch the carousel to {ratio}?", { ratio }),
+      description: t("We can rescale the content of the {n} slides to fit the new canvas. It's an approximation: review each slide afterwards. Each one keeps its previous version, so you can go back from “Previous version”.", { n: current.length }),
+      confirmLabel: t("Rescale the content"),
       // Nothing is deleted here, and every slide keeps its previous version.
       // The dialog defaults to destructive, so it has to say otherwise.
       variant: "default",
-      secondaryLabel: "Solo cambiar el lienzo",
+      secondaryLabel: t("Only change the canvas"),
       onSecondary: () => {
         setAspectRatio(ratio);
       },
@@ -383,8 +385,8 @@ export default function CarouselEditorPage({ params }: PageProps) {
     const index = carousel.slides.findIndex((s) => s.id === slideId);
     setConfirmState({
       open: true,
-      title: `¿Eliminar el slide ${index + 1}?`,
-      description: "No se puede deshacer desde acá.",
+      title: t("Delete slide {n}?", { n: index + 1 }),
+      description: t("This can't be undone from here."),
       onConfirm: async () => {
         const res = await fetch(`/api/carousels/${id}/slides/${slideId}`, {
           method: "DELETE",
@@ -428,14 +430,14 @@ export default function CarouselEditorPage({ params }: PageProps) {
     if (!carousel) return;
     setConfirmState({
       open: true,
-      title: `¿Eliminar "${carousel.name}"?`,
-      description: "Se borran el carrusel y todos sus slides, para siempre.",
+      title: t("Delete “{name}”?", { name: carousel.name }),
+      description: t("The carousel and all its slides are deleted, for good."),
       onConfirm: async () => {
         const res = await fetch(`/api/carousels/${id}`, { method: "DELETE" });
         if (res.ok) router.push("/");
       },
     });
-  }, [carousel, id, router]);
+  }, [carousel, id, router, t]);
 
   /* --------------------------------------------- writing into the slide */
 
@@ -544,42 +546,40 @@ export default function CarouselEditorPage({ params }: PageProps) {
     if (!slideBackground || otherCount < 1) return;
     setConfirmState({
       open: true,
-      title: `¿Poner este fondo en los otros ${otherCount} slides?`,
-      description:
-        "Se reemplaza el fondo de cada uno. Cada slide guarda su versión anterior, así que se puede volver atrás de a uno.",
-      confirmLabel: "Aplicar a todas",
+      title: t("Put this background on the other {n} slides?", { n: otherCount }),
+      description: t("Each one's background is replaced. Every slide keeps its previous version, so you can undo them one at a time."),
+      confirmLabel: t("Apply to all"),
       variant: "default",
       onConfirm: () => {
         applyToOtherSlides((html) => applyBackgroundToHtml(html, slideBackground));
       },
     });
-  }, [slideBackground, otherCount, applyToOtherSlides]);
+  }, [slideBackground, otherCount, applyToOtherSlides, t]);
 
   const handleApplyElementToAll = useCallback(() => {
     if (selection.length !== 1 || otherCount < 1) return;
     const markup = stripInspectorAttrs(selection[0].outerHTML);
     setConfirmState({
       open: true,
-      title: `¿Copiar este elemento a los otros ${otherCount} slides?`,
-      description:
-        "Se agrega arriba de todo, en la misma posición. No reemplaza nada de lo que ya tienen.",
-      confirmLabel: "Aplicar a todas",
+      title: t("Copy this element to the other {n} slides?", { n: otherCount }),
+      description: t("It is added on top of everything, in the same position. Nothing they already have is replaced."),
+      confirmLabel: t("Apply to all"),
       variant: "default",
       onConfirm: () => {
         applyToOtherSlides((html) => appendElementToHtml(html, markup));
       },
     });
-  }, [selection, otherCount, applyToOtherSlides]);
+  }, [selection, otherCount, applyToOtherSlides, t]);
 
   const swatches = useMemo(
     () => [
-      { color: brand.colors.primary, name: "Primario" },
-      { color: brand.colors.secondary, name: "Secundario" },
-      { color: brand.colors.accent, name: "Acento" },
-      { color: brand.colors.background, name: "Fondo" },
-      { color: brand.colors.surface, name: "Superficie" },
+      { color: brand.colors.primary, name: t("Primary") },
+      { color: brand.colors.secondary, name: t("Secondary") },
+      { color: brand.colors.accent, name: t("Accent") },
+      { color: brand.colors.background, name: t("Background") },
+      { color: brand.colors.surface, name: t("Surface") },
     ],
-    [brand.colors]
+    [brand.colors, t]
   );
 
   const brandFonts = useMemo(
@@ -660,12 +660,12 @@ export default function CarouselEditorPage({ params }: PageProps) {
   if (notFound) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3">
-        <p className="text-title font-semibold">No encontramos este carrusel</p>
+        <p className="text-title font-semibold">{t("We couldn't find this carousel")}</p>
         <p className="text-body text-muted-foreground">
-          Puede que lo hayas eliminado.
+          {t("You may have deleted it.")}
         </p>
         <Button variant="outline" asChild>
-          <Link href="/">Volver al inicio</Link>
+          <Link href="/">{t("Back to home")}</Link>
         </Button>
       </div>
     );
@@ -709,7 +709,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
         onOpenChange={(open) => setConfirmState((s) => ({ ...s, open }))}
         title={confirmState.title}
         description={confirmState.description}
-        confirmLabel={confirmState.confirmLabel ?? "Eliminar"}
+        confirmLabel={confirmState.confirmLabel ?? t("Delete")}
         variant={confirmState.variant ?? "destructive"}
         secondaryLabel={confirmState.secondaryLabel}
         onSecondary={confirmState.onSecondary}
@@ -777,17 +777,17 @@ export default function CarouselEditorPage({ params }: PageProps) {
               <AspectRatioSelector
                 value={carousel.aspectRatio}
                 onChange={handleAspectChange}
-                label="Proporción"
+                label={t("Aspect ratio")}
               />
               <IconButton
-                label="Vista a pantalla completa"
+                label={t("Full-screen view")}
                 size="sm"
                 onClick={() => setShowFullscreen(true)}
               >
                 <Maximize2 className="h-4 w-4" aria-hidden />
               </IconButton>
               <IconButton
-                label="Zonas seguras de Instagram"
+                label={t("Instagram safe zones")}
                 size="sm"
                 active={showSafeZones}
                 onClick={() => setShowSafeZones(!showSafeZones)}
@@ -795,7 +795,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
                 <Grid3X3 className="h-4 w-4" aria-hidden />
               </IconButton>
               <IconButton
-                label="Guardar como plantilla"
+                label={t("Save as template")}
                 size="sm"
                 onClick={async () => {
                   await editor.flush();
@@ -820,12 +820,12 @@ export default function CarouselEditorPage({ params }: PageProps) {
                   )}
                 >
                   {templateStatus === "ok"
-                    ? "Guardado como plantilla"
-                    : "No se pudo guardar"}
+                    ? t("Saved as template")
+                    : t("Couldn't save")}
                 </span>
               )}
               <IconButton
-                label="Eliminar el carrusel"
+                label={t("Delete the carousel")}
                 size="sm"
                 onClick={handleDeleteCarousel}
                 className="hover:text-destructive"
@@ -879,7 +879,7 @@ export default function CarouselEditorPage({ params }: PageProps) {
             />
             <aside
               className="flex w-props shrink-0 flex-col border-l border-border bg-surface"
-              aria-label="Capas y propiedades"
+              aria-label={t("Layers and properties")}
             >
               <div className="flex max-h-[45%] min-h-0 flex-col">
                 <LayersPanel

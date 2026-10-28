@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { useCallback, useEffect, useState } from "react";
 import { ImageIcon, LayoutTemplate } from "lucide-react";
 import { ColorInput } from "@/components/ui/controls";
@@ -46,6 +47,7 @@ export function DesignPanel({
   background,
   onBrandChange,
 }: Props) {
+  const t = useT();
   const [templates, setTemplates] = useState<Template[] | null>(null);
   const [presets, setPresets] = useState<StylePreset[] | null>(null);
 
@@ -70,22 +72,22 @@ export function DesignPanel({
   );
 
   // Only slides matching this carousel's shape: a 9:16 layout dropped into a
-  // 4:5 slide overflows, and Fase 4 owns real re-layout.
-  const usable = (templates ?? []).filter((t) => t.aspectRatio === aspectRatio);
+  // 4:5 slide overflows, and Phase 4 owns real re-layout.
+  const usable = (templates ?? []).filter((tpl) => tpl.aspectRatio === aspectRatio);
 
   return (
     <PanelShell
-      title="Diseño"
-      description="El fondo del slide, tus plantillas y tus estilos guardados."
+      title={t("Design")}
+      description={t("The slide background, your templates and your saved styles.")}
       onClose={onClose}
     >
-      <PanelGroup title="Fondo del slide">
+      <PanelGroup title={t("Slide background")}>
         <ColorInput
-          label="Color de fondo"
+          label={t("Background color")}
           value={/^#[0-9a-f]{6}$/i.test(background) ? background : "#ffffff"}
           onChange={onBackground}
           swatches={Object.entries(brand.colors).map(([name, color]) => ({
-            name,
+            name: t(name[0].toUpperCase() + name.slice(1)),
             color,
           }))}
         />
@@ -95,7 +97,7 @@ export function DesignPanel({
               key={g.id}
               type="button"
               onClick={() => onBackground(g.css)}
-              aria-label={`Fondo degradado ${g.id}`}
+              aria-label={t("Gradient background {id}", { id: g.id })}
               className={cn(
                 "oc-press oc-focus aspect-video cursor-pointer rounded-md border border-black/10",
                 "hover:ring-2 hover:ring-ring hover:ring-offset-2 hover:ring-offset-surface"
@@ -105,11 +107,11 @@ export function DesignPanel({
           ))}
         </div>
         <p className="mt-2 text-micro text-muted-foreground">
-          Para una imagen de fondo usá el panel Imágenes y estirala al slide entero.
+          {t("For a background image, use the Images panel and stretch it across the whole slide.")}
         </p>
       </PanelGroup>
 
-      <PanelGroup title="Plantillas">
+      <PanelGroup title={t("Templates")}>
         {templates === null ? (
           <div className="grid grid-cols-2 gap-2">
             {Array.from({ length: 4 }, (_, i) => (
@@ -122,24 +124,23 @@ export function DesignPanel({
         ) : usable.length === 0 ? (
           <PanelEmpty>
             <LayoutTemplate className="mx-auto mb-2 h-5 w-5" aria-hidden />
-            No hay plantillas de {aspectRatio}. Guardá un carrusel como plantilla desde
-            la barra de arriba.
+            {t("There are no {ratio} templates. Save a carousel as a template from the top bar.", { ratio: aspectRatio })}
           </PanelEmpty>
         ) : (
           <div className="grid grid-cols-2 gap-2">
-            {usable.flatMap((t) =>
-              t.slides.map((slide, i) => (
+            {usable.flatMap((tpl) =>
+              tpl.slides.map((slide, i) => (
                 <button
-                  key={`${t.id}-${slide.id}`}
+                  key={`${tpl.id}-${slide.id}`}
                   type="button"
                   onClick={() => onReplaceSlide(slide.html)}
-                  title={`${t.name} — slide ${i + 1}`}
-                  aria-label={`Aplicar el slide ${i + 1} de ${t.name} al slide actual`}
+                  title={`${tpl.name} — slide ${i + 1}`}
+                  aria-label={t("Apply slide {n} of {name} to the current slide", { n: i + 1, name: tpl.name })}
                   className="oc-press oc-focus cursor-pointer overflow-hidden rounded-md border border-border bg-surface hover:border-accent"
                 >
                   <SlideRenderer
                     html={slide.html}
-                    aspectRatio={t.aspectRatio}
+                    aspectRatio={tpl.aspectRatio}
                     className="aspect-[4/5] w-full bg-white"
                   />
                 </button>
@@ -149,13 +150,13 @@ export function DesignPanel({
         )}
       </PanelGroup>
 
-      <PanelGroup title="Estilos guardados">
+      <PanelGroup title={t("Saved styles")}>
         {presets === null ? (
           <div className="h-16 animate-pulse rounded-md bg-muted" />
         ) : presets.length === 0 ? (
           <PanelEmpty>
             <ImageIcon className="mx-auto mb-2 h-5 w-5" aria-hidden />
-            Todavía no guardaste ningún estilo.
+            {t("You haven't saved any styles yet.")}
           </PanelEmpty>
         ) : (
           <div className="flex flex-col gap-2">
@@ -183,7 +184,7 @@ export function DesignPanel({
                     onClick={() => applyPreset(p)}
                     className="oc-press oc-focus ml-auto cursor-pointer rounded-sm px-2 py-1 text-label font-medium text-accent hover:bg-accent-soft"
                   >
-                    Aplicar a la marca
+                    {t("Apply to the brand")}
                   </button>
                 </div>
                 {p.exampleSlideHtml && (
@@ -192,7 +193,7 @@ export function DesignPanel({
                     onClick={() => onReplaceSlide(p.exampleSlideHtml)}
                     className="oc-press oc-focus mt-1 w-full cursor-pointer rounded-sm border border-border py-1.5 text-label hover:bg-muted"
                   >
-                    Usar su slide de ejemplo
+                    {t("Use its example slide")}
                   </button>
                 )}
               </div>

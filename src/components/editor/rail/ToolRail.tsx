@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { useMemo } from "react";
 import {
   Image as ImageIcon,
@@ -25,12 +26,12 @@ import type { EngineStatus } from "@/lib/agents";
 export type RailTab = "design" | "elements" | "text" | "images" | "brand" | "ai";
 
 const TABS: { id: RailTab; label: string; Icon: typeof Shapes }[] = [
-  { id: "design", label: "Diseño", Icon: LayoutGrid },
-  { id: "elements", label: "Elementos", Icon: Shapes },
-  { id: "text", label: "Texto", Icon: TypeIcon },
-  { id: "images", label: "Imágenes", Icon: ImageIcon },
-  { id: "brand", label: "Marca", Icon: Palette },
-  { id: "ai", label: "IA", Icon: Sparkles },
+  { id: "design", label: "Design", Icon: LayoutGrid },
+  { id: "elements", label: "Elements", Icon: Shapes },
+  { id: "text", label: "Text", Icon: TypeIcon },
+  { id: "images", label: "Images", Icon: ImageIcon },
+  { id: "brand", label: "Brand", Icon: Palette },
+  { id: "ai", label: "AI", Icon: Sparkles },
 ];
 
 interface Props {
@@ -94,6 +95,7 @@ export function ToolRail({
   chatInputRef,
   onClearSelection,
 }: Props) {
+  const t = useT();
   const close = () => onActiveChange(null);
 
   const selectedImage = useMemo(() => {
@@ -107,13 +109,13 @@ export function ToolRail({
     if (selection.length !== 1) return null;
     const el = selection[0];
     if (!el.isConnected) return null;
-    return { label: elementLabel(el), html: el.outerHTML };
-  }, [selection]);
+    return { label: elementLabel(el, t), html: el.outerHTML };
+  }, [selection, t]);
 
   return (
     <div className="flex min-h-0 shrink-0">
       <nav
-        aria-label="Herramientas"
+        aria-label={t("Tools")}
         className="flex w-rail shrink-0 flex-col items-center gap-1 border-r border-border bg-surface py-2"
       >
         {TABS.map(({ id, label, Icon }) => {
@@ -123,7 +125,7 @@ export function ToolRail({
               key={id}
               type="button"
               aria-pressed={on}
-              aria-label={label}
+              aria-label={t(label)}
               onClick={() => onActiveChange(on ? null : id)}
               className={cn(
                 "oc-press oc-focus flex w-[3.75rem] cursor-pointer flex-col items-center gap-1 rounded-lg px-1 py-2",
@@ -137,7 +139,7 @@ export function ToolRail({
                 strokeWidth={on ? 2.25 : 1.75}
                 aria-hidden
               />
-              <span className="text-micro font-medium leading-none">{label}</span>
+              <span className="text-micro font-medium leading-none">{t(label)}</span>
             </button>
           );
         })}
@@ -199,11 +201,11 @@ export function ToolRail({
       {/*
         Always mounted, hidden when another tab is open. Unmounting it mid
         stream threw the conversation away and aborted the request: opening
-        "Elementos" used to kill the generation you were watching.
+        "Elements" used to kill the generation you were watching.
       */}
       <PanelShell
-        title="IA"
-        description="Pedile un carrusel entero, o un cambio sobre lo que tengas seleccionado."
+        title={t("AI")}
+        description={t("Ask it for a whole carousel, or for a change to whatever you have selected.")}
         onClose={close}
         flush
         hidden={active !== "ai"}

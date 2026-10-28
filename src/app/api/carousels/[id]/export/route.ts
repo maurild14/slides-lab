@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import archiver from "archiver";
+import { ZipArchive } from "archiver";
 import { getCarousel } from "@/lib/carousels";
 import {
   exportAllSlides,
@@ -21,7 +21,7 @@ function safeName(name: string): string {
 
 function zip(files: { name: string; buffer: Buffer }[]): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const archive = archiver("zip", { zlib: { level: 5 } });
+    const archive = new ZipArchive({ zlib: { level: 5 } });
     const chunks: Buffer[] = [];
     archive.on("data", (chunk: Buffer) => chunks.push(chunk));
     archive.on("end", () => resolve(Buffer.concat(chunks)));
@@ -68,7 +68,7 @@ export async function POST(
     slideId?: string;
   };
   if (!FORMATS.includes(format as ExportFormat)) {
-    return NextResponse.json({ error: `Formato desconocido: ${format}` }, { status: 400 });
+    return NextResponse.json({ error: `Unknown format: ${format}` }, { status: 400 });
   }
   const fmt = format as ExportFormat;
 
@@ -76,7 +76,7 @@ export async function POST(
     ? carousel.slides.filter((s) => s.id === slideId)
     : carousel.slides;
   if (slides.length === 0) {
-    return NextResponse.json({ error: "Slide no encontrado" }, { status: 404 });
+    return NextResponse.json({ error: "Slide not found" }, { status: 404 });
   }
 
   const base = safeName(carousel.name);

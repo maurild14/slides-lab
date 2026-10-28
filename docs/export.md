@@ -71,6 +71,9 @@ could fetch the API, the LAN or `file://` from inside the exporter.
 
 ## Browser lifecycle
 
+ZIP downloads use Archiver 8's named `ZipArchive` constructor (the default
+factory was removed in v8). Keep the stream error handler when changing it.
+
 One singleton browser, relaunched every `MAX_EXPORTS_BEFORE_RESTART` (50) exports
 or whenever it drops the connection. Launched headless with `--disable-gpu`; the
 Chrome sandbox stays on unless the process runs as root (Docker, some CI), where

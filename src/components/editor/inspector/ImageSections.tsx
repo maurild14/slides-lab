@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { useRef } from "react";
 import { FlipHorizontal, FlipVertical, ImageIcon, RotateCcw, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ interface Props {
 }
 
 export function ImageSections({ props: p, api, onUpload, focus }: Props) {
+  const t = useT();
   const { mutate, setStyle, flip } = api;
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -39,7 +41,7 @@ export function ImageSections({ props: p, api, onUpload, focus }: Props) {
 
   return (
     <>
-      <Section title="Imagen" focused={focusOn(focus, "image")}>
+      <Section title={t("Image")} focused={focusOn(focus, "image")}>
         <div className="overflow-hidden rounded-md border border-border bg-muted">
           {p.src ? (
             /* eslint-disable-next-line @next/next/no-img-element */
@@ -74,12 +76,12 @@ export function ImageSections({ props: p, api, onUpload, focus }: Props) {
           className="h-control-sm w-full gap-1.5 text-label"
         >
           <Upload className="h-3.5 w-3.5" aria-hidden />
-          Reemplazar imagen
+          {t("Replace image")}
         </Button>
-        <Row label="Alt" hint="Descripción de la imagen">
+        <Row label="Alt" hint={t("Description of the image")}>
           <input
             value={p.alt}
-            aria-label="Texto alternativo"
+            aria-label={t("Alt text")}
             onChange={(e) =>
               mutate((el) => ((el as HTMLImageElement).alt = e.target.value))
             }
@@ -88,7 +90,7 @@ export function ImageSections({ props: p, api, onUpload, focus }: Props) {
         </Row>
       </Section>
 
-      <Section title="Encuadre" defaultOpen={false} focused={focusOn(focus, "crop")}>
+      <Section title={t("Framing")} defaultOpen={false} focused={focusOn(focus, "crop")}>
         <CropField
           src={p.src}
           x={p.objectX}
@@ -101,18 +103,18 @@ export function ImageSections({ props: p, api, onUpload, focus }: Props) {
             })
           }
         />
-        <Row label="Ajuste">
+        <Row label={t("Fit")}>
           <ToggleGroup
             value={["cover", "contain", "fill"].includes(p.objectFit) ? p.objectFit : "fill"}
             onChange={(v) => setStyle({ "object-fit": v })}
             options={[
-              { value: "cover", label: "Cubrir" },
-              { value: "contain", label: "Entero" },
-              { value: "fill", label: "Estirar" },
+              { value: "cover", label: t("Cover") },
+              { value: "contain", label: t("Whole") },
+              { value: "fill", label: t("Stretch") },
             ]}
           />
         </Row>
-        <Row label="Espejar">
+        <Row label={t("Mirror")}>
           <div className="flex gap-1.5">
             <Button
               variant={p.flipX ? "default" : "outline"}
@@ -121,7 +123,7 @@ export function ImageSections({ props: p, api, onUpload, focus }: Props) {
               className="h-control-sm flex-1 gap-1.5 text-label"
             >
               <FlipHorizontal className="h-3.5 w-3.5" aria-hidden />
-              Horizontal
+              {t("Horizontal")}
             </Button>
             <Button
               variant={p.flipY ? "default" : "outline"}
@@ -130,14 +132,14 @@ export function ImageSections({ props: p, api, onUpload, focus }: Props) {
               className="h-control-sm flex-1 gap-1.5 text-label"
             >
               <FlipVertical className="h-3.5 w-3.5" aria-hidden />
-              Vertical
+              {t("Vertical")}
             </Button>
           </div>
         </Row>
       </Section>
 
       <Section
-        title="Filtros"
+        title={t("Filters")}
         defaultOpen={false}
         focused={focusOn(focus, "filters")}
         action={
@@ -148,7 +150,7 @@ export function ImageSections({ props: p, api, onUpload, focus }: Props) {
               className="oc-focus flex cursor-pointer items-center gap-1 rounded px-1 text-micro text-muted-foreground hover:text-foreground"
             >
               <RotateCcw className="h-3 w-3" aria-hidden />
-              Restablecer
+              {t("Reset")}
             </button>
           ) : null
         }
@@ -158,8 +160,8 @@ export function ImageSections({ props: p, api, onUpload, focus }: Props) {
             <button
               key={preset.id}
               type="button"
-              title={preset.label}
-              aria-label={`Filtro ${preset.label}`}
+              title={t(preset.label)}
+              aria-label={t("{name} filter", { name: t(preset.label) })}
               onClick={() => setStyle({ filter: buildFilters(presetFilters(preset.id)) || "" })}
               className="oc-press oc-focus cursor-pointer overflow-hidden rounded-md border border-border bg-muted hover:border-accent"
             >
@@ -175,7 +177,7 @@ export function ImageSections({ props: p, api, onUpload, focus }: Props) {
                 <span className="block h-10" />
               )}
               <span className="block truncate px-1 py-0.5 text-micro text-muted-foreground">
-                {preset.label}
+                {t(preset.label)}
               </span>
             </button>
           ))}
@@ -185,7 +187,7 @@ export function ImageSections({ props: p, api, onUpload, focus }: Props) {
             <div key={def.key} className="grid grid-cols-[64px_1fr] items-center gap-2">
               <span className="truncate text-label text-muted-foreground">{def.label}</span>
               <Slider
-                label={def.label}
+                label={t(def.label)}
                 value={p.filters[def.key] ?? def.base}
                 min={def.min}
                 max={def.max}
@@ -197,7 +199,7 @@ export function ImageSections({ props: p, api, onUpload, focus }: Props) {
         </div>
       </Section>
 
-      <Section title="Marco" defaultOpen={false} focused={focusOn(focus, "frame")}>
+      <Section title={t("Frame")} defaultOpen={false} focused={focusOn(focus, "frame")}>
         <div className="grid grid-cols-3 gap-1.5">
           {IMAGE_FRAMES.map((frame) => (
             <button
@@ -217,7 +219,7 @@ export function ImageSections({ props: p, api, onUpload, focus }: Props) {
                 className="block h-8 w-8 bg-foreground/70"
                 style={{ clipPath: frame.clip || undefined }}
               />
-              {frame.label}
+              {t(frame.label)}
             </button>
           ))}
         </div>
@@ -247,6 +249,7 @@ function CropField({
   ratio: number;
   onChange: (x: number, y: number) => void;
 }) {
+  const t = useT();
   const boxRef = useRef<HTMLDivElement>(null);
 
   const startDrag = (e: React.PointerEvent) => {
@@ -275,7 +278,7 @@ function CropField({
   if (!src) {
     return (
       <p className="rounded-md border border-dashed border-border px-3 py-4 text-center text-micro text-muted-foreground">
-        Esta imagen no tiene archivo todavía.
+        {t("This image has no file yet.")}
       </p>
     );
   }
@@ -286,7 +289,7 @@ function CropField({
         ref={boxRef}
         onPointerDown={startDrag}
         role="application"
-        aria-label="Arrastrá para reencuadrar la imagen"
+        aria-label={t("Drag to reframe the image")}
         className="w-full cursor-grab overflow-hidden rounded-md border border-border bg-muted active:cursor-grabbing"
         style={{ aspectRatio: ratio > 0 ? ratio : 1, touchAction: "none" }}
       >
@@ -300,7 +303,7 @@ function CropField({
         />
       </div>
       <p className="text-micro text-muted-foreground">
-        Arrastrá la imagen para reencuadrarla dentro de su caja.
+        {t("Drag the image to reframe it inside its box.")}
       </p>
     </div>
   );

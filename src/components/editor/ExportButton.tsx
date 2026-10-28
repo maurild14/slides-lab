@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { useState } from "react";
 import { AlertCircle, Check, ChevronDown, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,7 @@ interface ExportButtonProps {
 const LABELS: Record<Format, string> = {
   png: "PNG",
   jpg: "JPG",
-  "png-transparent": "PNG sin fondo",
+  "png-transparent": "Transparent PNG",
   pdf: "PDF",
 };
 
@@ -38,6 +39,7 @@ export function ExportButton({
   activeSlideNumber,
   onBeforeExport,
 }: ExportButtonProps) {
+  const t = useT();
   const [exporting, setExporting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +61,7 @@ export function ExportButton({
       });
       if (!response.ok) {
         const data = await response.json().catch(() => null);
-        throw new Error(data?.error ?? "No se pudo exportar");
+        throw new Error(data?.error ?? t("Couldn't export"));
       }
 
       // The filename the server chose travels in Content-Disposition — and it
@@ -72,14 +74,14 @@ export function ExportButton({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = named?.[1] ?? `carrusel.${format === "pdf" ? "pdf" : "zip"}`;
+      a.download = named?.[1] ?? `carousel.${format === "pdf" ? "pdf" : "zip"}`;
       a.click();
       // Revoking in the same tick cancels the download in some browsers.
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
       setDone(true);
       setTimeout(() => setDone(false), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo exportar");
+      setError(err instanceof Error ? err.message : t("Couldn't export"));
     } finally {
       setExporting(false);
     }
@@ -113,17 +115,17 @@ export function ExportButton({
             {exporting ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                Exportando…
+                {t("Exporting…")}
               </>
             ) : done ? (
               <>
                 <Check className="h-4 w-4" aria-hidden />
-                Listo
+                {t("Done")}
               </>
             ) : (
               <>
                 <Download className="h-4 w-4" aria-hidden />
-                Exportar PNG
+                {t("Export PNG")}
               </>
             )}
           </span>
@@ -135,17 +137,17 @@ export function ExportButton({
               variant="accent"
               size="sm"
               disabled={disabled}
-              aria-label="Elegir el formato de exportación"
+              aria-label={t("Choose the export format")}
               className="ml-px rounded-l-none px-2"
             >
               <ChevronDown className="h-4 w-4" aria-hidden />
             </Button>
           </MenuTrigger>
           <MenuContent align="end">
-            <MenuLabel>Todo el carrusel ({slideCount})</MenuLabel>
+            <MenuLabel>{t("Whole carousel ({n})", { n: slideCount })}</MenuLabel>
             {(["png", "jpg", "png-transparent", "pdf"] as Format[]).map((f) => (
               <MenuItem key={f} onSelect={() => run(f)}>
-                {LABELS[f]}
+                {t(LABELS[f])}
                 {f !== "pdf" && slideCount > 1 && (
                   <span className="ml-auto pl-4 text-micro text-muted-foreground">ZIP</span>
                 )}
@@ -156,11 +158,11 @@ export function ExportButton({
               <>
                 <MenuSeparator />
                 <MenuLabel>
-                  Solo el slide {activeSlideNumber ?? ""}
+                  {t("Only slide {n}", { n: activeSlideNumber ?? "" })}
                 </MenuLabel>
                 {(["png", "jpg", "png-transparent"] as Format[]).map((f) => (
                   <MenuItem key={f} onSelect={() => run(f, activeSlideId)}>
-                    {LABELS[f]}
+                    {t(LABELS[f])}
                   </MenuItem>
                 ))}
               </>

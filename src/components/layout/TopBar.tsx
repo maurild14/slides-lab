@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, Settings, Layers } from "lucide-react";
+import { useLocale, useT } from "@/components/locale-provider";
+import { LOCALES, type Locale } from "@/lib/i18n";
 import { IconButton } from "@/components/ui/button";
 
 interface TopBarProps {
@@ -20,6 +22,8 @@ export function TopBar({
   onTitleChange,
   onSettingsClick,
 }: TopBarProps) {
+  const t = useT();
+  const { locale, setLocale } = useLocale();
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -43,7 +47,7 @@ export function TopBar({
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-4">
       {showBack && (
-        <IconButton label="Volver al inicio" asChild>
+        <IconButton label={t("Back to home")} asChild>
           <Link href="/">
             <ArrowLeft className="h-4 w-4" aria-hidden />
           </Link>
@@ -55,7 +59,7 @@ export function TopBar({
           <input
             ref={inputRef}
             value={editValue}
-            aria-label="Nombre del carrusel"
+            aria-label={t("Carousel name")}
             onChange={(e) => setEditValue(e.target.value)}
             onBlur={handleSave}
             onKeyDown={(e) => {
@@ -71,7 +75,7 @@ export function TopBar({
           <button
             type="button"
             onClick={startEditing}
-            title="Tocá para renombrar"
+            title={t("Click to rename")}
             className="oc-focus cursor-pointer truncate rounded px-1 text-body font-semibold transition-colors hover:text-accent"
           >
             {title || "Slides Lab"}
@@ -83,8 +87,20 @@ export function TopBar({
         )}
       </div>
       <div className="flex-1" />
+      <select
+        aria-label={t("Language")}
+        value={locale}
+        onChange={(e) => setLocale(e.target.value as Locale)}
+        className="oc-focus h-control-sm cursor-pointer rounded-md border border-border bg-surface px-2 text-label"
+      >
+        {LOCALES.map((l) => (
+          <option key={l.id} value={l.id}>
+            {l.label}
+          </option>
+        ))}
+      </select>
       {onSettingsClick && (
-        <IconButton label="Configurar la marca" onClick={onSettingsClick}>
+        <IconButton label={t("Brand settings")} onClick={onSettingsClick}>
           <Settings className="h-4 w-4" aria-hidden />
         </IconButton>
       )}

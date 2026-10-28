@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Layers } from "lucide-react";
 import { Button } from "./button";
+import { useT } from "@/components/locale-provider";
 import { Input } from "./input";
 import { Field } from "./field";
 import { DialogShell, DialogIcon, DialogClose } from "./dialog";
@@ -20,6 +21,7 @@ export function CreateCarouselDialog({
   onOpenChange,
   onCreate,
 }: CreateCarouselDialogProps) {
+  const t = useT();
   const [name, setName] = useState("");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("4:5");
 
@@ -36,7 +38,7 @@ export function CreateCarouselDialog({
     <DialogShell
       open={open}
       onOpenChange={onOpenChange}
-      title="Nuevo carrusel"
+      title={t("New carousel")}
       icon={
         <DialogIcon>
           <Layers className="h-5 w-5" />
@@ -45,19 +47,19 @@ export function CreateCarouselDialog({
       footer={
         <>
           <DialogClose asChild>
-            <Button variant="outline">Cancelar</Button>
+            <Button variant="outline">{t("Cancel")}</Button>
           </DialogClose>
           <Button variant="accent" onClick={handleCreate} disabled={!name.trim()}>
-            Crear
+            {t("Create")}
           </Button>
         </>
       }
     >
-      <Field label="Nombre del carrusel" hint="Podés cambiarlo después desde la barra superior.">
+      <Field label={t("Carousel name")} hint={t("You can change it later from the top bar.")}>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Ej.: 5 tips para trabajar remoto"
+          placeholder={t("E.g.: 5 tips for working remotely")}
           autoFocus
           onKeyDown={(e) => {
             if (e.key === "Enter") handleCreate();
@@ -68,11 +70,11 @@ export function CreateCarouselDialog({
       {/* Not wrapped in Field: the selector is a radiogroup that names itself,
           so a second label would announce it twice. */}
       <div className="flex flex-col gap-1.5">
-        <span className="text-label font-medium">Proporción</span>
+        <span className="text-label font-medium">{t("Aspect ratio")}</span>
         <AspectRatioSelector
           value={aspectRatio}
           onChange={setAspectRatio}
-          label="Proporción"
+          label={t("Aspect ratio")}
         />
       </div>
     </DialogShell>

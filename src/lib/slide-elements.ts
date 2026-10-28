@@ -5,9 +5,17 @@
  * Everything here is a pure string builder: the panels use it to show a
  * preview, the canvas uses it to insert, and the layer list uses the
  * describe half. No DOM, so `scripts/check-canvas.ts` can exercise it.
+ *
+ * Labels are English and translated where they are shown. Text that lands in
+ * the slide itself (placeholder copy, fallback layer names) goes through the
+ * `tr` the caller passes, because it has to be in the user's language when
+ * it is written.
  */
 
 export type ElementKind = "text" | "image" | "icon" | "shape" | "group";
+
+type Tr = (text: string) => string;
+const same: Tr = (text) => text;
 
 /** A thing the Elements/Text panels can drop onto the slide. */
 export interface SlideElementSpec {
@@ -98,24 +106,24 @@ export function shapeCatalog(color: string): SlideElementSpec[] {
   });
 
   return [
-    make("square", "Cuadrado", ""),
-    make("rect", "Rectángulo", "", 360, 220),
-    make("rounded", "Redondeado", "border-radius:32px", 360, 220),
-    make("circle", "Círculo", "border-radius:50%"),
-    make("pill", "Píldora", "border-radius:999px", 360, 140),
-    make("triangle", "Triángulo", `clip-path:${CLIP.triangle}`),
-    make("diamond", "Rombo", `clip-path:${CLIP.diamond}`),
-    make("pentagon", "Pentágono", `clip-path:${CLIP.pentagon}`),
-    make("hexagon", "Hexágono", `clip-path:${CLIP.hexagon}`),
-    make("star", "Estrella", `clip-path:${CLIP.star}`),
+    make("square", "Square", ""),
+    make("rect", "Rectangle", "", 360, 220),
+    make("rounded", "Rounded", "border-radius:32px", 360, 220),
+    make("circle", "Circle", "border-radius:50%"),
+    make("pill", "Pill", "border-radius:999px", 360, 140),
+    make("triangle", "Triangle", `clip-path:${CLIP.triangle}`),
+    make("diamond", "Diamond", `clip-path:${CLIP.diamond}`),
+    make("pentagon", "Pentagon", `clip-path:${CLIP.pentagon}`),
+    make("hexagon", "Hexagon", `clip-path:${CLIP.hexagon}`),
+    make("star", "Star", `clip-path:${CLIP.star}`),
     make(
       "ring",
-      "Anillo",
+      "Ring",
       `background:transparent;border:16px solid ${color};border-radius:50%`
     ),
     make(
       "outline",
-      "Marco",
+      "Frame",
       `background:transparent;border:8px solid ${color};border-radius:16px`,
       360,
       220
@@ -166,27 +174,27 @@ export function lineCatalog(color: string): SlideElementSpec[] {
   return [
     spec(
       "line",
-      "Línea",
+      "Line",
       box(`background:${color};width:${w}px;height:6px;border-radius:3px`),
       6
     ),
     spec(
       "line-thick",
-      "Línea gruesa",
+      "Thick line",
       box(`background:${color};width:${w}px;height:16px;border-radius:8px`),
       16
     ),
     spec(
       "line-dashed",
-      "Punteada",
+      "Dashed",
       box(
         `width:${w}px;height:6px;background:repeating-linear-gradient(90deg,${color} 0 18px,transparent 18px 30px)`
       ),
       6
     ),
-    spec("arrow", "Flecha", arrow(color, false, false, w, 48), 48),
-    spec("arrow-dashed", "Flecha punteada", arrow(color, true, false, w, 48), 48),
-    spec("arrow-both", "Doble flecha", arrow(color, false, true, w, 48), 48),
+    spec("arrow", "Arrow", arrow(color, false, false, w, 48), 48),
+    spec("arrow-dashed", "Dashed arrow", arrow(color, true, false, w, 48), 48),
+    spec("arrow-both", "Double arrow", arrow(color, false, true, w, 48), 48),
   ];
 }
 
@@ -202,12 +210,10 @@ export interface TextPresetInput {
 const q = (font: string) => `'${font.replace(/'/g, "")}', sans-serif`;
 
 /** Presets land already wearing the brand's type and colour. */
-export function textCatalog({
-  headingFont,
-  bodyFont,
-  color,
-  accent,
-}: TextPresetInput): SlideElementSpec[] {
+export function textCatalog(
+  { headingFont, bodyFont, color, accent }: TextPresetInput,
+  tr: Tr = same
+): SlideElementSpec[] {
   const spec = (
     id: string,
     label: string,
@@ -222,49 +228,49 @@ export function textCatalog({
   return [
     spec(
       "title",
-      "Título",
-      `<h1 style="${base(headingFont)};font-size:92px;font-weight:700;line-height:1.05;letter-spacing:-0.02em">Escribí tu título</h1>`,
+      "Title",
+      `<h1 style="${base(headingFont)};font-size:92px;font-weight:700;line-height:1.05;letter-spacing:-0.02em">${tr("Write your title")}</h1>`,
       760,
       200
     ),
     spec(
       "subtitle",
-      "Subtítulo",
-      `<h2 style="${base(headingFont)};font-size:56px;font-weight:600;line-height:1.15">Un subtítulo que acompaña</h2>`,
+      "Subtitle",
+      `<h2 style="${base(headingFont)};font-size:56px;font-weight:600;line-height:1.15">${tr("A supporting subtitle")}</h2>`,
       760,
       130
     ),
     spec(
       "body",
-      "Cuerpo",
-      `<p style="${base(bodyFont)};font-size:36px;font-weight:400;line-height:1.5">Texto de cuerpo para explicar la idea con calma y en dos o tres renglones.</p>`,
+      "Body",
+      `<p style="${base(bodyFont)};font-size:36px;font-weight:400;line-height:1.5">${tr("Body text to explain the idea calmly, in two or three lines.")}</p>`,
       760,
       170
     ),
     spec(
       "quote",
-      "Cita",
-      `<blockquote style="${base(bodyFont)};font-size:44px;font-style:italic;line-height:1.4;border-left:8px solid ${accent};padding-left:32px">&ldquo;La frase que querés que se recuerde.&rdquo;</blockquote>`,
+      "Quote",
+      `<blockquote style="${base(bodyFont)};font-size:44px;font-style:italic;line-height:1.4;border-left:8px solid ${accent};padding-left:32px">&ldquo;${tr("The line you want people to remember.")}&rdquo;</blockquote>`,
       760,
       140
     ),
     spec(
       "label",
-      "Etiqueta",
-      `<span style="font-family:${q(bodyFont)};display:inline-block;font-size:24px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:${accent}">Etiqueta</span>`,
+      "Label",
+      `<span style="font-family:${q(bodyFont)};display:inline-block;font-size:24px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:${accent}">${tr("Label")}</span>`,
       260,
       40
     ),
     spec(
       "badge",
       "Chip",
-      `<span style="font-family:${q(bodyFont)};display:inline-block;font-size:26px;font-weight:600;color:#ffffff;background:${accent};padding:14px 32px;border-radius:999px">Novedad</span>`,
+      `<span style="font-family:${q(bodyFont)};display:inline-block;font-size:26px;font-weight:600;color:#ffffff;background:${accent};padding:14px 32px;border-radius:999px">${tr("New")}</span>`,
       220,
       64
     ),
     spec(
       "number",
-      "Número",
+      "Number",
       `<span style="font-family:${q(headingFont)};display:inline-block;font-size:160px;font-weight:800;line-height:1;color:${accent}">01</span>`,
       220,
       170
@@ -285,11 +291,11 @@ export interface FontPair {
  *  Fonts, so `wrapSlideHtml` already knows how to load them. */
 export const FONT_PAIRS: FontPair[] = [
   { id: "editorial", heading: "Playfair Display", body: "Inter", mood: "Editorial" },
-  { id: "moderno", heading: "Poppins", body: "Inter", mood: "Moderno" },
-  { id: "tecnico", heading: "Space Grotesk", body: "IBM Plex Sans", mood: "Técnico" },
-  { id: "calido", heading: "Fraunces", body: "Nunito Sans", mood: "Cálido" },
-  { id: "neutro", heading: "Inter", body: "Inter", mood: "Neutro" },
-  { id: "impacto", heading: "Archivo Black", body: "Roboto", mood: "Impacto" },
+  { id: "moderno", heading: "Poppins", body: "Inter", mood: "Modern" },
+  { id: "tecnico", heading: "Space Grotesk", body: "IBM Plex Sans", mood: "Technical" },
+  { id: "calido", heading: "Fraunces", body: "Nunito Sans", mood: "Warm" },
+  { id: "neutro", heading: "Inter", body: "Inter", mood: "Neutral" },
+  { id: "impacto", heading: "Archivo Black", body: "Roboto", mood: "Impact" },
 ];
 
 /* ------------------------------------------------------------- describe */
@@ -307,19 +313,19 @@ interface Describable {
  * What to call an element in the layer list. A stored name wins; otherwise
  * derive one, because "DIV" tells nobody anything.
  */
-export function elementLabel(el: Describable): string {
+export function elementLabel(el: Describable, tr: Tr = same): string {
   const stored = el.getAttribute(OC_NAME);
   if (stored) return stored;
 
   const tag = el.tagName.toLowerCase();
-  if (tag === "img") return el.getAttribute("alt") || "Imagen";
-  if (tag === "svg") return "Icono";
-  if (el.getAttribute("data-oc-group") !== null) return "Grupo";
+  if (tag === "img") return el.getAttribute("alt") || tr("Image");
+  if (tag === "svg") return tr("Icon");
+  if (el.getAttribute("data-oc-group") !== null) return tr("Group");
 
   const text = (el.textContent || "").replace(/\s+/g, " ").trim();
   if (text) return text.length > 36 ? `${text.slice(0, 36)}…` : text;
 
-  return tag === "div" ? "Forma" : tag.toUpperCase();
+  return tag === "div" ? tr("Shape") : tag.toUpperCase();
 }
 
 export function elementKind(el: Describable): ElementKind {

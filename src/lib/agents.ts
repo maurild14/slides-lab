@@ -76,11 +76,11 @@ export type EngineChoice = { id: string; label: string };
  * three of its models only; it is left out rather than offered where it 400s.
  */
 const EFFORTS: EngineChoice[] = [
-  { id: "low", label: "Esfuerzo bajo" },
-  { id: "medium", label: "Esfuerzo medio" },
-  { id: "high", label: "Esfuerzo alto" },
-  { id: "xhigh", label: "Esfuerzo muy alto" },
-  { id: "max", label: "Esfuerzo máximo" },
+  { id: "low", label: "Low effort" },
+  { id: "medium", label: "Medium effort" },
+  { id: "high", label: "High effort" },
+  { id: "xhigh", label: "Very high effort" },
+  { id: "max", label: "Max effort" },
 ];
 
 /**
@@ -399,14 +399,14 @@ const claude: Engine = {
 
 /** Last path segment of a plain path or a file:// URL, for status lines. */
 function baseName(p: unknown): string {
-  if (typeof p !== "string" || !p) return "archivo";
+  if (typeof p !== "string" || !p) return "file";
   let clean = p.replace(/^file:\/{2,3}/, "");
   try {
     clean = decodeURIComponent(clean);
   } catch {
     // a stray % in a filename is not worth losing the status line over
   }
-  return clean.split(/[\\/]/).filter(Boolean).pop() ?? "archivo";
+  return clean.split(/[\\/]/).filter(Boolean).pop() ?? "file";
 }
 
 /**
@@ -419,13 +419,13 @@ export function statusForSlowItem(item: Record<string, unknown>): string | null 
     const first = Array.isArray(changes)
       ? (changes[0] as { path?: string } | undefined)?.path
       : Object.keys((changes as Record<string, unknown>) ?? {})[0];
-    return `Escribiendo ${baseName(first)}…`;
+    return `Writing ${baseName(first)}…`;
   }
   if (item.type === "patch_apply") {
-    return `Escribiendo ${baseName(item.path)}…`;
+    return `Writing ${baseName(item.path)}…`;
   }
   if (item.type === "image_view") {
-    return `Mirando ${baseName(item.path)}…`;
+    return `Viewing ${baseName(item.path)}…`;
   }
   // image_gen arrives as a generic extension item tagged by `kind`.
   if (
@@ -433,7 +433,7 @@ export function statusForSlowItem(item: Record<string, unknown>): string | null 
     typeof item.kind === "string" &&
     item.kind.startsWith("image_gen")
   ) {
-    return "Generando imagen…";
+    return "Generating image…";
   }
   return null;
 }
@@ -458,7 +458,7 @@ function summarizeCommand(command: string): string {
   );
   if (wrapped) flat = wrapped[1].replace(/\\"/g, '"').replace(/\\\\/g, "\\");
 
-  if (/generated_images|image_gen/i.test(flat)) return "Guardando imagen…";
+  if (/generated_images|image_gen/i.test(flat)) return "Saving image…";
 
   const api = flat.match(
     /https?:\/\/(?:localhost|127\.0\.0\.1):\d+\/api\/([^\s"']+)/
@@ -605,7 +605,7 @@ const codex: Engine = {
           return [{ type: "status", text: summarizeCommand(item.command) }];
         }
         if (item.type === "web_search") {
-          return [{ type: "status", text: "Buscando en la web…" }];
+          return [{ type: "status", text: "Searching the web…" }];
         }
         // item.type === "error" here is an advisory (e.g. truncated skill
         // descriptions), not a turn failure — never surface it as an error.
@@ -683,7 +683,7 @@ const codex: Engine = {
       });
       const out = `${result.stdout ?? ""}${result.stderr ?? ""}`;
       if (/logged in/i.test(out)) return null;
-      return "sin sesión — corré: codex login";
+      return "not signed in — run: codex login";
     } catch {
       return null; // never block on a failed probe
     }
@@ -733,7 +733,7 @@ export function getEngineStatus(engine: Engine): EngineStatus {
 
   const binPath = findEnginePath(engine);
   if (!binPath) {
-    return { ...base, available: false, reason: "no instalado" };
+    return { ...base, available: false, reason: "not installed" };
   }
 
   if (engine.checkAuth) {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -101,6 +102,7 @@ interface ColorFieldProps {
 }
 
 export function ColorField({ value, onChange, placeholder }: ColorFieldProps) {
+  const t = useT();
   const [local, setLocal] = useState(value);
   const [lastSeenValue, setLastSeenValue] = useState(value);
   const pickerRef = useRef<HTMLInputElement>(null);
@@ -127,7 +129,7 @@ export function ColorField({ value, onChange, placeholder }: ColorFieldProps) {
         onClick={() => pickerRef.current?.click()}
         className="h-4 w-4 rounded shrink-0 border border-black/10 ring-0"
         style={{ backgroundColor: value || "transparent" }}
-        aria-label="Elegir un color"
+        aria-label={t("Pick a color")}
       />
       <input
         ref={pickerRef}

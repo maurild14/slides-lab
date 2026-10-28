@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { ChevronDown, ImagePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useT } from "@/components/locale-provider";
 import type { EngineId, EngineStatus } from "@/lib/agents";
 
 interface EngineSelectorProps {
@@ -73,6 +74,7 @@ export function EngineSelector({
   onEffortChange,
   disabled,
 }: EngineSelectorProps) {
+  const t = useT();
   const active = engines.find((e) => e.id === value);
   const unavailable = active && !active.available;
   // Empty until /api/chat/check answers — the page starts with an optimistic
@@ -84,7 +86,7 @@ export function EngineSelector({
   return (
     <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
       <Dropdown
-        label="Motor de IA"
+        label={t("AI engine")}
         value={value}
         onChange={(next) => onChange(next as EngineId)}
         disabled={disabled}
@@ -93,13 +95,13 @@ export function EngineSelector({
         {engines.map((e) => (
           <option key={e.id} value={e.id} disabled={!e.available}>
             {e.label}
-            {e.available ? "" : ` — ${e.reason ?? "no disponible"}`}
+            {e.available ? "" : ` — ${t(e.reason ?? "unavailable")}`}
           </option>
         ))}
       </Dropdown>
 
       <Dropdown
-        label={`Modelo de ${active?.label ?? value}`}
+        label={t("{engine} model", { engine: active?.label ?? value })}
         value={model}
         onChange={onModelChange}
         disabled={disabled}
@@ -107,7 +109,7 @@ export function EngineSelector({
         {/* Always first, and the default: pass no flag and let the CLI use the
             model its own config names. It is also the escape hatch if a slug
             in the list is ever retired upstream. */}
-        <option value="">Modelo del CLI</option>
+        <option value="">{t("CLI's model")}</option>
         {models.map((m) => (
           <option key={m.id} value={m.id}>
             {m.label}
@@ -116,15 +118,15 @@ export function EngineSelector({
       </Dropdown>
 
       <Dropdown
-        label="Esfuerzo de razonamiento"
+        label={t("Reasoning effort")}
         value={effort}
         onChange={onEffortChange}
         disabled={disabled}
       >
-        <option value="">Esfuerzo del CLI</option>
+        <option value="">{t("CLI's effort")}</option>
         {efforts.map((e) => (
           <option key={e.id} value={e.id}>
-            {e.label}
+            {t(e.label)}
           </option>
         ))}
       </Dropdown>
@@ -132,15 +134,15 @@ export function EngineSelector({
       {active?.supportsImagegen && (
         <span
           className="inline-flex items-center gap-1 text-micro text-muted-foreground"
-          title="Este motor puede generar imágenes"
+          title={t("This engine can generate images")}
         >
           <ImagePlus className="h-3 w-3" strokeWidth={1.5} aria-hidden />
-          imágenes
+          {t("images")}
         </span>
       )}
 
       {unavailable && (
-        <span className="text-micro text-destructive">{active?.reason}</span>
+        <span className="text-micro text-destructive">{active?.reason && t(active.reason)}</span>
       )}
     </div>
   );

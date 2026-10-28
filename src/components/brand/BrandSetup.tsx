@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { DialogShell, DialogIcon } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useT } from "@/components/locale-provider";
 import { ColorPicker } from "./ColorPicker";
 import { FontSelector } from "./FontSelector";
 import { LogoUpload } from "./LogoUpload";
@@ -19,31 +20,32 @@ interface BrandSetupProps {
   initialBrand?: BrandConfig;
 }
 
-/** Stored on the brand as-is and read by the agent, so the values stay English. */
+/** Stored on the brand as-is and read by the agent, so the values stay English. Labels go through t(). */
 const STYLE_OPTIONS: { value: string; label: string }[] = [
-  { value: "minimal", label: "Minimalista" },
-  { value: "bold", label: "Contundente" },
-  { value: "playful", label: "Divertida" },
-  { value: "corporate", label: "Corporativa" },
-  { value: "luxury", label: "De lujo" },
+  { value: "minimal", label: "Minimal" },
+  { value: "bold", label: "Bold" },
+  { value: "playful", label: "Playful" },
+  { value: "corporate", label: "Corporate" },
+  { value: "luxury", label: "Luxury" },
   { value: "vintage", label: "Vintage" },
-  { value: "modern", label: "Moderna" },
-  { value: "elegant", label: "Elegante" },
-  { value: "creative", label: "Creativa" },
-  { value: "professional", label: "Profesional" },
+  { value: "modern", label: "Modern" },
+  { value: "elegant", label: "Elegant" },
+  { value: "creative", label: "Creative" },
+  { value: "professional", label: "Professional" },
 ];
 
-const STEPS = ["Nombre", "Colores", "Tipografías", "Logo", "Estilo"];
+const STEPS = ["Name", "Colors", "Fonts", "Logo", "Style"];
 
 const COLOR_FIELDS: { key: keyof BrandConfig["colors"]; label: string }[] = [
-  { key: "primary", label: "Primario" },
-  { key: "secondary", label: "Secundario" },
-  { key: "accent", label: "Acento" },
-  { key: "background", label: "Fondo" },
-  { key: "surface", label: "Superficie" },
+  { key: "primary", label: "Primary" },
+  { key: "secondary", label: "Secondary" },
+  { key: "accent", label: "Accent" },
+  { key: "background", label: "Background" },
+  { key: "surface", label: "Surface" },
 ];
 
 export function BrandSetup({ open, onComplete, initialBrand }: BrandSetupProps) {
+  const t = useT();
   const [step, setStep] = useState(0);
   const [brand, setBrand] = useState<BrandConfig>(initialBrand || DEFAULT_BRAND);
   const [saving, setSaving] = useState(false);
@@ -65,11 +67,11 @@ export function BrandSetup({ open, onComplete, initialBrand }: BrandSetupProps) 
       if (!res.ok) throw new Error();
       onComplete();
     } catch {
-      setError("No se pudo guardar la marca. Revisá el servidor y probá de nuevo.");
+      setError(t("Couldn't save the brand. Check the server and try again."));
     } finally {
       setSaving(false);
     }
-  }, [brand, onComplete]);
+  }, [brand, onComplete, t]);
 
   const last = step === STEPS.length - 1;
 
@@ -80,8 +82,8 @@ export function BrandSetup({ open, onComplete, initialBrand }: BrandSetupProps) 
         if (!next) onComplete();
       }}
       className="max-w-lg"
-      title="Configurá tu marca"
-      description={`Paso ${step + 1} de ${STEPS.length}: ${STEPS[step]}`}
+      title={t("Set up your brand")}
+      description={t("Step {n} of {total}: {name}", { n: step + 1, total: STEPS.length, name: t(STEPS[step]) })}
       icon={
         <DialogIcon>
           <Palette className="h-5 w-5" />
@@ -91,7 +93,7 @@ export function BrandSetup({ open, onComplete, initialBrand }: BrandSetupProps) 
         <>
           <Button variant="ghost" onClick={() => setStep(step - 1)} disabled={step === 0}>
             <ChevronLeft className="h-4 w-4" aria-hidden />
-            Atrás
+            {t("Back")}
           </Button>
           <div className="flex-1" />
           {last ? (
@@ -101,11 +103,11 @@ export function BrandSetup({ open, onComplete, initialBrand }: BrandSetupProps) 
               disabled={saving || !brand.name.trim()}
             >
               {saving ? (
-                "Guardando…"
+                t("Saving…")
               ) : (
                 <>
                   <Check className="h-4 w-4" aria-hidden />
-                  Listo
+                  {t("Done")}
                 </>
               )}
             </Button>
@@ -114,7 +116,7 @@ export function BrandSetup({ open, onComplete, initialBrand }: BrandSetupProps) 
               onClick={() => setStep(step + 1)}
               disabled={step === 0 && !brand.name.trim()}
             >
-              Siguiente
+              {t("Next")}
               <ChevronRight className="h-4 w-4" aria-hidden />
             </Button>
           )}
@@ -138,13 +140,13 @@ export function BrandSetup({ open, onComplete, initialBrand }: BrandSetupProps) 
         {step === 0 && (
           <div className="space-y-1">
             <Field
-              label="¿Cómo se llama tu marca?"
-              hint="La IA la usa para mantener una identidad consistente en todos los carruseles."
+              label={t("What's your brand called?")}
+              hint={t("The AI uses it to keep a consistent identity across every carousel.")}
             >
               <Input
                 value={brand.name}
                 onChange={(e) => setBrand({ ...brand, name: e.target.value })}
-                placeholder="Mi marca"
+                placeholder={t("My brand")}
                 className="h-control-lg text-title"
                 autoFocus
               />
@@ -157,7 +159,7 @@ export function BrandSetup({ open, onComplete, initialBrand }: BrandSetupProps) 
             {COLOR_FIELDS.map(({ key, label }) => (
               <ColorPicker
                 key={key}
-                label={label}
+                label={t(label)}
                 value={brand.colors[key]}
                 onChange={(v) =>
                   setBrand({ ...brand, colors: { ...brand.colors, [key]: v } })
@@ -170,14 +172,14 @@ export function BrandSetup({ open, onComplete, initialBrand }: BrandSetupProps) 
         {step === 2 && (
           <div className="space-y-4">
             <FontSelector
-              label="Tipografía de títulos"
+              label={t("Heading font")}
               value={brand.fonts.heading}
               onChange={(v) =>
                 setBrand({ ...brand, fonts: { ...brand.fonts, heading: v } })
               }
             />
             <FontSelector
-              label="Tipografía de texto"
+              label={t("Body font")}
               value={brand.fonts.body}
               onChange={(v) => setBrand({ ...brand, fonts: { ...brand.fonts, body: v } })}
             />
@@ -194,11 +196,10 @@ export function BrandSetup({ open, onComplete, initialBrand }: BrandSetupProps) 
         {step === 4 && (
           <fieldset>
             <legend className="text-label font-medium text-foreground">
-              Elegí el estilo de tu marca
+              {t("Pick your brand's style")}
             </legend>
             <p className="mb-3 mt-1 text-label text-muted-foreground">
-              Podés marcar varias. Son las palabras con las que la IA describe tu
-              identidad visual.
+              {t("You can pick several. They are the words the AI uses to describe your visual identity.")}
             </p>
             <div className="flex flex-wrap gap-2">
               {STYLE_OPTIONS.map(({ value, label }) => {
@@ -223,7 +224,7 @@ export function BrandSetup({ open, onComplete, initialBrand }: BrandSetupProps) 
                         : "border-border bg-surface text-foreground hover:border-muted-foreground"
                     )}
                   >
-                    {label}
+                    {t(label)}
                   </button>
                 );
               })}

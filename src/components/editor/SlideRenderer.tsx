@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { useMemo, useRef, useEffect, useState, useCallback } from "react";
 import { wrapSlideHtml } from "@/lib/slide-html";
 import { INSPECTOR_STYLE, INSPECTOR_STYLE_ID } from "@/lib/inspector-utils";
@@ -38,6 +39,7 @@ export function SlideRenderer({
   onFitScale,
   onIframeReady,
 }: SlideRendererProps) {
+  const t = useT();
   const outerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
@@ -171,7 +173,7 @@ export function SlideRenderer({
           // document. Swap for an IntersectionObserver only if a browser we
           // care about drops srcdoc support for this attribute.
           loading={interactive ? "eager" : "lazy"}
-          title="Vista previa del slide"
+          title={t("Slide preview")}
           style={{
             width: slideW,
             height: slideH,

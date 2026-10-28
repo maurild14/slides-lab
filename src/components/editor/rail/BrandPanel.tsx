@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { useState } from "react";
 import { Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,17 +16,17 @@ import { DIMENSIONS } from "@/types/carousel";
 type Target = "background" | "color" | "borderColor";
 
 const TARGETS = [
-  { value: "background" as const, label: "Relleno" },
-  { value: "color" as const, label: "Texto" },
-  { value: "borderColor" as const, label: "Borde" },
+  { value: "background" as const, label: "Fill" },
+  { value: "color" as const, label: "Text" },
+  { value: "borderColor" as const, label: "Border" },
 ];
 
 const COLOR_LABEL: Record<keyof BrandConfig["colors"], string> = {
-  primary: "Primario",
-  secondary: "Secundario",
-  accent: "Acento",
-  background: "Fondo",
-  surface: "Superficie",
+  primary: "Primary",
+  secondary: "Secondary",
+  accent: "Accent",
+  background: "Background",
+  surface: "Surface",
 };
 
 interface Props {
@@ -49,37 +50,38 @@ export function BrandPanel({
   onInsert,
   onEditBrand,
 }: Props) {
+  const t = useT();
   const [target, setTarget] = useState<Target>("background");
   const disabled = selectionCount === 0;
   const { width: slideW } = DIMENSIONS[aspectRatio];
 
   return (
     <PanelShell
-      title="Marca"
-      description="Aplicá los colores y las fuentes de tu marca a lo que tengas seleccionado."
+      title={t("Brand")}
+      description={t("Apply your brand's colors and fonts to whatever you have selected.")}
       onClose={onClose}
     >
       <PanelGroup
-        title="Colores"
+        title={t("Colors")}
         action={
           <Button variant="ghost" size="sm" onClick={onEditBrand}>
             <Settings2 className="h-4 w-4" aria-hidden />
-            Editar
+            {t("Edit")}
           </Button>
         }
       >
         <div className="mb-3">
           <Segmented
-            label="Dónde se aplica el color"
+            label={t("Where the color is applied")}
             value={target}
             onChange={setTarget}
-            options={TARGETS}
+            options={TARGETS.map((o) => ({ ...o, label: t(o.label) }))}
           />
         </div>
 
         {disabled && (
           <p className="mb-2 text-label text-muted-foreground">
-            Seleccioná algo en el slide para poder aplicarlos.
+            {t("Select something on the slide to apply them.")}
           </p>
         )}
 
@@ -92,8 +94,8 @@ export function BrandPanel({
                 type="button"
                 disabled={disabled}
                 onClick={() => onApplyStyle(target, color)}
-                title={`${COLOR_LABEL[key]} — ${color}`}
-                aria-label={`Aplicar ${COLOR_LABEL[key]} (${color})`}
+                title={`${t(COLOR_LABEL[key])} — ${color}`}
+                aria-label={t("Apply {name} ({color})", { name: t(COLOR_LABEL[key]), color })}
                 className={cn(
                   "oc-press oc-focus oc-hit aspect-square cursor-pointer rounded-md border border-black/10",
                   "hover:ring-2 hover:ring-ring hover:ring-offset-2 hover:ring-offset-surface",
@@ -110,13 +112,13 @@ export function BrandPanel({
               key={key}
               className="truncate text-center text-micro text-muted-foreground"
             >
-              {COLOR_LABEL[key]}
+              {t(COLOR_LABEL[key])}
             </span>
           ))}
         </div>
       </PanelGroup>
 
-      <PanelGroup title="Tipografías">
+      <PanelGroup title={t("Fonts")}>
         <div className="flex flex-col gap-2">
           {(["heading", "body"] as const).map((slot) => {
             const font = brand.fonts[slot];
@@ -126,7 +128,7 @@ export function BrandPanel({
                 type="button"
                 disabled={disabled}
                 onClick={() => onApplyStyle("fontFamily", `'${font}', sans-serif`)}
-                aria-label={`Aplicar ${font} (${slot === "heading" ? "títulos" : "cuerpo"})`}
+                aria-label={t("Apply {name} ({color})", { name: font, color: slot === "heading" ? t("headings") : t("body") })}
                 className="oc-press oc-focus flex w-full cursor-pointer items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 py-2.5 text-left hover:border-accent hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:bg-surface"
               >
                 <span
@@ -136,7 +138,7 @@ export function BrandPanel({
                   {font}
                 </span>
                 <span className="shrink-0 text-micro text-muted-foreground">
-                  {slot === "heading" ? "Títulos" : "Cuerpo"}
+                  {slot === "heading" ? t("Headings") : t("Body")}
                 </span>
               </button>
             );
@@ -157,8 +159,8 @@ export function BrandPanel({
                 previewUrl: brand.logoPath!,
               });
             })}
-            aria-label="Insertar el logo"
-            title="Logo — arrastralo o tocalo"
+            aria-label={t("Insert the logo")}
+            title={t("{label} — drag it or click it", { label: "Logo" })}
             className="oc-press oc-focus flex h-28 w-full cursor-grab items-center justify-center rounded-md border border-border bg-muted/40 p-4 hover:border-accent active:cursor-grabbing"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -171,13 +173,13 @@ export function BrandPanel({
           </button>
         ) : (
           <PanelEmpty>
-            Todavía no cargaste un logo.{" "}
+            {t("You haven't uploaded a logo yet.")}{" "}
             <button
               type="button"
               onClick={onEditBrand}
               className="oc-focus cursor-pointer text-accent underline underline-offset-4"
             >
-              Subilo desde la marca
+              {t("Upload it from the brand")}
             </button>
             .
           </PanelEmpty>

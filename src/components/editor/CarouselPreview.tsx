@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { useCallback, useState } from "react";
 import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { IconButton } from "@/components/ui/button";
@@ -37,10 +38,11 @@ export function CarouselPreview({
   onIframeReady,
   generating = false,
 }: CarouselPreviewProps) {
+  const t = useT();
   const slide = slides[activeIndex];
 
   // The guides have to sit on the slide, not on the grey work area. They used
-  // to be `inset-0` over the whole viewport, so "zona segura" was drawn around
+  // to be `inset-0` over the whole viewport, so "safe zone" was drawn around
   // the window and lined up with nothing.
   const [fit, setFit] = useState(0);
   const handleFitScale = useCallback(
@@ -60,10 +62,9 @@ export function CarouselPreview({
           <div className="mx-auto mb-4 flex h-16 w-20 items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30">
             <span className="text-display opacity-30">+</span>
           </div>
-          <p className="text-title font-semibold">Todavía no hay slides</p>
+          <p className="text-title font-semibold">{t("No slides yet")}</p>
           <p className="mt-1.5 text-body text-muted-foreground">
-            Pedile el primero al asistente desde el chat, y después editalo acá
-            directamente.
+            {t("Ask the assistant for the first one from the chat, then edit it right here.")}
           </p>
         </div>
       </div>
@@ -106,14 +107,14 @@ export function CarouselPreview({
           <div className="pointer-events-none absolute inset-0 flex items-start justify-center bg-foreground/5 pt-6">
             <span className="oc-fade flex items-center gap-2 rounded-full bg-foreground px-3.5 py-2 text-label font-medium text-background shadow-float">
               <Sparkles className="h-4 w-4 animate-pulse" aria-hidden />
-              La IA está escribiendo este slide
+              {t("The AI is writing this slide")}
             </span>
           </div>
         )}
 
         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
           <IconButton
-            label="Slide anterior"
+            label={t("Previous slide")}
             variant="outline"
             className="pointer-events-auto bg-surface/95 shadow-raised"
             onClick={() => onActiveChange(activeIndex - 1)}
@@ -124,7 +125,7 @@ export function CarouselPreview({
         </div>
         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
           <IconButton
-            label="Slide siguiente"
+            label={t("Next slide")}
             variant="outline"
             className="pointer-events-auto bg-surface/95 shadow-raised"
             onClick={() => onActiveChange(activeIndex + 1)}
@@ -146,7 +147,7 @@ export function CarouselPreview({
                   ? "w-6 bg-accent"
                   : "w-2 bg-foreground/20 hover:bg-foreground/40"
               }`}
-              aria-label={`Ir al slide ${i + 1}`}
+              aria-label={t("Go to slide {n}", { n: i + 1 })}
               aria-current={i === activeIndex}
             />
           ))}

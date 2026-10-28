@@ -47,6 +47,11 @@ Two self-check scripts, plain `assert`, plain node:
 Then `npm run lint` and `npm run build` — the build is the closest thing to a
 typecheck gate.
 
+CI runs for pull requests and pushes to `main` only, avoiding duplicate runs
+on Dependabot branches. Node types follow the minimum supported Node major (22).
+Dependabot ignores major updates of `@types/node` and `typescript`; upgrade them
+explicitly with the runtime or compiler migration.
+
 **Say what you ran.** A change to pure logic that no assert covers is not
 finished: add the assert to whichever script owns that area. Both scripts import
 straight from `src/lib/*.ts`, which is why `slide-audit-rules.ts` and

@@ -6,6 +6,7 @@ import type { StylePreset } from "@/types/style-preset";
 import { DIMENSIONS, MAX_SLIDES } from "@/types/carousel";
 import { type EngineId, privateTmpDir } from "@/lib/agents";
 import { isUploadImageUrl, uploadImagePath } from "@/lib/upload-paths";
+import type { Locale } from "@/lib/i18n";
 
 // On Windows the Codex CLI shells out through PowerShell, where bare `curl` is
 // an alias for Invoke-WebRequest and every flag below would be rejected.
@@ -86,7 +87,7 @@ function buildExistingSlidesSection(carousel: Carousel): string {
     .map((s) => {
       const html =
         s.html.length > MAX_REFERENCE_SLIDE_CHARS
-          ? `${s.html.slice(0, MAX_REFERENCE_SLIDE_CHARS)}\n<!-- ...recortado, pedí el slide completo con GET si lo necesitás -->`
+          ? `${s.html.slice(0, MAX_REFERENCE_SLIDE_CHARS)}\n<!-- ...truncated, GET the full slide if you need it -->`
           : s.html;
       return `### Slide ${s.order + 1} (ID: ${s.id})\n\`\`\`html\n${html}\n\`\`\``;
     })
@@ -121,7 +122,8 @@ export function buildSystemPrompt(
   brand: BrandConfig,
   carousel?: Carousel | null,
   stylePreset?: StylePreset | null,
-  engine: EngineId = "claude"
+  engine: EngineId = "claude",
+  locale: Locale = "en"
 ): string {
   const brandSection = brand.name
     ? `## Brand identity
@@ -169,6 +171,12 @@ will corrupt your HTML.`
       : "";
 
   return `You are the autonomous AI design engine for Slides Lab. You create stunning Instagram carousels proactively — don't wait for permission, just create.
+
+## Language
+
+The user's interface is in ${locale === "es" ? "Spanish (Rioplatense, voseo)" : "English"}.
+Reply in that language unless the user writes to you in another one, and write
+slide copy and layer names (\`data-oc-name\`) in the language the user writes in.
 
 ## This prompt is the whole workflow
 
@@ -227,7 +235,7 @@ how a carousel ends up looking like eight unrelated posts.
 Creating a slide now responds with two extra fields:
 
 \`\`\`json
-{ "id": "...", "warnings": ["\\"Título\\" se corta: el texto mide 932px de ancho y la caja 920px."],
+{ "id": "...", "warnings": ["\\"Title\\" is cut off: the text is 932px wide and the box 920px. Enlarge the box or shrink the font."],
   "pngPath": "C:\\\\...\\\\slides-lab-xxx\\\\slide-xxx.png" }
 \`\`\`
 
@@ -352,7 +360,7 @@ write markup the editor can pick up. Follow these conventions:
    blob.
 3. Do not wrap a single text in three divs. One element per thing the user would want
    to click.
-4. Give each child \`data-oc-name="Título"\` (a short human name, in Spanish). It is
+4. Give each child \`data-oc-name="Title"\` (a short human name, in the user's language). It is
    what shows in the layers list; without it the list falls back to the trimmed text.
 5. Stacking order is \`z-index\`, ascending from 1.
 6. Rotation is \`transform: rotate(-6deg)\` on the element itself, nothing else in the
