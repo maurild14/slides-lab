@@ -29,15 +29,15 @@ export interface TextEffect {
 }
 
 export const TEXT_EFFECTS: TextEffect[] = [
-  { id: "none", label: "Ninguno", css: () => ({}) },
+  { id: "none", label: "None", css: () => ({}) },
   {
     id: "shadow",
-    label: "Sombra",
+    label: "Shadow",
     css: (c) => ({ "text-shadow": `0 6px 16px ${withAlpha(c, 0.45)}` }),
   },
   {
     id: "outline",
-    label: "Contorno",
+    label: "Outline",
     css: (c) => ({
       // Without paint-order the stroke is painted over the glyph and eats
       // half its weight.
@@ -47,21 +47,21 @@ export const TEXT_EFFECTS: TextEffect[] = [
   },
   {
     id: "neon",
-    label: "Neón",
+    label: "Neon",
     css: (c) => ({
       "text-shadow": `0 0 6px ${c}, 0 0 22px ${c}, 0 0 48px ${withAlpha(c, 0.6)}`,
     }),
   },
   {
     id: "echo",
-    label: "Eco",
+    label: "Echo",
     css: (c) => ({
       "text-shadow": `6px 6px 0 ${withAlpha(c, 0.45)}, 12px 12px 0 ${withAlpha(c, 0.2)}`,
     }),
   },
   {
     id: "emboss",
-    label: "Relieve",
+    label: "Lift",
     css: () => ({
       "text-shadow": "0 1px 0 rgb(255 255 255 / 0.6), 0 -1px 0 rgb(0 0 0 / 0.35)",
     }),
@@ -110,13 +110,13 @@ export interface FilterDef {
 }
 
 export const FILTER_DEFS: FilterDef[] = [
-  { key: "brightness", label: "Brillo", unit: "%", min: 0, max: 200, base: 100 },
-  { key: "contrast", label: "Contraste", unit: "%", min: 0, max: 200, base: 100 },
-  { key: "saturate", label: "Saturación", unit: "%", min: 0, max: 300, base: 100 },
-  { key: "grayscale", label: "Blanco y negro", unit: "%", min: 0, max: 100, base: 0 },
+  { key: "brightness", label: "Brightness", unit: "%", min: 0, max: 200, base: 100 },
+  { key: "contrast", label: "Contrast", unit: "%", min: 0, max: 200, base: 100 },
+  { key: "saturate", label: "Saturation", unit: "%", min: 0, max: 300, base: 100 },
+  { key: "grayscale", label: "Black and white", unit: "%", min: 0, max: 100, base: 0 },
   { key: "sepia", label: "Sepia", unit: "%", min: 0, max: 100, base: 0 },
-  { key: "hue-rotate", label: "Tono", unit: "deg", min: 0, max: 360, base: 0 },
-  { key: "blur", label: "Desenfoque", unit: "px", min: 0, max: 40, base: 0 },
+  { key: "hue-rotate", label: "Hue", unit: "deg", min: 0, max: 360, base: 0 },
+  { key: "blur", label: "Blur", unit: "px", min: 0, max: 40, base: 0 },
 ];
 
 const FILTER_UNIT: Record<string, string> = Object.fromEntries(
@@ -164,18 +164,18 @@ function round(n: number): number {
 
 export const FILTER_PRESETS: { id: string; label: string; values: FilterValues }[] = [
   { id: "none", label: "Original", values: {} },
-  { id: "vivid", label: "Vívido", values: { saturate: 150, contrast: 115 } },
-  { id: "soft", label: "Suave", values: { saturate: 85, brightness: 108, contrast: 92 } },
-  { id: "bw", label: "Blanco y negro", values: { grayscale: 100, contrast: 110 } },
+  { id: "vivid", label: "Vivid", values: { saturate: 150, contrast: 115 } },
+  { id: "soft", label: "Soft", values: { saturate: 85, brightness: 108, contrast: 92 } },
+  { id: "bw", label: "Black and white", values: { grayscale: 100, contrast: 110 } },
   { id: "sepia", label: "Sepia", values: { sepia: 80, saturate: 120 } },
-  { id: "cold", label: "Frío", values: { "hue-rotate": 190, saturate: 120 } },
-  { id: "warm", label: "Cálido", values: { sepia: 30, saturate: 130, brightness: 105 } },
+  { id: "cold", label: "Cool", values: { "hue-rotate": 190, saturate: 120 } },
+  { id: "warm", label: "Warm", values: { sepia: 30, saturate: 130, brightness: 105 } },
   // ponytail: duotone approximated with stacked native filters. A real
   // two-colour map needs an SVG feComponentTransfer — add that if the
   // approximation stops passing as one.
   {
     id: "duotone",
-    label: "Duotono",
+    label: "Duotone",
     values: { grayscale: 100, sepia: 100, saturate: 300, "hue-rotate": 200 },
   },
 ];
@@ -211,19 +211,19 @@ export function toggleFlipTransform(transform: string, axis: "x" | "y"): string 
 /* ----------------------------------------------------------------- frames */
 
 export const IMAGE_FRAMES: { id: string; label: string; clip: string }[] = [
-  { id: "none", label: "Sin marco", clip: "" },
-  { id: "circle", label: "Círculo", clip: "circle(50%)" },
-  { id: "arch", label: "Arco", clip: "inset(0 round 50% 50% 0 0)" },
-  { id: "pill", label: "Píldora", clip: "inset(0 round 999px)" },
+  { id: "none", label: "No frame", clip: "" },
+  { id: "circle", label: "Circle", clip: "circle(50%)" },
+  { id: "arch", label: "Arch", clip: "inset(0 round 50% 50% 0 0)" },
+  { id: "pill", label: "Pill", clip: "inset(0 round 999px)" },
   {
     id: "star",
-    label: "Estrella",
+    label: "Star",
     clip:
       "polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)",
   },
   {
     id: "blob",
-    label: "Gota",
+    label: "Drop",
     clip:
       "polygon(30% 2%, 62% 0%, 88% 14%, 100% 42%, 96% 72%, 76% 94%, 46% 100%, 18% 92%, 2% 68%, 0% 36%, 10% 12%)",
   },
@@ -232,17 +232,17 @@ export const IMAGE_FRAMES: { id: string; label: string; clip: string }[] = [
 /* ----------------------------------------------------------------- shadow */
 
 export const SHADOW_PRESETS: { id: string; label: string; value: string }[] = [
-  { id: "none", label: "Ninguna", value: "" },
-  { id: "soft", label: "Suave", value: "0 4px 14px rgb(0 0 0 / 0.12)" },
-  { id: "medium", label: "Media", value: "0 14px 34px rgb(0 0 0 / 0.18)" },
-  { id: "strong", label: "Fuerte", value: "0 26px 60px rgb(0 0 0 / 0.28)" },
-  { id: "hard", label: "Dura", value: "10px 10px 0 rgb(0 0 0 / 0.85)" },
+  { id: "none", label: "No shadow", value: "" },
+  { id: "soft", label: "Soft", value: "0 4px 14px rgb(0 0 0 / 0.12)" },
+  { id: "medium", label: "Medium shadow", value: "0 14px 34px rgb(0 0 0 / 0.18)" },
+  { id: "strong", label: "Strong", value: "0 26px 60px rgb(0 0 0 / 0.28)" },
+  { id: "hard", label: "Hard", value: "10px 10px 0 rgb(0 0 0 / 0.85)" },
 ];
 
 /* ------------------------------------------------------------ copy style */
 
 /**
- * What "copiar estilo" carries from one element to another.
+ * What "copy style" carries from one element to another.
  *
  * Deliberately excludes everything that says *where* the element is or *how
  * big* it is (`left`, `top`, `width`, `height`, `transform`, `z-index`) and

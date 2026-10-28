@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { useState } from "react";
 import { Copy, Check, ChevronDown, Hash, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ interface CaptionPanelProps {
 type Slot = "caption" | "hashtags";
 
 export function CaptionPanel({ caption, hashtags }: CaptionPanelProps) {
+  const t = useT();
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState<Slot | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +32,7 @@ export function CaptionPanel({ caption, hashtags }: CaptionPanelProps) {
       setCopied(slot);
       setTimeout(() => setCopied(null), 2000);
     } catch {
-      setError("El navegador no dejó copiar. Seleccioná el texto y usá Ctrl C.");
+      setError(t("The browser didn't allow copying. Select the text and use Ctrl C."));
     }
   };
 
@@ -44,7 +46,7 @@ export function CaptionPanel({ caption, hashtags }: CaptionPanelProps) {
       >
         <span className="flex items-center gap-1.5">
           <MessageSquare className="h-3.5 w-3.5" aria-hidden />
-          Texto y hashtags
+          {t("Caption and hashtags")}
         </span>
         <ChevronDown
           className={cn(
@@ -61,7 +63,7 @@ export function CaptionPanel({ caption, hashtags }: CaptionPanelProps) {
             <div>
               <div className="mb-1 flex items-center justify-between">
                 <span className="text-micro font-medium text-muted-foreground">
-                  Texto del posteo
+                  {t("Post caption")}
                 </span>
                 <CopyButton
                   done={copied === "caption"}
@@ -83,7 +85,7 @@ export function CaptionPanel({ caption, hashtags }: CaptionPanelProps) {
                 </span>
                 <CopyButton
                   done={copied === "hashtags"}
-                  label="Copiar todos"
+                  label={t("Copy all")}
                   onClick={() =>
                     handleCopy(hashtags!.map((h) => `#${h}`).join(" "), "hashtags")
                   }
@@ -115,13 +117,14 @@ export function CaptionPanel({ caption, hashtags }: CaptionPanelProps) {
 
 function CopyButton({
   done,
-  label = "Copiar",
+  label,
   onClick,
 }: {
   done: boolean;
   label?: string;
   onClick: () => void;
 }) {
+  const t = useT();
   return (
     <Button variant="ghost" size="sm" className="gap-1.5 px-2" onClick={onClick}>
       {done ? (
@@ -129,7 +132,7 @@ function CopyButton({
       ) : (
         <Copy className="h-3.5 w-3.5" aria-hidden />
       )}
-      {done ? "Copiado" : label}
+      {done ? t("Copied") : (label ?? t("Copy"))}
     </Button>
   );
 }

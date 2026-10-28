@@ -1,7 +1,7 @@
 /**
  * Operations that rewrite a slide's stored HTML without opening it.
  *
- * "Aplicar a todas las páginas" and the aspect-ratio reflow both have to touch
+ * "Apply to all" and the aspect-ratio reflow both have to touch
  * slides that are not on screen. Mounting eight iframes to do it would be
  * absurd, so these parse the markup with `DOMParser`, mutate it, and hand back
  * body-level HTML — the same shape `updateSlide` stores.

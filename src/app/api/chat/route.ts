@@ -9,6 +9,7 @@ import {
   killTree,
 } from "@/lib/agents";
 import { buildSystemPrompt } from "@/lib/chat-system-prompt";
+import { requestLocale, translate } from "@/lib/i18n";
 import { getBrand } from "@/lib/brand";
 import { getCarousel } from "@/lib/carousels";
 import { getPreset } from "@/lib/style-presets";
@@ -44,6 +45,9 @@ export async function POST(request: NextRequest) {
   }
 
   const { message, sessionId, carouselId, stylePresetId, attachments } = body;
+  // The browser's language cookie: the agent answers in it, and the errors
+  // below are shown to the user verbatim.
+  const locale = requestLocale(request);
 
   const engine = getEngine(body.engine);
   const enginePath = findEnginePath(engine);
@@ -92,7 +96,7 @@ export async function POST(request: NextRequest) {
   const brand = await getBrand();
   const carousel = carouselId ? await getCarousel(carouselId) : null;
   const stylePreset = stylePresetId ? await getPreset(stylePresetId) : null;
-  const systemPrompt = buildSystemPrompt(brand, carousel, stylePreset, engine.id);
+  const systemPrompt = buildSystemPrompt(brand, carousel, stylePreset, engine.id, locale);
 
   const abortController = new AbortController();
 
@@ -279,11 +283,12 @@ export async function POST(request: NextRequest) {
               send(
                 encoder.encode(
                   `event: error\ndata: ${JSON.stringify({
-                    error: `Se acabó el tiempo (25 min). ${
-                      n > 0
-                        ? `Quedaron ${n} slide${n === 1 ? "" : "s"} guardado${n === 1 ? "" : "s"}.`
-                        : "No alcanzó a guardar ningún slide."
-                    } Pedime que siga y continúo desde donde quedó.`,
+                    error: translate(locale, "Time's up (25 min). {saved} Ask me to keep going and I'll pick up where I left off.", {
+                      saved:
+                        n > 0
+                          ? translate(locale, n === 1 ? "1 slide was saved." : "{n} slides were saved.", { n })
+                          : translate(locale, "No slide got saved."),
+                    }),
                     timedOut: true,
                   })}\n\n`
                 )
@@ -324,7 +329,7 @@ export async function POST(request: NextRequest) {
                 encoder.encode(
                   `event: error\ndata: ${JSON.stringify({
                     error: isWindowsStartupFailure(code)
-                      ? `Windows no pudo iniciar el ${engine.label} CLI (0x${(code >>> 0).toString(16)}). Suele ser falta de memoria o demasiados procesos abiertos: cerrá apps, reiniciá el dev server desde una terminal normal y probá de nuevo.`
+                      ? translate(locale, "Windows couldn't start the {engine} CLI (0x{code}). It's usually low memory or too many open processes: close some apps, restart the dev server from a regular terminal and try again.", { engine: engine.label, code: (code >>> 0).toString(16) })
                       : `${engine.label} CLI exited with code ${code}`,
                     exitCode: code,
                     stderr: stderrBuf || undefined,

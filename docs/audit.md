@@ -57,8 +57,9 @@ These defects do not exist in the HTML source: a title that declares
 `width: 920px` and measures 932px depends on the real font's metrics, and a regex
 over the source gives a false negative.
 
-Messages are in Spanish — they reach the agent, which answers the user in
-Spanish, and they quote layer names that are already Spanish.
+Messages are in English, like the rest of the system prompt. They reach only
+the agent, which answers in the UI's language (see the `## Language` section
+of the prompt).
 
 ## Cost control
 

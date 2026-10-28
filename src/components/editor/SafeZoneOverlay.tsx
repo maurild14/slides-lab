@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import type { AspectRatio } from "@/types/carousel";
 import { DIMENSIONS } from "@/types/carousel";
 
@@ -15,6 +16,7 @@ interface SafeZoneOverlayProps {
  * points at the wrong place.
  */
 export function SafeZoneOverlay({ aspectRatio }: SafeZoneOverlayProps) {
+  const t = useT();
   const { width, height } = DIMENSIONS[aspectRatio];
   const isPortrait = height > width;
 
@@ -32,13 +34,13 @@ export function SafeZoneOverlay({ aspectRatio }: SafeZoneOverlayProps) {
             className="absolute left-0 right-0 top-0 border-b border-dashed border-red-400/60 bg-red-500/10"
             style={{ height: `${gridCrop}%` }}
           >
-            <Tag className="bottom-1 left-2">Recorte de la grilla</Tag>
+            <Tag className="bottom-1 left-2">{t("Grid crop")}</Tag>
           </div>
           <div
             className="absolute bottom-0 left-0 right-0 border-t border-dashed border-red-400/60 bg-red-500/10"
             style={{ height: `${gridCrop}%` }}
           >
-            <Tag className="left-2 top-1">Recorte de la grilla</Tag>
+            <Tag className="left-2 top-1">{t("Grid crop")}</Tag>
           </div>
         </>
       )}
@@ -47,7 +49,7 @@ export function SafeZoneOverlay({ aspectRatio }: SafeZoneOverlayProps) {
         className="absolute bottom-0 left-0 right-0 border-t border-dashed border-blue-400/60 bg-blue-500/10"
         style={{ height: `${bottomUiPercent}%` }}
       >
-        <Tag className="right-2 top-1">Botones de Instagram</Tag>
+        <Tag className="right-2 top-1">{t("Instagram buttons")}</Tag>
       </div>
 
       <div
@@ -59,7 +61,7 @@ export function SafeZoneOverlay({ aspectRatio }: SafeZoneOverlayProps) {
           bottom: `${Math.max(10, bottomUiPercent + 2)}%`,
         }}
       >
-        <Tag className="left-1/2 top-1 -translate-x-1/2">Zona segura</Tag>
+        <Tag className="left-1/2 top-1 -translate-x-1/2">{t("Safe zone")}</Tag>
       </div>
     </div>
   );

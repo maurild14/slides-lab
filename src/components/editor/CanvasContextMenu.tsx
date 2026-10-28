@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import {
   Menu,
   MenuContent,
@@ -36,6 +37,7 @@ export function CanvasContextMenu({
   onApplyElementToAll,
   onApplyBackgroundToAll,
 }: CanvasContextMenuProps) {
+  const t = useT();
   const has = commands.count > 0;
 
   return (
@@ -58,52 +60,52 @@ export function CanvasContextMenu({
         {has ? (
           <>
             <MenuItem onSelect={commands.duplicate} disabled={commands.locked}>
-              Duplicar
+              {t("Duplicate")}
               <MenuShortcut>Ctrl D</MenuShortcut>
             </MenuItem>
             <MenuItem onSelect={commands.copy}>
-              Copiar
+              {t("Copy")}
               <MenuShortcut>Ctrl C</MenuShortcut>
             </MenuItem>
             <MenuItem onSelect={commands.cut} disabled={commands.locked}>
-              Cortar
+              {t("Cut")}
               <MenuShortcut>Ctrl X</MenuShortcut>
             </MenuItem>
             <MenuItem onSelect={commands.paste} disabled={!commands.hasClipboard}>
-              Pegar
+              {t("Paste")}
               <MenuShortcut>Ctrl V</MenuShortcut>
             </MenuItem>
 
             <MenuSeparator />
 
             <MenuItem onSelect={commands.copyStyle} disabled={commands.count !== 1}>
-              Copiar estilo
+              {t("Copy style")}
               <MenuShortcut>Ctrl ⌥ C</MenuShortcut>
             </MenuItem>
             <MenuItem
               onSelect={commands.pasteStyle}
               disabled={!commands.hasStyleClipboard || commands.locked}
             >
-              Pegar estilo
+              {t("Paste style")}
               <MenuShortcut>Ctrl ⌥ V</MenuShortcut>
             </MenuItem>
 
             <MenuSeparator />
 
             <MenuItem onSelect={() => commands.order("front")} disabled={commands.locked}>
-              Traer al frente
+              {t("Bring to front")}
               <MenuShortcut>Ctrl ⇧ ]</MenuShortcut>
             </MenuItem>
             <MenuItem onSelect={() => commands.order("forward")} disabled={commands.locked}>
-              Traer adelante
+              {t("Bring forward")}
               <MenuShortcut>Ctrl ]</MenuShortcut>
             </MenuItem>
             <MenuItem onSelect={() => commands.order("backward")} disabled={commands.locked}>
-              Enviar atrás
+              {t("Send backward")}
               <MenuShortcut>Ctrl [</MenuShortcut>
             </MenuItem>
             <MenuItem onSelect={() => commands.order("back")} disabled={commands.locked}>
-              Enviar al fondo
+              {t("Send to back")}
               <MenuShortcut>Ctrl ⇧ [</MenuShortcut>
             </MenuItem>
 
@@ -111,18 +113,18 @@ export function CanvasContextMenu({
 
             {commands.canGroup && (
               <MenuItem onSelect={commands.group}>
-                Agrupar
+                {t("Group")}
                 <MenuShortcut>Ctrl G</MenuShortcut>
               </MenuItem>
             )}
             {commands.canUngroup && (
               <MenuItem onSelect={commands.ungroup}>
-                Desagrupar
+                {t("Ungroup")}
                 <MenuShortcut>Ctrl ⇧ G</MenuShortcut>
               </MenuItem>
             )}
             <MenuItem onSelect={commands.toggleLock}>
-              {commands.locked ? "Desbloquear" : "Bloquear"}
+              {commands.locked ? t("Unlock") : t("Lock")}
               <MenuShortcut>Ctrl L</MenuShortcut>
             </MenuItem>
 
@@ -133,7 +135,7 @@ export function CanvasContextMenu({
                   onSelect={onApplyElementToAll}
                   disabled={commands.count !== 1}
                 >
-                  Aplicar a todas las páginas
+                  {t("Apply to all pages")}
                 </MenuItem>
               </>
             )}
@@ -141,32 +143,32 @@ export function CanvasContextMenu({
             <MenuSeparator />
 
             <MenuItem destructive onSelect={commands.remove} disabled={commands.locked}>
-              Eliminar
-              <MenuShortcut>Supr</MenuShortcut>
+              {t("Delete")}
+              <MenuShortcut>{t("Del")}</MenuShortcut>
             </MenuItem>
           </>
         ) : (
           <>
             <MenuItem onSelect={commands.paste} disabled={!commands.hasClipboard}>
-              Pegar
+              {t("Paste")}
               <MenuShortcut>Ctrl V</MenuShortcut>
             </MenuItem>
             <MenuItem onSelect={commands.selectAll}>
-              Seleccionar todo
+              {t("Select all")}
               <MenuShortcut>Ctrl A</MenuShortcut>
             </MenuItem>
             {onApplyBackgroundToAll && (
               <MenuItem onSelect={onApplyBackgroundToAll}>
-                Aplicar el fondo a todas las páginas
+                {t("Apply the background to all pages")}
               </MenuItem>
             )}
             <MenuSeparator />
             <MenuItem onSelect={onUndo}>
-              Deshacer
+              {t("Undo")}
               <MenuShortcut>Ctrl Z</MenuShortcut>
             </MenuItem>
             <MenuItem onSelect={onRedo}>
-              Rehacer
+              {t("Redo")}
               <MenuShortcut>Ctrl ⇧ Z</MenuShortcut>
             </MenuItem>
           </>

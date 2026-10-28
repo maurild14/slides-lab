@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { useMemo } from "react";
 import {
   AlignCenter,
@@ -89,6 +90,7 @@ export function ContextToolbar({
   onOpenImages,
   onApplyToAll,
 }: Props) {
+  const t = useT();
   const api = useElementStyle(element, tick, onMutate);
   const props = api.props;
   const { setStyle } = api;
@@ -105,14 +107,14 @@ export function ContextToolbar({
   return (
     <div
       role="toolbar"
-      aria-label="Acciones del elemento seleccionado"
+      aria-label={t("Actions for the selected element")}
       // The row keeps its height even when empty. Letting it collapse would
       // shift the canvas — and its zoom — on every click.
       className="flex h-11 shrink-0 items-center border-b border-border bg-surface px-2"
     >
       {idle ? (
         <p className="text-label text-muted-foreground">
-          Seleccioná algo del slide para editarlo acá.
+          {t("Select something on the slide to edit it here.")}
         </p>
       ) : (
       <div
@@ -135,7 +137,7 @@ export function ContextToolbar({
                     </Button>
                   </MenuTrigger>
                   <MenuContent align="start">
-                    <MenuLabel>Tipografía</MenuLabel>
+                    <MenuLabel>{t("Font")}</MenuLabel>
                     {fonts.map((font) => (
                       <MenuItem
                         key={font}
@@ -148,7 +150,7 @@ export function ContextToolbar({
                 </Menu>
 
                 <NumberInput
-                  label="Tamaño de fuente"
+                  label={t("Font size")}
                   value={props.fontSize}
                   min={8}
                   max={400}
@@ -160,7 +162,7 @@ export function ContextToolbar({
                 <Divider />
 
                 <IconButton
-                  label="Negrita"
+                  label={t("Bold")}
                   size="sm"
                   active={Number.parseInt(props.fontWeight, 10) >= 600}
                   onClick={() =>
@@ -173,7 +175,7 @@ export function ContextToolbar({
                   <Bold className="h-4 w-4" aria-hidden />
                 </IconButton>
                 <IconButton
-                  label="Cursiva"
+                  label={t("Italic")}
                   size="sm"
                   active={props.italic}
                   onClick={() =>
@@ -183,7 +185,7 @@ export function ContextToolbar({
                   <Italic className="h-4 w-4" aria-hidden />
                 </IconButton>
                 <IconButton
-                  label="Subrayado"
+                  label={t("Underline")}
                   size="sm"
                   active={props.underline}
                   onClick={() =>
@@ -194,7 +196,7 @@ export function ContextToolbar({
                 </IconButton>
 
                 <Segmented
-                  label="Alineación del texto"
+                  label={t("Text alignment")}
                   iconOnly
                   className="w-28"
                   value={
@@ -204,16 +206,16 @@ export function ContextToolbar({
                   }
                   onChange={(v) => setStyle({ "text-align": v })}
                   options={[
-                    { value: "left", label: "Izquierda", icon: <AlignLeft className="h-4 w-4" /> },
-                    { value: "center", label: "Centro", icon: <AlignCenter className="h-4 w-4" /> },
-                    { value: "right", label: "Derecha", icon: <AlignRight className="h-4 w-4" /> },
+                    { value: "left", label: t("Left"), icon: <AlignLeft className="h-4 w-4" /> },
+                    { value: "center", label: t("Center"), icon: <AlignCenter className="h-4 w-4" /> },
+                    { value: "right", label: t("Right"), icon: <AlignRight className="h-4 w-4" /> },
                   ]}
                 />
               </>
             )}
 
             <ColorInput
-              label={kind === "text" ? "Color del texto" : "Color del icono"}
+              label={kind === "text" ? t("Text color") : t("Icon color")}
               value={props.color}
               swatches={swatches}
               className="w-28"
@@ -232,7 +234,7 @@ export function ContextToolbar({
                 onClick={() => onOpenAdvanced("effects")}
               >
                 <Sparkles className="h-4 w-4" aria-hidden />
-                Efectos
+                {t("Effects")}
               </Button>
             )}
           </>
@@ -240,7 +242,7 @@ export function ContextToolbar({
           <>
             <Button variant="ghost" size="sm" className="gap-1.5" onClick={onOpenImages}>
               <ImageIcon className="h-4 w-4" aria-hidden />
-              Reemplazar
+              {t("Replace")}
             </Button>
             <Button
               variant="ghost"
@@ -249,7 +251,7 @@ export function ContextToolbar({
               onClick={() => onOpenAdvanced("crop")}
             >
               <Crop className="h-4 w-4" aria-hidden />
-              Recortar
+              {t("Crop")}
             </Button>
             <Button
               variant="ghost"
@@ -258,7 +260,7 @@ export function ContextToolbar({
               onClick={() => onOpenAdvanced("filters")}
             >
               <SlidersHorizontal className="h-4 w-4" aria-hidden />
-              Filtros
+              {t("Filters")}
             </Button>
             <Button
               variant="ghost"
@@ -267,20 +269,20 @@ export function ContextToolbar({
               onClick={() => onOpenAdvanced("frame")}
             >
               <Square className="h-4 w-4" aria-hidden />
-              Marco
+              {t("Frame")}
             </Button>
           </>
         ) : (
           <>
             <ColorInput
-              label="Relleno"
+              label={t("Fill")}
               value={props.backgroundColor}
               swatches={swatches}
               className="w-28"
               onChange={(hex) => setStyle({ "background-color": hex })}
             />
             <NumberInput
-              label="Radio de las esquinas"
+              label={t("Corner radius")}
               value={props.borderRadius}
               min={0}
               max={999}
@@ -295,7 +297,7 @@ export function ContextToolbar({
               onClick={() => onOpenAdvanced("border")}
             >
               <Square className="h-4 w-4" aria-hidden />
-              Borde
+              {t("Border")}
             </Button>
           </>
         )}
@@ -312,7 +314,7 @@ export function ContextToolbar({
               </PopoverTrigger>
               <PopoverContent className="w-56">
                 <Slider
-                  label="Opacidad"
+                  label={t("Opacity")}
                   value={props.opacity}
                   min={0}
                   max={100}
@@ -321,12 +323,12 @@ export function ContextToolbar({
                 />
               </PopoverContent>
             </Popover>
-            {/* The advanced panel only carries "Posición" for an absolutely
+            {/* The advanced panel only carries "Position" for an absolutely
                 positioned element — on anything in normal flow this used to
                 be a button that did nothing. */}
             {props.isFloating && (
               <IconButton
-                label="Posición y tamaño exactos"
+                label={t("Exact position and size")}
                 size="sm"
                 onClick={() => onOpenAdvanced("position")}
               >
@@ -345,33 +347,33 @@ export function ContextToolbar({
           <MenuTrigger asChild>
             <Button variant="ghost" size="sm" className="gap-1.5">
               <Layers className="h-4 w-4" aria-hidden />
-              Capa
+              {t("Layer")}
               <ChevronDown className="h-3.5 w-3.5 opacity-60" aria-hidden />
             </Button>
           </MenuTrigger>
           <MenuContent align="start">
             <MenuItem onSelect={() => commands.order("front")} disabled={locked}>
               <ArrowUpToLine className="h-4 w-4" aria-hidden />
-              Traer al frente
+              {t("Bring to front")}
               <MenuShortcut>Ctrl ⇧ ]</MenuShortcut>
             </MenuItem>
             <MenuItem onSelect={() => commands.order("forward")} disabled={locked}>
-              Traer adelante
+              {t("Bring forward")}
               <MenuShortcut>Ctrl ]</MenuShortcut>
             </MenuItem>
             <MenuItem onSelect={() => commands.order("backward")} disabled={locked}>
-              Enviar atrás
+              {t("Send backward")}
               <MenuShortcut>Ctrl [</MenuShortcut>
             </MenuItem>
             <MenuItem onSelect={() => commands.order("back")} disabled={locked}>
               <ArrowDownToLine className="h-4 w-4" aria-hidden />
-              Enviar al fondo
+              {t("Send to back")}
               <MenuShortcut>Ctrl ⇧ [</MenuShortcut>
             </MenuItem>
           </MenuContent>
         </Menu>
         <IconButton
-          label={locked ? "Desbloquear (Ctrl L)" : "Bloquear (Ctrl L)"}
+          label={locked ? t("Unlock (Ctrl L)") : t("Lock (Ctrl L)")}
           size="sm"
           active={locked}
           onClick={commands.toggleLock}
@@ -387,7 +389,7 @@ export function ContextToolbar({
         {/* The style brush: the look of one element, painted onto another
             without touching where it is or what it says. */}
         <IconButton
-          label="Copiar estilo (Ctrl Alt C)"
+          label={t("Copy style (Ctrl Alt C)")}
           size="sm"
           onClick={commands.copyStyle}
           disabled={selectionCount !== 1}
@@ -395,7 +397,7 @@ export function ContextToolbar({
           <Paintbrush className="h-4 w-4" aria-hidden />
         </IconButton>
         <IconButton
-          label="Pegar estilo (Ctrl Alt V)"
+          label={t("Paste style (Ctrl Alt V)")}
           size="sm"
           onClick={commands.pasteStyle}
           disabled={!commands.hasStyleClipboard || locked}
@@ -404,7 +406,7 @@ export function ContextToolbar({
         </IconButton>
         {onApplyToAll && selectionCount === 1 && (
           <IconButton
-            label="Aplicar este elemento a todas las páginas"
+            label={t("Apply this element to all pages")}
             size="sm"
             onClick={onApplyToAll}
           >
@@ -412,7 +414,7 @@ export function ContextToolbar({
           </IconButton>
         )}
         <IconButton
-          label="Duplicar (Ctrl D)"
+          label={t("Duplicate (Ctrl D)")}
           size="sm"
           onClick={commands.duplicate}
           disabled={locked}
@@ -420,7 +422,7 @@ export function ContextToolbar({
           <Copy className="h-4 w-4" aria-hidden />
         </IconButton>
         <IconButton
-          label="Eliminar (Supr)"
+          label={t("Delete (Del)")}
           size="sm"
           onClick={commands.remove}
           disabled={locked}
@@ -435,48 +437,49 @@ export function ContextToolbar({
 }
 
 function MultiControls({ commands }: { commands: CanvasCommands }) {
+  const t = useT();
   return (
     <>
       <span className="px-2 text-label tabular-nums text-muted-foreground">
-        {commands.count} elementos
+        {t("{n} elements", { n: commands.count })}
       </span>
       <Divider />
       <Menu>
         <MenuTrigger asChild>
           <Button variant="ghost" size="sm" className="gap-1.5">
             <AlignCenterHorizontal className="h-4 w-4" aria-hidden />
-            Alinear
+            {t("Align")}
             <ChevronDown className="h-3.5 w-3.5 opacity-60" aria-hidden />
           </Button>
         </MenuTrigger>
         <MenuContent align="start">
-          <MenuLabel>Respecto de la selección</MenuLabel>
-          <MenuItem onSelect={() => commands.align("left")}>Izquierda</MenuItem>
-          <MenuItem onSelect={() => commands.align("center-h")}>Centro horizontal</MenuItem>
-          <MenuItem onSelect={() => commands.align("right")}>Derecha</MenuItem>
+          <MenuLabel>{t("Relative to the selection")}</MenuLabel>
+          <MenuItem onSelect={() => commands.align("left")}>{t("Left")}</MenuItem>
+          <MenuItem onSelect={() => commands.align("center-h")}>{t("Horizontal center")}</MenuItem>
+          <MenuItem onSelect={() => commands.align("right")}>{t("Right")}</MenuItem>
           <MenuSeparator />
-          <MenuItem onSelect={() => commands.align("top")}>Arriba</MenuItem>
-          <MenuItem onSelect={() => commands.align("center-v")}>Centro vertical</MenuItem>
-          <MenuItem onSelect={() => commands.align("bottom")}>Abajo</MenuItem>
+          <MenuItem onSelect={() => commands.align("top")}>{t("Top")}</MenuItem>
+          <MenuItem onSelect={() => commands.align("center-v")}>{t("Vertical center")}</MenuItem>
+          <MenuItem onSelect={() => commands.align("bottom")}>{t("Bottom")}</MenuItem>
           <MenuSeparator />
           <MenuItem onSelect={() => commands.distribute("x")} disabled={!commands.canDistribute}>
-            Distribuir en horizontal
+            {t("Distribute horizontally")}
           </MenuItem>
           <MenuItem onSelect={() => commands.distribute("y")} disabled={!commands.canDistribute}>
-            Distribuir en vertical
+            {t("Distribute vertically")}
           </MenuItem>
         </MenuContent>
       </Menu>
       {commands.canGroup && (
         <Button variant="ghost" size="sm" className="gap-1.5" onClick={commands.group}>
           <Group className="h-4 w-4" aria-hidden />
-          Agrupar
+          {t("Group")}
         </Button>
       )}
       {commands.canUngroup && (
         <Button variant="ghost" size="sm" className="gap-1.5" onClick={commands.ungroup}>
           <Ungroup className="h-4 w-4" aria-hidden />
-          Desagrupar
+          {t("Ungroup")}
         </Button>
       )}
     </>

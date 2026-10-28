@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Send, Square, Paperclip, X, ImagePlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/components/locale-provider";
 
 export interface ChatAttachment {
   url: string;
@@ -24,11 +25,11 @@ interface ChatInputProps {
 }
 
 const SUGGESTIONS = [
-  "Armá un carrusel de 5 slides sobre…",
-  "Hacé el diseño más minimalista",
-  "Cambiá el color de acento a azul",
-  "Agregá un slide de llamada a la acción",
-  "Agrandá los títulos",
+  "Make a 5-slide carousel about…",
+  "Make the design more minimal",
+  "Change the accent color to blue",
+  "Add a call-to-action slide",
+  "Make the headings bigger",
 ];
 
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp"];
@@ -45,6 +46,7 @@ export function ChatInput({
   textareaRef: externalRef,
   onStop,
 }: ChatInputProps) {
+  const t = useT();
   const [value, setValue] = useState("");
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [dragActive, setDragActive] = useState(false);
@@ -66,15 +68,15 @@ export function ChatInput({
 
   const uploadFile = useCallback(async (file: File) => {
     if (!ACCEPTED_TYPES.includes(file.type) && !ACCEPTED_EXT.test(file.name)) {
-      setNotice(`«${file.name}» no es PNG, JPG, JPEG ni WebP.`);
+      setNotice(t("“{name}” is not a PNG, JPG, JPEG or WebP.", { name: file.name }));
       return;
     }
     if (file.size > MAX_FILE_SIZE) {
-      setNotice(`«${file.name}» pesa más de 20 MB.`);
+      setNotice(t("“{name}” is larger than 20 MB.", { name: file.name }));
       return;
     }
     if (attachments.length >= MAX_ATTACHMENTS) {
-      setNotice(`Se pueden adjuntar hasta ${MAX_ATTACHMENTS} imágenes.`);
+      setNotice(t("You can attach up to {n} images.", { n: MAX_ATTACHMENTS }));
       return;
     }
     setNotice(null);
@@ -112,7 +114,7 @@ export function ChatInput({
         )
       );
     }
-  }, [attachments.length]);
+  }, [attachments.length, t]);
 
   const handleFiles = useCallback(
     (files: FileList | File[]) => {
@@ -209,7 +211,7 @@ export function ChatInput({
         <div className="absolute inset-2 z-10 border-2 border-dashed border-accent rounded-xl bg-accent/5 flex items-center justify-center pointer-events-none">
           <div className="flex items-center gap-2 text-label font-medium text-accent">
             <ImagePlus className="h-4 w-4" aria-hidden />
-            Soltá las imágenes para adjuntarlas
+            {t("Drop the images to attach them")}
           </div>
         </div>
       )}
@@ -221,12 +223,12 @@ export function ChatInput({
               key={suggestion}
               type="button"
               onClick={() => {
-                setValue(suggestion);
+                setValue(t(suggestion));
                 textareaRef.current?.focus();
               }}
               className="oc-focus oc-press cursor-pointer rounded-full border border-border px-2.5 py-1 text-label text-muted-foreground hover:bg-muted hover:text-foreground"
             >
-              {suggestion}
+              {t(suggestion)}
             </button>
           ))}
         </div>
@@ -249,13 +251,13 @@ export function ChatInput({
               {att.uploading && (
                 <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50">
                   <Loader2 className="h-4 w-4 animate-spin text-white" aria-hidden />
-                  <span className="sr-only">Subiendo {att.name}</span>
+                  <span className="sr-only">{t("Uploading {name}", { name: att.name })}</span>
                 </div>
               )}
               {att.error && (
                 <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-destructive/80">
                   <span className="text-micro font-medium text-white">
-                    No subió
+                    {t("Failed")}
                   </span>
                 </div>
               )}
@@ -265,7 +267,7 @@ export function ChatInput({
                 type="button"
                 onClick={() => removeAttachment(att.url)}
                 className="oc-focus absolute -right-1.5 -top-1.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full border border-surface bg-foreground text-background shadow-rest transition-colors hover:bg-destructive hover:text-white"
-                aria-label={`Quitar ${att.name}`}
+                aria-label={t("Remove {name}", { name: att.name })}
               >
                 <X className="h-3 w-3" aria-hidden />
               </button>
@@ -301,7 +303,7 @@ export function ChatInput({
           disabled={
             isStreaming || disabled || attachments.length >= MAX_ATTACHMENTS
           }
-          aria-label="Adjuntar una imagen"
+          aria-label={t("Attach an image")}
           className="shrink-0"
         >
           <Paperclip className="h-4 w-4" />
@@ -315,22 +317,22 @@ export function ChatInput({
           onPaste={handlePaste}
           placeholder={
             isStreaming
-              ? "La IA está trabajando…"
+              ? t("The AI is working…")
               : attachments.length > 0
-              ? "Contale qué hacer con estas imágenes…"
-              : "Pedile un carrusel…"
+              ? t("Tell it what to do with these images…")
+              : t("Ask it for a carousel…")
           }
           disabled={isStreaming || disabled}
           rows={1}
           className="oc-focus flex-1 resize-none rounded-lg bg-muted px-3 py-2.5 text-body placeholder:text-muted-foreground disabled:opacity-50"
-          aria-label="Mensaje para la IA"
+          aria-label={t("Message for the AI")}
         />
         {isStreaming ? (
           <Button
             size="icon"
             variant="destructive"
             onClick={onStop}
-            aria-label="Detener la generación"
+            aria-label={t("Stop generating")}
           >
             <Square className="h-3.5 w-3.5" />
           </Button>
@@ -339,7 +341,7 @@ export function ChatInput({
             size="icon"
             onClick={handleSubmit}
             disabled={!canSend}
-            aria-label="Enviar el mensaje"
+            aria-label={t("Send the message")}
           >
             {uploading ? (
               <Loader2 className="h-4 w-4 animate-spin" />

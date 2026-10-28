@@ -38,7 +38,7 @@ import {
  */
 let clipboard: string | null = null;
 
-/** Same idea, for "copiar estilo": the look without the content. */
+/** Same idea, for "copy style": the look without the content. */
 let styleClipboard: StyleSnapshot | null = null;
 
 export interface CanvasCommands {

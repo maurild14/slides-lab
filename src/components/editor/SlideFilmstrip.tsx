@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { useEffect, useRef } from "react";
 import { Copy, Plus, Trash2, Undo2, GripVertical, Sparkles } from "lucide-react";
 import {
@@ -62,6 +63,7 @@ function SortableSlideThumb({
   onUndo?: () => void;
   generating?: boolean;
 }) {
+  const t = useT();
   const {
     attributes,
     listeners,
@@ -100,7 +102,7 @@ function SortableSlideThumb({
       <div
         {...attributes}
         {...listeners}
-        aria-label={`Reordenar el slide ${index + 1}`}
+        aria-label={t("Reorder slide {n}", { n: index + 1 })}
         className="absolute -left-1.5 top-1/2 z-10 flex h-8 w-4 -translate-y-1/2 cursor-grab items-center justify-center rounded text-muted-foreground opacity-60 transition-opacity hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing"
       >
         <GripVertical className="h-4 w-4" aria-hidden />
@@ -115,7 +117,7 @@ function SortableSlideThumb({
             : "border-border hover:border-muted-foreground/50"
         )}
         style={{ width: thumbWidth, height: thumbHeight }}
-        aria-label={`Ir al slide ${index + 1}`}
+        aria-label={t("Go to slide {n}", { n: index + 1 })}
         aria-current={isActive}
       >
         <SlideRenderer
@@ -128,7 +130,7 @@ function SortableSlideThumb({
       {generating && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg bg-foreground/45">
           <Sparkles className="h-4 w-4 animate-pulse text-background" aria-hidden />
-          <span className="sr-only">La IA está escribiendo este slide</span>
+          <span className="sr-only">{t("The AI is writing this slide")}</span>
         </div>
       )}
 
@@ -144,8 +146,8 @@ function SortableSlideThumb({
               e.stopPropagation();
               onDuplicate();
             }}
-            aria-label={`Duplicar el slide ${index + 1}`}
-            title="Duplicar el slide"
+            aria-label={t("Duplicate slide {n}", { n: index + 1 })}
+            title={t("Duplicate the slide")}
           >
             <Copy className="h-3.5 w-3.5" aria-hidden />
           </Button>
@@ -159,8 +161,8 @@ function SortableSlideThumb({
               e.stopPropagation();
               onUndo();
             }}
-            aria-label={`Volver a la versión anterior del slide ${index + 1}`}
-            title="Volver a la versión anterior"
+            aria-label={t("Revert slide {n} to its previous version", { n: index + 1 })}
+            title={t("Revert to the previous version")}
           >
             <Undo2 className="h-3.5 w-3.5" aria-hidden />
           </Button>
@@ -174,8 +176,8 @@ function SortableSlideThumb({
               e.stopPropagation();
               onDelete();
             }}
-            aria-label={`Eliminar el slide ${index + 1}`}
-            title="Eliminar el slide"
+            aria-label={t("Delete slide {n}", { n: index + 1 })}
+            title={t("Delete the slide")}
           >
             <Trash2 className="h-3.5 w-3.5" aria-hidden />
           </Button>
@@ -203,6 +205,7 @@ export function SlideFilmstrip({
   isGenerating,
   generatingIds = [],
 }: SlideFilmstripProps) {
+  const t = useT();
   const { width: slideW, height: slideH } = DIMENSIONS[aspectRatio];
   const thumbHeight = 80;
   const thumbWidth = Math.round(thumbHeight * (slideW / slideH));
@@ -280,7 +283,7 @@ export function SlideFilmstrip({
           >
             <div className="flex flex-col items-center gap-1">
               <div className="w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-              <span className="text-micro font-medium text-accent">Creando</span>
+              <span className="text-micro font-medium text-accent">{t("Creating")}</span>
             </div>
           </div>
         )}
@@ -290,8 +293,8 @@ export function SlideFilmstrip({
             onClick={onAddSlideRequest}
             className="shrink-0 rounded-lg border-2 border-dashed border-border flex items-center justify-center hover:border-muted-foreground/50 hover:bg-muted/50 transition-colors cursor-pointer"
             style={{ width: thumbWidth, height: thumbHeight }}
-            aria-label="Agregar un slide con la IA"
-            title="Agregar un slide con la IA"
+            aria-label={t("Add a slide with the AI")}
+            title={t("Add a slide with the AI")}
           >
             <Plus className="h-5 w-5 text-muted-foreground" aria-hidden />
           </button>

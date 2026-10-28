@@ -17,7 +17,7 @@ interface EmptyStateProps {
 }
 
 /**
- * The one empty/error state. Dashboard, plantillas and the inspector each had
+ * The one empty/error state. Dashboard, templates and the inspector each had
  * their own copy with different icon sizes and different type scales.
  */
 export function EmptyState({

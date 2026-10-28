@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { useMemo } from "react";
 import { Check } from "lucide-react";
 import {
@@ -32,15 +33,19 @@ interface Props {
 }
 
 export function TextPanel({ onClose, onInsert, brand, onFontsChange }: Props) {
+  const t = useT();
   const presets = useMemo(
     () =>
-      textCatalog({
-        headingFont: brand.fonts.heading,
-        bodyFont: brand.fonts.body,
-        color: brand.colors.primary,
-        accent: brand.colors.accent,
-      }),
-    [brand]
+      textCatalog(
+        {
+          headingFont: brand.fonts.heading,
+          bodyFont: brand.fonts.body,
+          color: brand.colors.primary,
+          accent: brand.colors.accent,
+        },
+        t
+      ),
+    [brand, t]
   );
 
   const activePair = (pair: FontPair) =>
@@ -48,8 +53,8 @@ export function TextPanel({ onClose, onInsert, brand, onFontsChange }: Props) {
 
   return (
     <PanelShell
-      title="Texto"
-      description="Cada preset llega con la tipografía y el color de tu marca."
+      title={t("Text")}
+      description={t("Every preset arrives with your brand's font and color.")}
       onClose={onClose}
     >
       <PanelGroup title="Presets">
@@ -59,13 +64,13 @@ export function TextPanel({ onClose, onInsert, brand, onFontsChange }: Props) {
               key={spec.id}
               spec={spec}
               onInsert={onInsert}
-              hint={spec.label}
+              hint={t(spec.label)}
               sample={
                 <span
                   className={cn("block truncate", SAMPLE[spec.id])}
                   style={{ fontFamily: `${brand.fonts.heading}, inherit` }}
                 >
-                  {spec.id === "number" ? "01" : "Texto de ejemplo"}
+                  {spec.id === "number" ? "01" : t("Sample text")}
                 </span>
               }
             />
@@ -73,9 +78,9 @@ export function TextPanel({ onClose, onInsert, brand, onFontsChange }: Props) {
         </div>
       </PanelGroup>
 
-      <PanelGroup title="Combinaciones tipográficas">
+      <PanelGroup title={t("Font pairings")}>
         <p className="mb-2 text-label text-muted-foreground">
-          Cambia la marca: los presets nuevos salen con estas fuentes.
+          {t("Changes the brand: new presets come out with these fonts.")}
         </p>
         <div className="flex flex-col gap-2">
           {FONT_PAIRS.map((pair) => {
@@ -104,7 +109,7 @@ export function TextPanel({ onClose, onInsert, brand, onFontsChange }: Props) {
                     className="truncate text-label text-muted-foreground"
                     style={{ fontFamily: `${pair.body}, sans-serif` }}
                   >
-                    {pair.body} · {pair.mood}
+                    {pair.body} · {t(pair.mood)}
                   </p>
                 </div>
                 {active && (

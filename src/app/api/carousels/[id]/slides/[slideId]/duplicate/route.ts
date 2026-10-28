@@ -9,7 +9,7 @@ export async function POST(
   const copy = await duplicateSlide(id, slideId);
   if (!copy) {
     return NextResponse.json(
-      { error: "Slide no encontrado o el carrusel ya llegó al máximo" },
+      { error: "Slide not found or the carousel already has the maximum number of slides" },
       { status: 400 }
     );
   }

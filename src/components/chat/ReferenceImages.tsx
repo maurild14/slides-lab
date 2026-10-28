@@ -5,6 +5,7 @@ import { ImagePlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DialogShell } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useT } from "@/components/locale-provider";
 import type { ReferenceImage } from "@/types/carousel";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
@@ -20,6 +21,7 @@ export function ReferenceImages({
   images,
   onImagesChange,
 }: ReferenceImagesProps) {
+  const t = useT();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState(false);
@@ -28,12 +30,12 @@ export function ReferenceImages({
 
   const handleUpload = useCallback(
     async (file: File) => {
-      // One canned "tiene que ser PNG…" used to cover every failure, so an
+      // One canned "must be a PNG…" used to cover every failure, so an
       // oversized file, a Sharp crash and a 404 on the carousel all read as
-      // "formato equivocado". Each step says what actually went wrong.
+      // "wrong format". Each step says what actually went wrong.
       if (file.size > MAX_FILE_SIZE) {
         setError(
-          `«${file.name}» pesa ${(file.size / 1024 / 1024).toFixed(1)} MB. El máximo son 20 MB.`
+          t("“{name}” is {size} MB. The maximum is 20 MB.", { name: file.name, size: (file.size / 1024 / 1024).toFixed(1) })
         );
         return;
       }
@@ -49,8 +51,8 @@ export function ReferenceImages({
         if (!uploadRes.ok) {
           setError(
             uploadRes.status === 400
-              ? `No se pudo subir «${file.name}». Tiene que ser PNG, JPG, JPEG o WebP.`
-              : `El servidor no pudo procesar «${file.name}» (error ${uploadRes.status}).`
+              ? t("Couldn't upload “{name}”. It must be a PNG, JPG, JPEG or WebP.", { name: file.name })
+              : t("The server couldn't process “{name}” (error {status}).", { name: file.name, status: uploadRes.status })
           );
           return;
         }
@@ -63,18 +65,18 @@ export function ReferenceImages({
         });
         if (!res.ok) {
           setError(
-            "La imagen se subió pero no se pudo agregar al carrusel. Probá de nuevo."
+            t("The image was uploaded but couldn't be added to the carousel. Try again.")
           );
           return;
         }
         onImagesChange();
       } catch {
-        setError("No se pudo subir la imagen. Revisá la conexión y probá de nuevo.");
+        setError(t("Couldn't upload the image. Check the connection and try again."));
       } finally {
         setUploading(false);
       }
     },
-    [carouselId, onImagesChange]
+    [carouselId, onImagesChange, t]
   );
 
   const handleRemove = useCallback(
@@ -85,12 +87,12 @@ export function ReferenceImages({
         { method: "DELETE" }
       );
       if (!res.ok) {
-        setError("No se pudo quitar la imagen. Probá de nuevo.");
+        setError(t("Couldn't remove the image. Try again."));
         return;
       }
       onImagesChange();
     },
-    [carouselId, onImagesChange]
+    [carouselId, onImagesChange, t]
   );
 
   const pick = () => fileRef.current?.click();
@@ -111,7 +113,7 @@ export function ReferenceImages({
 
       <div className="flex items-center justify-between px-4 py-2">
         <span className="text-label font-medium text-muted-foreground">
-          Imágenes de referencia
+          {t("Reference images")}
         </span>
         <Button
           variant="ghost"
@@ -121,7 +123,7 @@ export function ReferenceImages({
           className="gap-1 px-2"
         >
           <ImagePlus className="h-3.5 w-3.5" aria-hidden />
-          {uploading ? "Subiendo…" : "Agregar"}
+          {uploading ? t("Uploading…") : t("Add")}
         </Button>
       </div>
 
@@ -149,10 +151,10 @@ export function ReferenceImages({
         >
           <ImagePlus className="mb-1 h-4 w-4 text-muted-foreground/60" aria-hidden />
           <span className="text-label text-foreground">
-            Arrastrá acá tus imágenes de referencia
+            {t("Drag your reference images here")}
           </span>
           <span className="text-micro text-muted-foreground">
-            La IA las mira para copiar tu estilo
+            {t("The AI looks at them to match your style")}
           </span>
         </button>
       ) : (
@@ -162,7 +164,7 @@ export function ReferenceImages({
               <button
                 type="button"
                 onClick={() => setPreview(img)}
-                aria-label={`Ver ${img.name} en grande`}
+                aria-label={t("View {name} larger", { name: img.name })}
                 className="oc-focus block h-16 w-16 cursor-pointer overflow-hidden rounded-lg border border-border transition-colors hover:border-accent"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -176,7 +178,7 @@ export function ReferenceImages({
                 type="button"
                 onClick={() => handleRemove(img.id)}
                 className="oc-focus absolute -right-1.5 -top-1.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full border border-surface bg-destructive text-white shadow-rest"
-                aria-label={`Quitar ${img.name}`}
+                aria-label={t("Remove {name}", { name: img.name })}
               >
                 <X className="h-3 w-3" aria-hidden />
               </button>
@@ -186,7 +188,7 @@ export function ReferenceImages({
             <button
               type="button"
               onClick={pick}
-              aria-label="Agregar otra imagen de referencia"
+              aria-label={t("Add another reference image")}
               className="oc-focus flex h-16 w-16 cursor-pointer items-center justify-center rounded-lg border border-dashed border-border transition-colors hover:border-muted-foreground/50"
             >
               <ImagePlus className="h-4 w-4 text-muted-foreground" aria-hidden />

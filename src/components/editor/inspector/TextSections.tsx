@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { useState } from "react";
 import { AlignCenter, AlignLeft, AlignRight, Bold, Italic, Underline } from "lucide-react";
 import { replaceTextPreservingFormatting } from "@/lib/inspector-utils";
@@ -20,12 +21,12 @@ import {
 import type { ElementProps, ElementStyleApi } from "./use-element-style";
 
 const FONT_WEIGHTS = [
-  { label: "Fina 300", value: "300" },
-  { label: "Normal 400", value: "400" },
-  { label: "Media 500", value: "500" },
-  { label: "Semi 600", value: "600" },
-  { label: "Negrita 700", value: "700" },
-  { label: "Extra 800", value: "800" },
+  { label: "Light 300", value: "300" },
+  { label: "Regular 400", value: "400" },
+  { label: "Medium 500", value: "500" },
+  { label: "Semibold 600", value: "600" },
+  { label: "Bold 700", value: "700" },
+  { label: "Extrabold 800", value: "800" },
 ];
 
 interface Props {
@@ -37,6 +38,7 @@ interface Props {
 }
 
 export function TextSections({ props: p, api, accent, swatches, focus }: Props) {
+  const t = useT();
   const { mutate, setStyle, setTextEffect } = api;
 
   // ponytail: the effect colour is not read back out of the CSS we wrote — it
@@ -51,29 +53,29 @@ export function TextSections({ props: p, api, accent, swatches, focus }: Props) 
 
   return (
     <>
-      <Section title="Contenido" focused={focusOn(focus, "content")}>
+      <Section title={t("Content")} focused={focusOn(focus, "content")}>
         <TextAreaField
           value={p.text}
           onChange={(v) => mutate((el) => replaceTextPreservingFormatting(el, v))}
-          placeholder="Sin texto"
+          placeholder={t("No text")}
           rows={3}
         />
         <p className="text-micro text-muted-foreground">
-          También podés escribir directo en el slide: doble clic sobre el texto.
+          {t("You can also type straight on the slide: double-click the text.")}
         </p>
       </Section>
 
-      <Section title="Tipografía" focused={focusOn(focus, "typography")}>
-        <Row label="Fuente">
+      <Section title={t("Font")} focused={focusOn(focus, "typography")}>
+        <Row label={t("Typeface")}>
           <input
             value={p.fontFamily}
             onChange={(e) => setStyle({ "font-family": `"${e.target.value}"` })}
             placeholder="Inter"
-            aria-label="Familia tipográfica"
+            aria-label={t("Font family")}
             className="h-control-sm w-full rounded-md border border-border bg-surface px-2 text-label oc-focus"
           />
         </Row>
-        <Row label="Tamaño">
+        <Row label={t("Size")}>
           <NumberField
             value={p.fontSize}
             min={8}
@@ -82,17 +84,17 @@ export function TextSections({ props: p, api, accent, swatches, focus }: Props) 
             onChange={(n) => setStyle({ "font-size": `${n}px` })}
           />
         </Row>
-        <Row label="Peso">
+        <Row label={t("Weight")}>
           <SelectField
             value={String(Number.parseInt(p.fontWeight || "400", 10))}
             onChange={(v) => setStyle({ "font-weight": v })}
-            options={FONT_WEIGHTS}
+            options={FONT_WEIGHTS.map((w) => ({ ...w, label: t(w.label) }))}
           />
         </Row>
-        <Row label="Estilo">
+        <Row label={t("Style")}>
           <div className="flex gap-1">
             <StyleToggle
-              label="Negrita"
+              label={t("Bold")}
               on={Number.parseInt(p.fontWeight, 10) >= 600}
               onClick={() =>
                 setStyle({
@@ -103,14 +105,14 @@ export function TextSections({ props: p, api, accent, swatches, focus }: Props) 
               <Bold className="h-4 w-4" aria-hidden />
             </StyleToggle>
             <StyleToggle
-              label="Cursiva"
+              label={t("Italic")}
               on={p.italic}
               onClick={() => setStyle({ "font-style": p.italic ? "normal" : "italic" })}
             >
               <Italic className="h-4 w-4" aria-hidden />
             </StyleToggle>
             <StyleToggle
-              label="Subrayado"
+              label={t("Underline")}
               on={p.underline}
               onClick={() =>
                 setStyle({ "text-decoration": p.underline ? "none" : "underline" })
@@ -119,7 +121,7 @@ export function TextSections({ props: p, api, accent, swatches, focus }: Props) 
               <Underline className="h-4 w-4" aria-hidden />
             </StyleToggle>
             <StyleToggle
-              label="Mayúsculas"
+              label={t("Uppercase")}
               on={p.uppercase}
               onClick={() =>
                 setStyle({ "text-transform": p.uppercase ? "none" : "uppercase" })
@@ -129,7 +131,7 @@ export function TextSections({ props: p, api, accent, swatches, focus }: Props) 
             </StyleToggle>
           </div>
         </Row>
-        <Row label="Alineación">
+        <Row label={t("Alignment")}>
           <ToggleGroup
             value={["left", "center", "right"].includes(p.textAlign) ? p.textAlign : "left"}
             onChange={(v) => setStyle({ "text-align": v })}
@@ -140,7 +142,7 @@ export function TextSections({ props: p, api, accent, swatches, focus }: Props) 
             ]}
           />
         </Row>
-        <Row label="Interlínea">
+        <Row label={t("Line height")}>
           <NumberField
             value={p.lineHeight}
             min={0}
@@ -150,7 +152,7 @@ export function TextSections({ props: p, api, accent, swatches, focus }: Props) 
             onChange={(n) => setStyle({ "line-height": `${n}px` })}
           />
         </Row>
-        <Row label="Espaciado" hint="Espacio entre letras">
+        <Row label={t("Spacing")} hint={t("Space between letters")}>
           <NumberField
             value={p.letterSpacing}
             min={-20}
@@ -160,12 +162,12 @@ export function TextSections({ props: p, api, accent, swatches, focus }: Props) 
             onChange={(n) => setStyle({ "letter-spacing": `${n}px` })}
           />
         </Row>
-        <Row label="Color">
+        <Row label={t("Color")}>
           <ColorField value={p.color} onChange={(hex) => setStyle({ color: hex })} />
         </Row>
       </Section>
 
-      <Section title="Efectos de texto" defaultOpen={false} focused={focusOn(focus, "effects")}>
+      <Section title={t("Text effects")} defaultOpen={false} focused={focusOn(focus, "effects")}>
         <div className="grid grid-cols-3 gap-1.5">
           {TEXT_EFFECTS.map((effect) => (
             <button
@@ -187,14 +189,14 @@ export function TextSections({ props: p, api, accent, swatches, focus }: Props) 
               >
                 Ag
               </span>
-              {effect.label}
+              {t(effect.label)}
             </button>
           ))}
         </div>
         {p.textEffect !== "none" && p.textEffect !== "emboss" && (
-          <Row label="Color">
+          <Row label={t("Color")}>
             <ColorInput
-              label="Color del efecto"
+              label={t("Effect color")}
               value={effectColor}
               swatches={swatches}
               onChange={(hex) => {

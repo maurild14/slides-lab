@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
+import { LocaleProvider } from "@/components/locale-provider";
+import { LOCALE_COOKIE, parseLocale, translate } from "@/lib/i18n";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,20 +15,30 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Slides Lab — editor de carruseles",
-  description:
-    "Editor de carruseles de Instagram con IA y manipulación directa.",
-};
+async function getLocale() {
+  return parseLocale((await cookies()).get(LOCALE_COOKIE)?.value);
+}
 
-export default function RootLayout({
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  return {
+    title: translate(locale, "Slides Lab — carousel editor"),
+    description: translate(
+      locale,
+      "AI-powered Instagram carousel editor with direct manipulation."
+    ),
+  };
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
   return (
     <html
-      lang="es"
+      lang={locale}
       translate="no"
       className={`${geistSans.variable} ${geistMono.variable} h-full overflow-hidden antialiased`}
       suppressHydrationWarning
@@ -33,7 +46,9 @@ export default function RootLayout({
       <head>
         <meta name="google" content="notranslate" />
       </head>
-      <body className="h-full overflow-hidden notranslate" suppressHydrationWarning>{children}</body>
+      <body className="h-full overflow-hidden notranslate" suppressHydrationWarning>
+        <LocaleProvider initial={locale}>{children}</LocaleProvider>
+      </body>
     </html>
   );
 }
