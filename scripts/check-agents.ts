@@ -197,6 +197,8 @@ assert.equal(claudeLong.stdin, long, "claude: prompt rides on stdin");
 
 // Claude's shell is curl only; a bare `Bash` would allow any command.
 assert.ok(!claudeLong.args.includes("Bash"), "claude: no unrestricted Bash");
+// Same for Read: bare, it plus curl could ship any file on disk out.
+assert.ok(!claudeLong.args.includes("Read"), "claude: no unrestricted Read");
 assert.equal(absPathRule("C:\\Users\\x\\Temp\\d"), "//c/Users/x/Temp/d/**");
 assert.equal(absPathRule("/tmp/d"), "//tmp/d/**");
 

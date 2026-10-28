@@ -283,12 +283,17 @@ const claude: Engine = {
       // one to ask.
       // ponytail: curl itself can still `-o` anywhere; pin the URL in the rule
       // if that ever matters more than the agent's freedom with flags.
+      //
+      // Read is scoped the same way: a bare `Read` plus curl let a prompt
+      // injection in a fetched page read any file on disk and POST it out.
+      // The agent only ever needs the user's images and its own renders.
       "--allowedTools",
       "Bash(curl *)",
       "Bash(curl.exe *)",
       `Edit(${absPathRule(privateTmpDir())})`,
       "WebFetch",
-      "Read",
+      `Read(${absPathRule(path.join(process.cwd(), "public", "uploads"))})`,
+      `Read(${absPathRule(privateTmpDir())})`,
       "--max-budget-usd",
       // A full carousel runs ~250k tokens; 1.00 dies mid-build.
       process.env.CHAT_MAX_BUDGET_USD || "5.00",

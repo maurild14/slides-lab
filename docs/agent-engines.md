@@ -105,16 +105,25 @@ be 50,000 chars, so both engines read it from stdin (`claude -p` with no
 positional prompt reads stdin).
 
 **Claude's `--allowedTools` is `Bash(curl *)`, `Bash(curl.exe *)`, an
-`Edit(//<privateTmpDir>/**)` rule, `WebFetch` and `Read`.** It used to be bare
-`Bash`, i.e. any command, with fetched web pages in the input. That is
+`Edit(//<privateTmpDir>/**)` rule, `WebFetch`, and `Read` scoped to
+`//<project>/public/uploads/**` and `//<privateTmpDir>/**`.** The shell used to
+be bare `Bash`, i.e. any command, with fetched web pages in the input. That is
 everything the prompt asks for: curl against the API, and long bodies written
 with the Write tool into the temp dir (Edit rules are what gate Write). Claude
 Code checks each subcommand of a compound command, and `-p` has nobody to ask,
 so anything else is denied — verified with `touch`, `node -e` and a
 `curl …; echo > file` compound. Claude Code's built-in read-only commands (`ls`,
-`cat`, `whoami`…) still run; they cannot be configured away and read no more
-than `Read` already can. Allow rules in the user's own `~/.claude` settings
-still apply on top.
+`cat`, `whoami`…) still run, but only inside the working directory.
+
+`Read` used to be bare too, so an injected instruction could read any file on
+disk and hand it to curl. The two folders hold every image the agent is told to
+look at: references, attachments, audit PNGs, contact sheets. Verified with a
+real `claude -p`: both folders read, a file in `%TEMP%` outside them is denied.
+Two holes remain. Claude Code always lets the agent read its working directory
+(the project root, `.env.local` included). And curl reads files itself
+(`file://`, `-d @path`), which no Read rule covers; `-d @` is how the agent
+posts long bodies, so it cannot be denied. Allow rules in the user's own
+`~/.claude` settings still apply on top.
 
 **Codex runs `workspace-write` with `os.tmpdir()` in `writable_roots`.** The
 prompt tells it to stage long JSON bodies there, because writing them inside the
