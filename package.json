@@ -1,11 +1,26 @@
 {
   "name": "slides-lab",
   "version": "0.1.0",
-  "description": "AI-powered Instagram carousel builder. Chat with Claude to design slides; export as PNGs at exact Instagram dimensions.",
+  "description": "Local Instagram carousel builder: Claude Code or Codex designs the slides from a chat, you finish them in a canvas editor and export PNG, JPG or PDF at exact Instagram sizes.",
+  "keywords": [
+    "instagram",
+    "carousel",
+    "slides",
+    "ai-agent",
+    "claude-code",
+    "codex",
+    "canvas-editor",
+    "nextjs",
+    "local-first"
+  ],
   "license": "MIT",
   "private": true,
   "engines": {
     "node": ">=22.18"
+  },
+  "homepage": "https://github.com/maurild14/slides-lab#readme",
+  "bugs": {
+    "url": "https://github.com/maurild14/slides-lab/issues"
   },
   "repository": {
     "type": "git",

@@ -26,6 +26,7 @@ First public release.
   The choice persists in a cookie and also sets the chat agent's reply language.
 - Export to PNG, JPG, transparent PNG, PDF and ZIP at exact Instagram sizes
   (1:1, 4:5, 9:16), plus a caption and hashtag generator.
+- Slides Lab logo, favicon and app icon.
 - `/start`, `/stop`, `/reset`, `/doctor` slash commands; `check:canvas` and
   `check:agents` self-checks; docs per area in `docs/`.
 
