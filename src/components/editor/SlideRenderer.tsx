@@ -41,7 +41,6 @@ export function SlideRenderer({
 }: SlideRendererProps) {
   const t = useT();
   const outerRef = useRef<HTMLDivElement>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
   const { width: slideW, height: slideH } = DIMENSIONS[aspectRatio];
 
@@ -70,11 +69,9 @@ export function SlideRenderer({
 
   const fit = dims ? Math.min(dims.w / slideW, dims.h / slideH) : 0;
 
-  // Stable refs so the load effect doesn't re-run for inline arrow props.
-  const onReadyRef = useRef(onIframeReady);
+  // Stable ref so inline arrow props do not re-run the fit effect.
   const onFitRef = useRef(onFitScale);
   useEffect(() => {
-    onReadyRef.current = onIframeReady;
     onFitRef.current = onFitScale;
   });
 
@@ -82,57 +79,26 @@ export function SlideRenderer({
     if (fit > 0) onFitRef.current?.(fit);
   }, [fit]);
 
-  // Inject the feedback stylesheet and announce the iframe on every load.
-  // srcDoc changes reload the document, so this has to survive re-runs.
-  useEffect(() => {
+  // Only load announces a document: an effect after a srcDoc change can still
+  // see the previous DOM and pin that stale HTML over the agent's new slide.
+  const handleLoad = (event: React.SyntheticEvent<HTMLIFrameElement>) => {
     if (!interactive) return;
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-
-    const attach = () => {
-      let doc: Document | null = null;
-      try {
-        doc = iframe.contentDocument;
-      } catch {
-        return false;
-      }
-      // A freshly created iframe is about:blank until srcdoc commits, and
-      // attaching to that document would seed the undo history with an empty
-      // slide. The viewport meta only exists in the document we wrote.
-      if (!doc?.body || !doc.querySelector('meta[name="viewport"]')) return false;
-
-      if (!doc.getElementById(INSPECTOR_STYLE_ID)) {
-        const styleEl = doc.createElement("style");
-        styleEl.id = INSPECTOR_STYLE_ID;
-        styleEl.textContent = INSPECTOR_STYLE;
-        doc.head.appendChild(styleEl);
-      }
-      onReadyRef.current?.(iframe);
-      return true;
-    };
-
-    iframe.addEventListener("load", attach);
-    // srcdoc commits asynchronously, so the document may not exist yet when
-    // this effect runs — and if it already loaded, no further load event is
-    // coming. Poll briefly to cover both.
-    if (!attach()) {
-      const interval = window.setInterval(() => {
-        if (attach()) window.clearInterval(interval);
-      }, 30);
-      const stop = window.setTimeout(() => window.clearInterval(interval), 4000);
-      return () => {
-        iframe.removeEventListener("load", attach);
-        window.clearInterval(interval);
-        window.clearTimeout(stop);
-      };
+    const iframe = event.currentTarget;
+    const doc = iframe.contentDocument;
+    if (!doc?.body || !doc.querySelector('meta[name="viewport"]')) return;
+    if (!doc.getElementById(INSPECTOR_STYLE_ID)) {
+      const styleEl = doc.createElement("style");
+      styleEl.id = INSPECTOR_STYLE_ID;
+      styleEl.textContent = INSPECTOR_STYLE;
+      doc.head.appendChild(styleEl);
     }
-    return () => iframe.removeEventListener("load", attach);
-  }, [interactive, srcDoc]);
+    onIframeReady?.(iframe);
+  };
 
   const requested = scaleProp && scaleProp > 0 ? scaleProp : fit;
   // The container has not been measured yet on the very first render. The
   // iframe still has to mount now: returning early instead would leave the
-  // attach effect below with nothing to attach to, and it would never re-run.
+  // load handler with no document to announce to the editor.
   const measured = requested > 0;
   const scale = measured ? requested : 0.001;
   const offset = pan ? `translate(${pan.x}px, ${pan.y}px)` : "";
@@ -162,14 +128,14 @@ export function SlideRenderer({
         }}
       >
         <iframe
-          ref={iframeRef}
           // Never allow-scripts: the slide is untrusted generated markup and
           // every interaction is driven from the parent document instead.
           sandbox={interactive ? "allow-same-origin" : ""}
           srcDoc={srcDoc}
+          onLoad={handleLoad}
           // ponytail: native lazy loading for read-only thumbnails — the
           // dashboard mounts one full slide document per card. The editable
-          // canvas must never defer: the attach effect below waits on its
+          // canvas must never defer: the load handler waits on its
           // document. Swap for an IntersectionObserver only if a browser we
           // care about drops srcdoc support for this attribute.
           loading={interactive ? "eager" : "lazy"}

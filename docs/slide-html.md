@@ -41,7 +41,7 @@ runtime will not be found — declare families literally.
 | Surface | Sandbox | Notes |
 | --- | --- | --- |
 | Thumbnails, filmstrip, dashboard cards | `sandbox=""` | `loading="lazy"` |
-| Editable canvas | `sandbox="allow-same-origin"` | **must stay eager** — the attach effect waits on its document |
+| Editable canvas | `sandbox="allow-same-origin"` | **must stay eager** — the load handler announces its document |
 | Export | Puppeteer page, no iframe | see [export.md](export.md) |
 
 **Never `allow-scripts`.** The parent document reaches into the canvas iframe's

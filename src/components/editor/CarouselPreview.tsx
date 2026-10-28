@@ -78,7 +78,9 @@ export function CarouselPreview({
           key={slide.id}
           html={slide.html}
           aspectRatio={aspectRatio}
-          interactive={!generating}
+          // Keep the document readable during generation; SlideCanvas and the
+          // panels already disable mutations while this slide is locked.
+          interactive
           scale={scale}
           pan={pan}
           onFitScale={handleFitScale}

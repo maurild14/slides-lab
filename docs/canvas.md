@@ -126,6 +126,10 @@ preview in the panel: non-destructive, and the export inlines it untouched.
 - **The editable slide's HTML prop is pinned once the iframe loads**
   (`use-slide-editor.ts`), so saving never reloads the iframe and destroys the
   selection.
+  Only the iframe's `load` event announces its new document. Reading immediately
+  after a `srcDoc` change can still see and re-pin the previous HTML. The canvas
+  keeps `allow-same-origin` during generation so Layers can read each new DOM;
+  gesture and panel handlers use the generation lock to prevent edits.
 - **Anything that rewrites the *stored* HTML of the slide on screen must update
   the carousel state before `dropLocal`.** `dropLocal` releases the pin, and the
   render right after it takes whatever HTML the state holds at that moment —
@@ -151,5 +155,6 @@ align/distribute, zoom-about-cursor, the undo cursor, filter round-trips, effect
 clearing, and flip vs rotation. New geometry or history logic goes in there.
 
 With one dev or production server running, `node scripts/check-editor.mjs`
-checks selected/unselected text editing and the move, resize and rotate gestures
+checks selected/unselected text editing, the move, resize and rotate gestures,
+and Layers during and after agent writes
 in Puppeteer. It creates and removes its own carousel through the API.

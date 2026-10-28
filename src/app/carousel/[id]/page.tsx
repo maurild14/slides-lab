@@ -181,8 +181,9 @@ export default function CarouselEditorPage({ params }: PageProps) {
       // While the agent runs, work out which slides it actually touched: those
       // get locked and reloaded, the rest stay editable.
       const base = genBaseRef.current;
+      let touched: string[] = [];
       if (base) {
-        const touched = data.slides
+        touched = data.slides
           .filter((s) => base[s.id] === undefined || base[s.id] !== s.html)
           .map((s) => s.id);
         if (touched.length > 0) {
@@ -193,7 +194,6 @@ export default function CarouselEditorPage({ params }: PageProps) {
               ? prev
               : touched
           );
-          editor.dropLocal(touched);
         }
       }
 
@@ -214,6 +214,8 @@ export default function CarouselEditorPage({ params }: PageProps) {
         }
         return data;
       });
+      // Release pins only after the carousel holds the agent's new HTML.
+      editor.dropLocal(touched);
     } catch {
       // ignore network errors
     }

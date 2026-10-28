@@ -19,7 +19,7 @@ async function json(path, method = "GET", body) {
 const carousel = await json("/api/carousels", "POST", { name: "Editor regression fixture" });
 let browser;
 try {
-  await json(`/api/carousels/${carousel.id}/slides?audit=0`, "POST", { html: html(["First text", "Second text"]) });
+  const slide = await json(`/api/carousels/${carousel.id}/slides?audit=0`, "POST", { html: html(["First text", "Second text"]) });
   browser = await puppeteer.launch({ headless: true, args: ["--disable-gpu"] });
   const page = await browser.newPage();
   await page.setViewport({ width: 1600, height: 1000 });
@@ -81,8 +81,35 @@ try {
   const rotationBox = await rotate.boundingBox();
   await drag({ x: rotationBox.x + 14, y: rotationBox.y + 14 }, 70, -20);
   assert.match((await state()).transform, /rotate\(/, "rotation handle still rotates text");
+
+  await page.goto(`${base}/carousel/${carousel.id}`, { waitUntil: "networkidle0" });
+  await ready();
+  await page.setRequestInterception(true);
+  let receiveChat;
+  const chatRequested = new Promise((resolve) => { receiveChat = resolve; });
+  page.on("request", (request) => {
+    // Hold the CLI stream open while writes use the real API and generation poll.
+    if (request.url() === base + "/api/chat" && request.method() === "POST") receiveChat(request);
+    else request.continue();
+  });
+  if (!await page.$('textarea[aria-label="Message for the AI"]')) {
+    await page.locator("button").filter((el) => el.textContent.trim() === "AI").click();
+  }
+  await page.type('textarea[aria-label="Message for the AI"]', "Update the current slide");
+  await page.click('button[aria-label="Send the message"]');
+  const request = await chatRequested;
+  const layers = () => page.$$eval('aside[aria-label="Layers and properties"] li button[title*="double-click to rename"]', (nodes) => nodes.map((n) => n.textContent.trim()).sort());
+  const labels = ["Agent heading", "Agent body", "Agent footer"];
+  await json(`/api/carousels/${carousel.id}/slides/${slide.id}`, "PUT", { html: html(labels) });
+  await pause(1600);
+  const during = await layers();
+  await request.respond({ status: 200, contentType: "text/event-stream", body: 'data: {"type":"result","text":"Done"}\n\n' });
+  await pause(1200);
+  assert.deepEqual(during, [...labels].sort(), "Layers updates while the agent writes");
+  assert.deepEqual(await layers(), [...labels].sort(), "Layers keeps the new document after generation");
+  assert.equal((await json(`/api/carousels/${carousel.id}`)).slides[0].html, html(labels), "stale autosave never overwrites the agent's HTML");
   assert.deepEqual(errors, [], "no browser exceptions");
-  console.log("editor: selected/unselected text editing, move, resize and rotation pass");
+  console.log("editor: text editing, gestures and live agent layers pass");
 } finally {
   if (browser) await browser.close();
   await json(`/api/carousels/${carousel.id}`, "DELETE");
