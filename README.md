@@ -22,9 +22,13 @@ What that one message produced, exported at 1080×1350:
 
   [![Resizing and bolding a text, dragging it along the guides, rewriting it and hiding a layer](media/slides-lab-canvas.gif)](media/slides-lab-canvas.gif)
 
-- **Elements and images:** shapes, lines and arrows, a searchable icon library, your uploads and a gallery. Tap to insert centered, then place and resize. With the Codex CLI installed you can also generate images from a prompt, billed to your ChatGPT plan, and the agent generates them on its own when a slide calls for one ([the policy](docs/imagegen-policy.md) is a Markdown file you can edit).
+- **Elements and images:** shapes, lines and arrows, a searchable icon library, your uploads and a gallery. Tap to insert centered, then place and resize.
 
   [![Searching the icon library, inserting a briefcase icon, moving and resizing it](media/slides-lab-elements.gif)](media/slides-lab-elements.gif)
+
+- **Image generation built in, through Codex:** describe an image in the Images panel and Codex's native image generation draws it, transparent background included. It lands in the gallery, ready to drop on the slide. No API key and no extra service: it runs on your ChatGPT plan through the Codex CLI, whichever engine drives the chat. The agent also generates images on its own when a slide calls for one, like the underline on the cover above; [the policy](docs/imagegen-policy.md) that decides when is a Markdown file you can edit.
+
+  [![Generating a hand-drawn sparkle with Codex and placing it on the slide](media/slides-lab-imagegen.gif)](media/slides-lab-imagegen.gif)
 
 - **Your brand, every time:** name, five colors, heading and body fonts, logo and style words. The first run walks you through it and the agent reads it on every turn. Add reference images of carousels you like and it follows their style. Save any carousel as a template.
 
