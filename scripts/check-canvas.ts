@@ -788,7 +788,7 @@ const fake = (
     item({
       type: "command_execution",
       command:
-        'const r = await tools.exec_command({"cmd":"Copy-Item -LiteralPath \'C:\\\\Users\\\\m\\\\.codex\\\\generated_images\\\\a\\\\e.png\'"});',
+        'const r = await tools.exec_command({"cmd":"Copy-Item -LiteralPath \'C:\\\\Users\\\\you\\\\.codex\\\\generated_images\\\\a\\\\e.png\'"});',
     }),
     [{ type: "status", text: "Saving image…" }],
     "copying out of generated_images still reads as saving an image"
@@ -799,14 +799,14 @@ const fake = (
   assert.deepEqual(
     statusForSlowItem({
       type: "file_change",
-      changes: { "C:\\Users\\m\\AppData\\Local\\Temp\\pryzmo-slides.ps1": { type: "add" } },
+      changes: { "C:\\Users\\you\\AppData\\Local\\Temp\\deck-slides.ps1": { type: "add" } },
     }),
-    "Writing pryzmo-slides.ps1…"
+    "Writing deck-slides.ps1…"
   );
   assert.deepEqual(
     statusForSlowItem({
       type: "image_view",
-      path: "file:///C:/Users/m/Desktop/Slides%20Lab/public/uploads/magnifier.png",
+      path: "file:///C:/Users/you/My%20Projects/slides-lab/public/uploads/magnifier.png",
     }),
     "Viewing magnifier.png…",
     "a percent-encoded file:// URL still yields a readable name"
