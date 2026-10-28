@@ -6,8 +6,7 @@ All notable changes to this project are documented here. The format follows
 
 ## [0.1.0] — 2026-10-27
 
-First public release. Slides Lab started as a fork of
-[Open Carrusel](https://github.com/Hainrixz/open-carrusel) (MIT).
+First public release.
 
 ### Added
 

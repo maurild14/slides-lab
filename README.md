@@ -114,10 +114,6 @@ The threat model and the risks that remain are in [SECURITY.md](SECURITY.md). To
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). The engineering docs live in [docs/](docs/README.md), and [AGENTS.md](AGENTS.md) is the entry point for AI coding agents.
 
-## Acknowledgments
-
-Slides Lab started as a fork of [Open Carrusel](https://github.com/Hainrixz/open-carrusel) (MIT). Its copyright notice stays in [LICENSE](LICENSE).
-
 ## License
 
 [MIT](LICENSE)
