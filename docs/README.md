@@ -23,7 +23,6 @@ in that line, the page is not for you.
 | [imagegen-policy.md](imagegen-policy.md) | You are deciding whether an element should be a generated image |
 | [workflows.md](workflows.md) | You are setting up, running the dev loop, verifying, or stuck |
 | [decisions.md](decisions.md) | Something looks under-built and you want to know if it is on purpose |
-| [roadmap-canva.md](roadmap-canva.md) | You want the history of the Canva-style editor build (archived plan) |
 
 ## Rules for these pages
 

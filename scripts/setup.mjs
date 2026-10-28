@@ -190,7 +190,7 @@ async function main() {
     log("");
     log("  ⚠️  No AI engine found — the app runs, but chat is disabled.");
     if (process.platform === "win32") {
-      log("  On Windows, run `where claude` to find the path (likely ...\npm\claude.cmd).");
+      log("  On Windows, run `where claude` to find the path (likely ~\\.local\\bin\\claude.exe).");
     }
   }
   log("");
