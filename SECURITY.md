@@ -29,8 +29,10 @@ spawns being unable to do much beyond building slides.
   `/uploads/…` reference is resolved and contained in `public/uploads`; the
   stored data never holds an absolute path. `PUT` routes accept only the editable
   fields.
-- **The Claude agent.** It runs with an allowlist: `curl`, `WebFetch`, `Read`
-  in `public/uploads` and a private temp dir, `Write` in that temp dir. There is
+- **The Claude agent.** It runs with an allowlist: `curl`, `Read` in
+  `public/uploads` and a private temp dir, `Write` in that temp dir. `WebFetch`
+  is off unless you set `CHAT_ALLOW_WEBFETCH=1`, and the prompt tells the agent
+  not to browse. There is
   no free shell, and with `-p` anything else is denied. The prompt goes in through
   a file and stdin, never argv; the session id and model choices are validated
   before they reach the command line.
@@ -39,9 +41,11 @@ spawns being unable to do much beyond building slides.
 
 ### Risks that remain
 
-- **Prompt injection.** The agent reads web pages (`WebFetch` / Codex network
-  access), reference images and your attachments. Any of them can carry
-  instructions, and the agent acts with the permissions above.
+- **Prompt injection.** The agent reads reference images and your attachments,
+  and web pages when you turn `CHAT_ALLOW_WEBFETCH=1` on. Any of them can carry
+  instructions, and the agent acts with the permissions above. Codex keeps its
+  sandbox's network access whatever that setting says, because it needs it to
+  reach the app on localhost; with browsing off, only the prompt tells it not to.
 - **curl is a broad tool.** It can write anywhere your user can (`-o`), and read
   any file your user can (`file://`, `-d @path`) and send it to any host. The Read
   allowlist does not cover curl, and `-d @file` is how the agent posts long

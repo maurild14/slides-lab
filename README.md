@@ -77,7 +77,7 @@ The chat panel starts your agent CLI as a subprocess (`claude -p` or `codex exec
 
 | Engine | Runs as | Images |
 | --- | --- | --- |
-| Claude | `claude -p` with only `curl`, `WebFetch` and file access limited to uploads and a private temp folder | through the Codex CLI, when it is installed |
+| Claude | `claude -p` with only `curl` and file access limited to uploads and a private temp folder (`WebFetch` only if you turn it on) | through the Codex CLI, when it is installed |
 | Codex | `codex exec` in its `workspace-write` sandbox | its built-in image generation |
 
 You pick the engine, the model and the reasoning effort in the chat panel. Each engine keeps its own conversation.
@@ -93,6 +93,7 @@ Everything is optional. `npm run setup` writes `.env.local`; [.env.example](.env
 | `CLAUDE_CLI_PATH` | found on your `PATH` | Path to `claude`, if setup can't find it |
 | `CODEX_CLI_PATH` | found on your `PATH` | Path to `codex`, if setup can't find it |
 | `CHAT_MAX_BUDGET_USD` | `5.00` | Claude stops a single turn when its estimated cost reaches this |
+| `CHAT_ALLOW_WEBFETCH` | off | `1` lets the agent fetch the web pages you give it. Off by default: a page is the easiest way to slip instructions into the agent ([SECURITY.md](SECURITY.md)) |
 
 Restart the server after changing it.
 
@@ -104,7 +105,7 @@ Slides Lab is free; the agent isn't. Every chat turn is billed to the account yo
 
 - Your carousels, brand and uploads are files on your disk. Slides Lab has no server of its own and no telemetry.
 - What the agent sees goes to its provider (Anthropic or OpenAI) under your account: your messages, your brand, the HTML of the carousel and the images it reads.
-- Slides load their fonts from Google Fonts, and the agent can browse the web when it researches a topic.
+- Slides load their fonts from Google Fonts. The agent doesn't browse the web unless you set `CHAT_ALLOW_WEBFETCH=1`; with it on, it can read the pages you give it, and those sites see the requests.
 - The app listens on `127.0.0.1` only and has no login. It rejects requests from other sites and other hostnames, so a web page can't drive it from your browser. Don't expose it to a network.
 - The agent runs with a narrow allowlist, and slide HTML never runs scripts, in the editor or in the export.
 

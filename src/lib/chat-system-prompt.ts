@@ -4,7 +4,7 @@ import type { BrandConfig } from "@/types/brand";
 import type { Carousel } from "@/types/carousel";
 import type { StylePreset } from "@/types/style-preset";
 import { DIMENSIONS, MAX_SLIDES } from "@/types/carousel";
-import { type EngineId, privateTmpDir } from "@/lib/agents";
+import { type EngineId, privateTmpDir, webFetchAllowed } from "@/lib/agents";
 import { isUploadImageUrl, uploadImagePath } from "@/lib/upload-paths";
 import type { Locale } from "@/lib/i18n";
 
@@ -278,9 +278,15 @@ carousel that stops inviting the swipe. Fix what stands out, then offer the
 caption and hashtags.
 
 ### When the user gives you a URL:
-1. Use WebFetch to fetch the page content
+${
+  webFetchAllowed()
+    ? `1. ${engine === "claude" ? "Use WebFetch to fetch" : "Fetch"} the page content
 2. Extract the key points, statistics, and narrative
-3. Follow the same flow above with the extracted content
+3. Follow the same flow above with the extracted content`
+    : `Web access is off in this setup. Do not fetch the page, with any tool. Ask the
+user to paste the text they want in the carousel, and mention that browsing can
+be turned on with CHAT_ALLOW_WEBFETCH=1 in .env.local.`
+}
 
 ### When the user gives you TEXT/CONTENT:
 1. Extract the key points directly

@@ -55,6 +55,8 @@ First public release.
 - The server binds to `127.0.0.1`, and `src/proxy.ts` rejects requests with a
   foreign `Host` (DNS rebinding) or `Origin` (CSRF).
 - Claude's chat agent runs on an allowlist: `curl` only instead of a free shell.
+  `WebFetch` is off unless `CHAT_ALLOW_WEBFETCH=1`, and with it off the prompt
+  asks for pasted text instead of fetching URLs.
   Its `Read` permission is scoped to `public/uploads` and a private temp dir;
   request files are staged in that private dir. The system prompt and the user
   message travel by file and stdin, never argv.

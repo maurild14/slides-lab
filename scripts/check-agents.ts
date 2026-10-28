@@ -199,6 +199,14 @@ assert.equal(claudeLong.stdin, long, "claude: prompt rides on stdin");
 assert.ok(!claudeLong.args.includes("Bash"), "claude: no unrestricted Bash");
 // Same for Read: bare, it plus curl could ship any file on disk out.
 assert.ok(!claudeLong.args.includes("Read"), "claude: no unrestricted Read");
+// WebFetch is opt-in: a fetched page is the main way in for prompt injection.
+const savedWebFetch = process.env.CHAT_ALLOW_WEBFETCH;
+delete process.env.CHAT_ALLOW_WEBFETCH;
+assert.ok(!ENGINES.claude.buildLaunch(base).args.includes("WebFetch"), "claude: no WebFetch by default");
+process.env.CHAT_ALLOW_WEBFETCH = "1";
+assert.ok(ENGINES.claude.buildLaunch(base).args.includes("WebFetch"), "claude: WebFetch with CHAT_ALLOW_WEBFETCH=1");
+if (savedWebFetch === undefined) delete process.env.CHAT_ALLOW_WEBFETCH;
+else process.env.CHAT_ALLOW_WEBFETCH = savedWebFetch;
 assert.equal(absPathRule("C:\\Users\\x\\Temp\\d"), "//c/Users/x/Temp/d/**");
 assert.equal(absPathRule("/tmp/d"), "//tmp/d/**");
 

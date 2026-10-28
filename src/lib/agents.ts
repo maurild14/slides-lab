@@ -245,6 +245,11 @@ export function findEnginePath(engine: Engine): string | null {
 
 // ------------------------------------------------------------------- claude
 
+/** WebFetch is opt-in (`CHAT_ALLOW_WEBFETCH=1`); see SECURITY.md. */
+export function webFetchAllowed(): boolean {
+  return process.env.CHAT_ALLOW_WEBFETCH === "1";
+}
+
 const claude: Engine = {
   id: "claude",
   label: "Claude",
@@ -291,7 +296,9 @@ const claude: Engine = {
       "Bash(curl *)",
       "Bash(curl.exe *)",
       `Edit(${absPathRule(privateTmpDir())})`,
-      "WebFetch",
+      // Off by default: a fetched page is the easiest way to get instructions
+      // into the agent, and curl can read any file and post it anywhere.
+      ...(webFetchAllowed() ? ["WebFetch"] : []),
       `Read(${absPathRule(path.join(process.cwd(), "public", "uploads"))})`,
       `Read(${absPathRule(privateTmpDir())})`,
       "--max-budget-usd",

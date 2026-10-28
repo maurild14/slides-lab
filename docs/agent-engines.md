@@ -105,8 +105,12 @@ be 50,000 chars, so both engines read it from stdin (`claude -p` with no
 positional prompt reads stdin).
 
 **Claude's `--allowedTools` is `Bash(curl *)`, `Bash(curl.exe *)`, an
-`Edit(//<privateTmpDir>/**)` rule, `WebFetch`, and `Read` scoped to
-`//<project>/public/uploads/**` and `//<privateTmpDir>/**`.** The shell used to
+`Edit(//<privateTmpDir>/**)` rule, and `Read` scoped to
+`//<project>/public/uploads/**` and `//<privateTmpDir>/**`, plus `WebFetch`
+only when `CHAT_ALLOW_WEBFETCH=1`.** With it off, the system prompt tells
+both engines not to fetch a URL and to ask for the text instead; Codex's
+sandbox keeps network access regardless, since it reaches the app over
+localhost. The shell used to
 be bare `Bash`, i.e. any command, with fetched web pages in the input. That is
 everything the prompt asks for: curl against the API, and long bodies written
 with the Write tool into the temp dir (Edit rules are what gate Write). Claude

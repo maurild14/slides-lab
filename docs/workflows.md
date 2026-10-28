@@ -22,6 +22,7 @@ browser; `/doctor` audits the environment.
 | `CLAUDE_CLI_PATH` | The Claude CLI, if it is not in a standard location |
 | `CODEX_CLI_PATH` | Same for Codex |
 | `CHAT_MAX_BUDGET_USD` | Claude's per-turn budget cap, default `5.00` |
+| `CHAT_ALLOW_WEBFETCH` | `1` gives the agent `WebFetch`; off by default |
 
 ## The dev loop
 
