@@ -1,5 +1,9 @@
 # Slides Lab
 
+<p align="center">
+  <img src="media/slides-lab-logo.png" alt="Slides Lab" width="480">
+</p>
+
 > Instagram carousels from a conversation. Describe the carousel, the AI agent you already use builds it slide by slide, and you finish it in a real canvas editor. Everything runs on your machine.
 
 Slides Lab is a local web app for designing Instagram carousels with an AI agent. You ask in the chat; the agent (Claude Code or Codex) writes each slide as HTML and CSS, renders it, looks at the render and fixes what doesn't fit. Then you adjust anything by hand and export at Instagram's exact sizes. No account, no database and no API key: the agent runs on the plan your CLI is already logged into.
