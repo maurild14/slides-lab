@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 import { Input } from "@/components/ui/input";
+import { useT } from "@/components/locale-provider";
 
 interface ColorPickerProps {
   label: string;
@@ -11,6 +12,7 @@ interface ColorPickerProps {
 
 export function ColorPicker({ label, value, onChange }: ColorPickerProps) {
   const id = useId();
+  const t = useT();
   return (
     <div className="grid grid-cols-[auto_1fr] items-center gap-3">
       {/* The native picker sits invisible over its own swatch: one control,
@@ -21,7 +23,7 @@ export function ColorPicker({ label, value, onChange }: ColorPickerProps) {
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className="oc-focus absolute inset-0 h-full w-full cursor-pointer rounded-md opacity-0"
-          aria-label={`Elegir el color ${label.toLowerCase()}`}
+          aria-label={t("Pick the {label} color", { label: label.toLowerCase() })}
         />
         <div
           aria-hidden

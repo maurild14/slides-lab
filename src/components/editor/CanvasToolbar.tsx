@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { useState } from "react";
 import {
   ChevronDown,
@@ -55,12 +56,13 @@ export function CanvasToolbar({
   onRedo,
   saving,
 }: CanvasToolbarProps) {
+  const t = useT();
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   return (
     <div className="flex items-center gap-1">
       <IconButton
-        label="Deshacer (Ctrl Z)"
+        label={t("Undo (Ctrl Z)")}
         size="sm"
         onClick={onUndo}
         disabled={!canUndo}
@@ -68,7 +70,7 @@ export function CanvasToolbar({
         <Undo2 className="h-4 w-4" aria-hidden />
       </IconButton>
       <IconButton
-        label="Rehacer (Ctrl ⇧ Z)"
+        label={t("Redo (Ctrl ⇧ Z)")}
         size="sm"
         onClick={onRedo}
         disabled={!canRedo}
@@ -79,7 +81,7 @@ export function CanvasToolbar({
       <Divider />
 
       <IconButton
-        label="Alejar (Ctrl −)"
+        label={t("Zoom out (Ctrl −)")}
         size="sm"
         onClick={() => onZoomBy(1 / 1.25)}
         disabled={scale <= MIN_ZOOM}
@@ -92,7 +94,7 @@ export function CanvasToolbar({
             variant="ghost"
             size="sm"
             className="min-w-16 gap-1 tabular-nums"
-            aria-label={`Zoom, ${Math.round(scale * 100)} por ciento`}
+            aria-label={t("Zoom, {pct} percent", { pct: Math.round(scale * 100) })}
           >
             {Math.round(scale * 100)}%
             <ChevronDown className="h-3.5 w-3.5 opacity-60" aria-hidden />
@@ -100,7 +102,7 @@ export function CanvasToolbar({
         </MenuTrigger>
         <MenuContent align="start">
           <MenuItem onSelect={onFit}>
-            Ajustar a la pantalla
+            {t("Fit to screen")}
             <MenuShortcut>Ctrl 0</MenuShortcut>
           </MenuItem>
           <MenuSeparator />
@@ -113,21 +115,21 @@ export function CanvasToolbar({
         </MenuContent>
       </Menu>
       <IconButton
-        label="Acercar (Ctrl +)"
+        label={t("Zoom in (Ctrl +)")}
         size="sm"
         onClick={() => onZoomBy(1.25)}
         disabled={scale >= MAX_ZOOM}
       >
         <Plus className="h-4 w-4" aria-hidden />
       </IconButton>
-      <IconButton label="Ajustar a la pantalla (Ctrl 0)" size="sm" onClick={onFit}>
+      <IconButton label={t("Fit to screen (Ctrl 0)")} size="sm" onClick={onFit}>
         <Maximize className="h-4 w-4" aria-hidden />
       </IconButton>
 
       <Divider />
 
       <IconButton
-        label="Atajos de teclado"
+        label={t("Keyboard shortcuts")}
         size="sm"
         onClick={() => setShortcutsOpen(true)}
       >
@@ -140,7 +142,7 @@ export function CanvasToolbar({
         aria-live="polite"
         className="w-16 shrink-0 text-micro text-muted-foreground"
       >
-        {saving ? "Guardando…" : ""}
+        {saving ? t("Saving…") : ""}
       </span>
 
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
@@ -154,49 +156,49 @@ function Divider() {
 
 const SHORTCUTS: { group: string; items: [string, string][] }[] = [
   {
-    group: "Edición",
+    group: "Editing",
     items: [
-      ["Ctrl Z", "Deshacer"],
-      ["Ctrl ⇧ Z", "Rehacer"],
-      ["Ctrl D", "Duplicar"],
-      ["Ctrl C / X / V", "Copiar, cortar, pegar"],
-      ["Supr", "Eliminar"],
-      ["Alt + arrastrar", "Duplicar mientras movés"],
+      ["Ctrl Z", "Undo"],
+      ["Ctrl ⇧ Z", "Redo"],
+      ["Ctrl D", "Duplicate"],
+      ["Ctrl C / X / V", "Copy, cut, paste"],
+      ["Del", "Delete"],
+      ["Alt + drag", "Duplicate while moving"],
     ],
   },
   {
-    group: "Selección",
+    group: "Selection",
     items: [
-      ["Clic", "Seleccionar"],
-      ["⇧ + clic", "Sumar o quitar de la selección"],
-      ["Arrastrar en vacío", "Selección por área"],
-      ["Ctrl A", "Seleccionar todo"],
-      ["Tab / ⇧ Tab", "Recorrer elementos"],
-      ["Esc", "Deseleccionar"],
+      ["Click", "Select"],
+      ["⇧ + click", "Add to or remove from the selection"],
+      ["Drag on empty space", "Area selection"],
+      ["Ctrl A", "Select all"],
+      ["Tab / ⇧ Tab", "Cycle through elements"],
+      ["Esc", "Deselect"],
     ],
   },
   {
-    group: "Mover y transformar",
+    group: "Move and transform",
     items: [
-      ["Flechas", "Mover 1 px"],
-      ["⇧ + flechas", "Mover 10 px"],
-      ["⇧ al arrastrar", "Restringir a un eje"],
-      ["⇧ al rotar", "Saltos de 15°"],
-      ["⇧ al escalar", "Invertir el bloqueo de proporción"],
-      ["Ctrl G / Ctrl ⇧ G", "Agrupar y desagrupar"],
-      ["Ctrl L", "Bloquear y desbloquear"],
-      ["Ctrl ] / Ctrl [", "Orden de capa"],
+      ["Arrows", "Move 1 px"],
+      ["⇧ + arrows", "Move 10 px"],
+      ["⇧ while dragging", "Constrain to one axis"],
+      ["⇧ while rotating", "15° steps"],
+      ["⇧ while scaling", "Invert the aspect-ratio lock"],
+      ["Ctrl G / Ctrl ⇧ G", "Group and ungroup"],
+      ["Ctrl L", "Lock and unlock"],
+      ["Ctrl ] / Ctrl [", "Layer order"],
     ],
   },
   {
-    group: "Lienzo",
+    group: "Canvas",
     items: [
-      ["Ctrl + rueda", "Acercar sobre el puntero"],
-      ["Rueda / ⇧ rueda", "Desplazar"],
-      ["Espacio + arrastrar", "Mover el lienzo"],
-      ["Botón del medio", "Mover el lienzo"],
-      ["Ctrl 0", "Ajustar a la pantalla"],
-      ["Ctrl 1", "Tamaño real"],
+      ["Ctrl + wheel", "Zoom in at the pointer"],
+      ["Wheel / ⇧ wheel", "Scroll"],
+      ["Space + drag", "Pan the canvas"],
+      ["Middle button", "Pan the canvas"],
+      ["Ctrl 0", "Fit to screen"],
+      ["Ctrl 1", "Actual size"],
     ],
   },
 ];
@@ -208,12 +210,13 @@ function ShortcutsDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useT();
   return (
     <DialogShell
       open={open}
       onOpenChange={onOpenChange}
-      title="Atajos de teclado"
-      description="Todo lo que se puede hacer sin soltar el teclado."
+      title={t("Keyboard shortcuts")}
+      description={t("Everything you can do without leaving the keyboard.")}
       className="max-w-2xl"
       icon={
         <DialogIcon>
@@ -225,14 +228,14 @@ function ShortcutsDialog({
         {SHORTCUTS.map((section) => (
           <section key={section.group}>
             <h3 className="mb-2 text-label font-semibold text-muted-foreground">
-              {section.group}
+              {t(section.group)}
             </h3>
             <dl className="space-y-1.5">
               {section.items.map(([keys, what]) => (
                 <div key={keys} className="flex items-baseline justify-between gap-4">
-                  <dt className="text-body">{what}</dt>
+                  <dt className="text-body">{t(what)}</dt>
                   <dd className="shrink-0 rounded-sm border border-border-subtle bg-muted px-1.5 py-0.5 text-micro tabular-nums text-muted-foreground">
-                    {keys}
+                    {t(keys)}
                   </dd>
                 </div>
               ))}

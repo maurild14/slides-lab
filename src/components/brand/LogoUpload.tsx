@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import { Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useT } from "@/components/locale-provider";
 
 interface LogoUploadProps {
   value: string | null;
@@ -11,6 +12,7 @@ interface LogoUploadProps {
 }
 
 export function LogoUpload({ value, onChange }: LogoUploadProps) {
+  const t = useT();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState(false);
@@ -27,12 +29,12 @@ export function LogoUpload({ value, onChange }: LogoUploadProps) {
         if (!res.ok) throw new Error();
         onChange((await res.json()).url);
       } catch {
-        setError("No se pudo subir el logo. Tiene que ser PNG, JPG, JPEG o WebP de hasta 20 MB.");
+        setError(t("Couldn't upload the logo. It must be a PNG, JPG, JPEG or WebP of up to 20 MB."));
       } finally {
         setUploading(false);
       }
     },
-    [onChange]
+    [onChange, t]
   );
 
   return (
@@ -56,18 +58,18 @@ export function LogoUpload({ value, onChange }: LogoUploadProps) {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={value}
-              alt="Logo de la marca"
+              alt={t("Brand logo")}
               className="max-h-full max-w-full object-contain"
             />
           </div>
           <div className="flex flex-col gap-2">
             <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
               <Upload className="h-3.5 w-3.5" aria-hidden />
-              Reemplazar
+              {t("Replace")}
             </Button>
             <Button variant="ghost" size="sm" onClick={() => onChange(null)}>
               <X className="h-3.5 w-3.5" aria-hidden />
-              Quitar
+              {t("Remove")}
             </Button>
           </div>
         </div>
@@ -97,7 +99,7 @@ export function LogoUpload({ value, onChange }: LogoUploadProps) {
                 className="h-5 w-5 animate-spin rounded-full border-2 border-accent border-t-transparent"
                 aria-hidden
               />
-              <span className="text-label text-muted-foreground">Subiendo…</span>
+              <span className="text-label text-muted-foreground">{t("Uploading…")}</span>
             </>
           ) : (
             <>
@@ -108,10 +110,10 @@ export function LogoUpload({ value, onChange }: LogoUploadProps) {
                 <Upload className="h-4 w-4 text-muted-foreground" />
               </span>
               <span className="text-label font-medium">
-                Arrastrá tu logo o tocá para elegirlo
+                {t("Drag your logo here or click to choose it")}
               </span>
               <span className="text-micro text-muted-foreground">
-                PNG, JPG, JPEG o WebP, hasta 20 MB
+                {t("PNG, JPG, JPEG or WebP, up to 20 MB")}
               </span>
             </>
           )}

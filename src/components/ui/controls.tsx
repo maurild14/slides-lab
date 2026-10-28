@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { useT } from "@/components/locale-provider";
 import {
   Popover,
   PopoverContent,
@@ -164,6 +165,7 @@ export function NumberInput({
   suffix,
   className,
 }: NumberInputProps) {
+  const t = useT();
   const clamp = (n: number) => {
     if (min !== undefined && n < min) return min;
     if (max !== undefined && n > max) return max;
@@ -216,7 +218,7 @@ export function NumberInput({
       {suffix && (
         <span
           onPointerDown={startScrub}
-          title={`Arrastrá para cambiar ${label.toLowerCase()}`}
+          title={t("Drag to change {label}", { label: label.toLowerCase() })}
           className="flex h-full shrink-0 cursor-ew-resize touch-none select-none items-center px-2.5 text-micro text-muted-foreground hover:text-foreground"
         >
           {suffix}
@@ -246,6 +248,7 @@ export function ColorInput({
   swatches = [],
   className,
 }: ColorInputProps) {
+  const t = useT();
   const [draft, setDraft] = React.useState(value);
   const [lastValue, setLastValue] = React.useState(value);
 
@@ -269,14 +272,14 @@ export function ColorInput({
     >
       <Popover>
         <PopoverTrigger
-          aria-label={`${label}: elegir color`}
+          aria-label={t("{label}: pick a color", { label })}
           className="oc-focus h-7 w-7 shrink-0 cursor-pointer rounded-sm border border-black/10"
           style={{ background: HEX.test(draft) ? draft : "transparent" }}
         />
         <PopoverContent className="w-56 space-y-3">
           {swatches.length > 0 && (
             <div>
-              <p className="mb-2 text-label font-medium">Colores de marca</p>
+              <p className="mb-2 text-label font-medium">{t("Brand colors")}</p>
               <div className="flex flex-wrap gap-1.5">
                 {swatches.map((s) => (
                   <button
@@ -293,10 +296,10 @@ export function ColorInput({
             </div>
           )}
           <div>
-            <p className="mb-2 text-label font-medium">Personalizado</p>
+            <p className="mb-2 text-label font-medium">{t("Custom")}</p>
             <input
               type="color"
-              aria-label={`${label}: selector de color`}
+              aria-label={t("{label}: color picker", { label })}
               value={HEX.test(draft) ? draft : "#000000"}
               onChange={(e) => commit(e.target.value)}
               className="oc-focus h-control-lg w-full cursor-pointer rounded-md border border-border bg-surface p-1"

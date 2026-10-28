@@ -2,6 +2,7 @@
 
 import { AlertTriangle } from "lucide-react";
 import { Button } from "./button";
+import { useT } from "@/components/locale-provider";
 import { DialogShell, DialogIcon, DialogClose } from "./dialog";
 
 interface ConfirmDialogProps {
@@ -12,7 +13,7 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   variant?: "destructive" | "default";
   onConfirm: () => void;
-  /** A second way out that is not "cancel" — e.g. "solo cambiar el lienzo". */
+  /** A second way out that is not "cancel" — e.g. "only change the canvas". */
   secondaryLabel?: string;
   onSecondary?: () => void;
 }
@@ -22,12 +23,13 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   description,
-  confirmLabel = "Confirm",
+  confirmLabel,
   variant = "default",
   onConfirm,
   secondaryLabel,
   onSecondary,
 }: ConfirmDialogProps) {
+  const t = useT();
   return (
     <DialogShell
       open={open}
@@ -42,7 +44,7 @@ export function ConfirmDialog({
       footer={
         <>
           <DialogClose asChild>
-            <Button variant="ghost">Cancelar</Button>
+            <Button variant="ghost">{t("Cancel")}</Button>
           </DialogClose>
           {secondaryLabel && onSecondary && (
             <Button
@@ -62,7 +64,7 @@ export function ConfirmDialog({
               onOpenChange(false);
             }}
           >
-            {confirmLabel}
+            {confirmLabel ?? t("Confirm")}
           </Button>
         </>
       }

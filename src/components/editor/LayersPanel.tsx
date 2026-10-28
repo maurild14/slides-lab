@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { useMemo, useState } from "react";
 import {
   ChevronDown,
@@ -81,6 +82,7 @@ export function LayersPanel({
   tick,
   enabled,
 }: Props) {
+  const t = useT();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [renaming, setRenaming] = useState<string | null>(null);
 
@@ -154,7 +156,7 @@ export function LayersPanel({
     return (
       <Frame>
         <p className="px-4 py-6 text-center text-label leading-relaxed text-muted-foreground">
-          Este slide está vacío. Insertá algo desde el rail de la izquierda.
+          {t("This slide is empty. Insert something from the rail on the left.")}
         </p>
       </Frame>
     );
@@ -206,10 +208,11 @@ export function LayersPanel({
 }
 
 function Frame({ children }: { children: React.ReactNode }) {
+  const t = useT();
   return (
     <div className="flex min-h-0 flex-col border-b border-border">
       <h2 className="flex h-control shrink-0 items-center px-4 text-section font-semibold">
-        Capas
+        {t("Layers")}
       </h2>
       <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
     </div>
@@ -241,10 +244,11 @@ function LayerRow({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: node.id, disabled: !node.sortable || !enabled });
+  const t = useT();
 
   const kind = elementKind(node.el);
   const Icon = KIND_ICON[kind];
-  const label = elementLabel(node.el);
+  const label = elementLabel(node.el, t);
   const locked = isLocked(node.el);
   const hidden = isHidden(node.el);
   const group = isGroup(node.el);
@@ -273,7 +277,7 @@ function LayerRow({
           <span
             {...attributes}
             {...listeners}
-            aria-label={`Reordenar ${label}`}
+            aria-label={t("Reorder {label}", { label })}
             className="flex h-full w-5 shrink-0 cursor-grab items-center justify-center text-muted-foreground active:cursor-grabbing"
           >
             <GripVertical className="h-4 w-4" aria-hidden />
@@ -286,7 +290,7 @@ function LayerRow({
           <button
             type="button"
             onClick={onExpand}
-            aria-label={expanded ? `Plegar ${label}` : `Desplegar ${label}`}
+            aria-label={expanded ? t("Collapse {label}", { label }) : t("Expand {label}", { label })}
             aria-expanded={expanded}
             className="oc-focus flex h-full w-4 shrink-0 cursor-pointer items-center justify-center text-muted-foreground"
           >
@@ -311,7 +315,7 @@ function LayerRow({
           <input
             autoFocus
             defaultValue={label}
-            aria-label={`Nombre de ${label}`}
+            aria-label={t("Name of {label}", { label })}
             onBlur={(e) => onRename(e.target.value)}
             onKeyDown={(e) => {
               // Commit directly rather than via blur(): the input unmounts on
@@ -326,7 +330,7 @@ function LayerRow({
             type="button"
             onClick={(e) => onSelect(e.shiftKey || e.metaKey || e.ctrlKey)}
             onDoubleClick={onStartRename}
-            title={`${label} — doble clic para renombrar`}
+            title={t("{label} — double-click to rename", { label })}
             className={cn(
               "oc-focus min-w-0 flex-1 cursor-pointer truncate rounded-sm px-1 py-0.5 text-left text-label",
               selected ? "font-medium text-foreground" : "text-foreground"
@@ -339,7 +343,7 @@ function LayerRow({
         {/* Always rendered, never hover-gated: a control you cannot find is a
             control that does not exist. Dimmed until it matters. */}
         <IconButton
-          label={hidden ? `Mostrar ${label}` : `Ocultar ${label}`}
+          label={hidden ? t("Show {label}", { label }) : t("Hide {label}", { label })}
           size="sm"
           onClick={() => onToggle("hide")}
           className={cn(
@@ -354,7 +358,7 @@ function LayerRow({
           )}
         </IconButton>
         <IconButton
-          label={locked ? `Desbloquear ${label}` : `Bloquear ${label}`}
+          label={locked ? t("Unlock {label}", { label }) : t("Lock {label}", { label })}
           size="sm"
           onClick={() => onToggle("lock")}
           className={cn(

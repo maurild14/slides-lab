@@ -68,7 +68,7 @@ export async function POST(
     slideId?: string;
   };
   if (!FORMATS.includes(format as ExportFormat)) {
-    return NextResponse.json({ error: `Formato desconocido: ${format}` }, { status: 400 });
+    return NextResponse.json({ error: `Unknown format: ${format}` }, { status: 400 });
   }
   const fmt = format as ExportFormat;
 
@@ -76,7 +76,7 @@ export async function POST(
     ? carousel.slides.filter((s) => s.id === slideId)
     : carousel.slides;
   if (slides.length === 0) {
-    return NextResponse.json({ error: "Slide no encontrado" }, { status: 404 });
+    return NextResponse.json({ error: "Slide not found" }, { status: 404 });
   }
 
   const base = safeName(carousel.name);

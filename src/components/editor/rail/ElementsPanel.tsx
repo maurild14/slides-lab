@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { useEffect, useMemo, useState } from "react";
 import {
   iconSvgMarkup,
@@ -45,6 +46,7 @@ interface Props {
 }
 
 export function ElementsPanel({ onClose, onInsert, color }: Props) {
+  const t = useT();
   const [query, setQuery] = useState("");
   const [catalog, setCatalog] = useState<Catalog | null>(null);
 
@@ -68,7 +70,7 @@ export function ElementsPanel({ onClose, onInsert, color }: Props) {
   }, [catalog, query]);
 
   const q = query.trim().toLowerCase();
-  const match = (label: string) => !q || label.toLowerCase().includes(q);
+  const match = (label: string) => !q || t(label).toLowerCase().includes(q);
 
   const visibleShapes = shapes.filter((s) => match(s.label));
   const visibleLines = lines.filter((s) => match(s.label));
@@ -77,22 +79,22 @@ export function ElementsPanel({ onClose, onInsert, color }: Props) {
 
   return (
     <PanelShell
-      title="Elementos"
-      description="Arrastralo al slide, o tocalo para insertarlo centrado."
+      title={t("Elements")}
+      description={t("Drag it onto the slide, or click it to insert it centered.")}
       onClose={onClose}
       toolbar={
         <SearchInput
-          label="Buscar elementos e iconos"
-          placeholder="círculo, flecha, corazón…"
+          label={t("Search elements and icons")}
+          placeholder={t("circle, arrow, heart…")}
           value={query}
           onChange={setQuery}
         />
       }
     >
-      {nothing && <PanelEmpty>Nada coincide con “{query}”.</PanelEmpty>}
+      {nothing && <PanelEmpty>{t("Nothing matches “{query}”.", { query })}</PanelEmpty>}
 
       {visibleShapes.length > 0 && (
-        <PanelGroup title="Formas">
+        <PanelGroup title={t("Shapes")}>
           <div className="grid grid-cols-3 gap-2">
             {visibleShapes.map((spec) => (
               <InsertTile key={spec.id} spec={spec} onInsert={onInsert} />
@@ -102,7 +104,7 @@ export function ElementsPanel({ onClose, onInsert, color }: Props) {
       )}
 
       {visibleLines.length > 0 && (
-        <PanelGroup title="Líneas y flechas">
+        <PanelGroup title={t("Lines and arrows")}>
           <div className="grid grid-cols-3 gap-2">
             {visibleLines.map((spec) => (
               <InsertTile key={spec.id} spec={spec} onInsert={onInsert} />
@@ -112,11 +114,11 @@ export function ElementsPanel({ onClose, onInsert, color }: Props) {
       )}
 
       <PanelGroup
-        title="Iconos"
+        title={t("Icons")}
         action={
           catalog && icons.length >= ICON_LIMIT ? (
             <span className="text-micro text-muted-foreground">
-              primeros {ICON_LIMIT} — afiná la búsqueda
+              {t("first {n} — refine the search", { n: ICON_LIMIT })}
             </span>
           ) : null
         }
@@ -131,7 +133,7 @@ export function ElementsPanel({ onClose, onInsert, color }: Props) {
             ))}
           </div>
         ) : icons.length === 0 ? (
-          <PanelEmpty>Ningún icono se llama así. Probá en inglés: “arrow”.</PanelEmpty>
+          <PanelEmpty>{t("No icon is called that. Try in English: “arrow”.")}</PanelEmpty>
         ) : (
           <div className="grid grid-cols-5 gap-2">
             {icons.map(({ name, node }) => (

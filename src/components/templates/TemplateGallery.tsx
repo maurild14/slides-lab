@@ -8,9 +8,11 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TemplateCard } from "./TemplateCard";
 import type { Template } from "@/types/template";
+import { useT } from "@/components/locale-provider";
 
 export function TemplateGallery() {
   const router = useRouter();
+  const t = useT();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -43,21 +45,21 @@ export function TemplateGallery() {
       setActionError(null);
       const res = await fetch(`/api/templates/${templateId}/use`, { method: "POST" });
       if (!res.ok) {
-        setActionError("No se pudo crear el carrusel desde la plantilla. Probá de nuevo.");
+        setActionError(t("Couldn't create the carousel from the template. Try again."));
         return;
       }
       const carousel = await res.json();
       router.push(`/carousel/${carousel.id}`);
     },
-    [router]
+    [router, t]
   );
 
   const handleDelete = useCallback(async (template: Template) => {
     setActionError(null);
     const res = await fetch(`/api/templates/${template.id}`, { method: "DELETE" });
-    if (res.ok) setTemplates((prev) => prev.filter((t) => t.id !== template.id));
-    else setActionError(`No se pudo eliminar «${template.name}». Probá de nuevo.`);
-  }, []);
+    if (res.ok) setTemplates((prev) => prev.filter((x) => x.id !== template.id));
+    else setActionError(t("Couldn't delete “{name}”. Try again.", { name: template.name }));
+  }, [t]);
 
   if (loading) {
     return (
@@ -74,11 +76,11 @@ export function TemplateGallery() {
       <EmptyState
         tone="error"
         icon={<AlertTriangle className="h-6 w-6" />}
-        title="No pudimos cargar las plantillas"
-        hint="Puede que el servidor no esté respondiendo. Revisá la terminal y volvé a intentar."
+        title={t("We couldn't load the templates")}
+        hint={t("The server may not be responding. Check the terminal and try again.")}
         action={
           <Button variant="outline" onClick={retry}>
-            Reintentar
+            {t("Retry")}
           </Button>
         }
       />
@@ -90,9 +92,9 @@ export function TemplateGallery() {
       <ConfirmDialog
         open={pendingDelete !== null}
         onOpenChange={(open) => !open && setPendingDelete(null)}
-        title={pendingDelete ? `¿Eliminar la plantilla «${pendingDelete.name}»?` : ""}
-        description="Los carruseles que ya creaste con ella no se tocan. Esto no se puede deshacer."
-        confirmLabel="Eliminar"
+        title={pendingDelete ? t("Delete the template “{name}”?", { name: pendingDelete.name }) : ""}
+        description={t("Carousels you already made with it are not touched. This can't be undone.")}
+        confirmLabel={t("Delete")}
         variant="destructive"
         onConfirm={() => pendingDelete && handleDelete(pendingDelete)}
       />
@@ -109,8 +111,8 @@ export function TemplateGallery() {
       {templates.length === 0 ? (
         <EmptyState
           icon={<Bookmark className="h-6 w-6" />}
-          title="Todavía no guardaste ninguna plantilla"
-          hint="Abrí un carrusel y tocá «Guardar como plantilla» en la barra del editor para reutilizar su maqueta."
+          title={t("You haven't saved any templates yet")}
+          hint={t("Open a carousel and click “Save as template” in the editor bar to reuse its layout.")}
         />
       ) : (
         <ul className="oc-stagger grid list-none grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

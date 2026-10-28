@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useId } from "react";
 import { ChevronDown } from "lucide-react";
+import { useT } from "@/components/locale-provider";
 
 interface Font {
   name: string;
@@ -16,6 +17,7 @@ interface FontSelectorProps {
 
 export function FontSelector({ label, value, onChange }: FontSelectorProps) {
   const id = useId();
+  const t = useT();
   const [fonts, setFonts] = useState<Font[]>([]);
   const [failed, setFailed] = useState(false);
 
@@ -56,14 +58,14 @@ export function FontSelector({ label, value, onChange }: FontSelectorProps) {
       </div>
       {failed && (
         <p role="alert" className="text-micro text-destructive">
-          No se pudo cargar la lista de fuentes. Podés escribir el nombre igual.
+          {t("Couldn't load the font list. You can still type the name.")}
         </p>
       )}
       <p
         className="mt-1 text-body text-muted-foreground"
         style={{ fontFamily: `'${value}', sans-serif` }}
       >
-        El veloz murciélago hindú comía feliz cardillo y kiwi
+        {t("The quick brown fox jumps over the lazy dog")}
       </p>
     </div>
   );

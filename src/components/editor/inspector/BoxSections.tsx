@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { useState } from "react";
 import { Link2, Link2Off } from "lucide-react";
 import { SHADOW_PRESETS } from "@/lib/element-style";
@@ -23,19 +24,20 @@ interface Props {
 }
 
 export function BoxSections({ props: p, api, focus }: Props) {
+  const t = useT();
   const { mutate, setStyle } = api;
   const [linked, setLinked] = useState(true);
 
   return (
     <>
-      <Section title="Relleno" focused={focusOn(focus, "fill")}>
-        <Row label="Fondo">
+      <Section title={t("Fill")} focused={focusOn(focus, "fill")}>
+        <Row label={t("Background")}>
           <ColorField
             value={p.backgroundColor}
             onChange={(hex) => setStyle({ "background-color": hex })}
           />
         </Row>
-        <Row label="Radio">
+        <Row label={t("Radius")}>
           <NumberField
             value={p.borderRadius}
             min={0}
@@ -46,8 +48,8 @@ export function BoxSections({ props: p, api, focus }: Props) {
         </Row>
       </Section>
 
-      <Section title="Borde y sombra" defaultOpen={false} focused={focusOn(focus, "border")}>
-        <Row label="Grosor">
+      <Section title={t("Border and shadow")} defaultOpen={false} focused={focusOn(focus, "border")}>
+        <Row label={t("Width")}>
           <NumberField
             value={p.borderWidth}
             min={0}
@@ -62,13 +64,13 @@ export function BoxSections({ props: p, api, focus }: Props) {
             }
           />
         </Row>
-        <Row label="Color">
+        <Row label={t("Color")}>
           <ColorField
             value={p.borderColor}
             onChange={(hex) => setStyle({ "border-color": hex })}
           />
         </Row>
-        <Row label="Sombra">
+        <Row label={t("Shadow")}>
           <SelectField
             value={p.shadow}
             onChange={(id) => {
@@ -76,40 +78,40 @@ export function BoxSections({ props: p, api, focus }: Props) {
               setStyle({ "box-shadow": preset?.value ?? "" });
             }}
             options={[
-              ...SHADOW_PRESETS.map((s) => ({ label: s.label, value: s.id })),
+              ...SHADOW_PRESETS.map((s) => ({ label: t(s.label), value: s.id })),
               // Only reachable when the slide already carried a shadow we did
               // not write; selecting anything else replaces it.
               ...(p.shadow === "custom"
-                ? [{ label: "Personalizada", value: "custom" }]
+                ? [{ label: t("Custom shadow"), value: "custom" }]
                 : []),
             ]}
           />
         </Row>
       </Section>
 
-      <Section title="Espaciado" defaultOpen={false} focused={focusOn(focus, "spacing")}>
-        <Row label="Arriba">
+      <Section title={t("Spacing")} defaultOpen={false} focused={focusOn(focus, "spacing")}>
+        <Row label={t("Top")}>
           <NumberField
             value={p.paddingTop}
             suffix="px"
             onChange={(n) => setStyle({ "padding-top": `${n}px` })}
           />
         </Row>
-        <Row label="Derecha">
+        <Row label={t("Right")}>
           <NumberField
             value={p.paddingRight}
             suffix="px"
             onChange={(n) => setStyle({ "padding-right": `${n}px` })}
           />
         </Row>
-        <Row label="Abajo">
+        <Row label={t("Bottom")}>
           <NumberField
             value={p.paddingBottom}
             suffix="px"
             onChange={(n) => setStyle({ "padding-bottom": `${n}px` })}
           />
         </Row>
-        <Row label="Izquierda">
+        <Row label={t("Left")}>
           <NumberField
             value={p.paddingLeft}
             suffix="px"
@@ -119,7 +121,7 @@ export function BoxSections({ props: p, api, focus }: Props) {
       </Section>
 
       {p.isFloating && (
-        <Section title="Posición" defaultOpen={false} focused={focusOn(focus, "position")}>
+        <Section title={t("Position")} defaultOpen={false} focused={focusOn(focus, "position")}>
           <Row label="X / Y">
             <div className="grid grid-cols-2 gap-1.5">
               <NumberField
@@ -134,7 +136,7 @@ export function BoxSections({ props: p, api, focus }: Props) {
               />
             </div>
           </Row>
-          <Row label="An / Al">
+          <Row label={t("W / H")}>
             <div className="flex items-center gap-1.5">
               <div className="grid min-w-0 flex-1 grid-cols-2 gap-1.5">
                 <NumberField
@@ -172,8 +174,8 @@ export function BoxSections({ props: p, api, focus }: Props) {
                 type="button"
                 onClick={() => setLinked((v) => !v)}
                 aria-pressed={linked}
-                aria-label={linked ? "Soltar la proporción" : "Mantener la proporción"}
-                title={linked ? "Proporción bloqueada" : "Proporción libre"}
+                aria-label={linked ? t("Unlock the aspect ratio") : t("Keep the aspect ratio")}
+                title={linked ? t("Aspect ratio locked") : t("Aspect ratio free")}
                 className={cn(
                   "oc-press oc-focus oc-hit flex h-control-sm w-control-sm shrink-0 cursor-pointer items-center justify-center rounded-md border",
                   linked
@@ -189,7 +191,7 @@ export function BoxSections({ props: p, api, focus }: Props) {
               </button>
             </div>
           </Row>
-          <Row label="Ángulo">
+          <Row label={t("Angle")}>
             <NumberField
               value={Math.round(p.angle)}
               min={-360}
@@ -198,7 +200,7 @@ export function BoxSections({ props: p, api, focus }: Props) {
               onChange={(n) => mutate((el) => setRotation(el, n))}
             />
           </Row>
-          <Row label="Opacidad">
+          <Row label={t("Opacity")}>
             <NumberField
               value={p.opacity}
               min={0}
@@ -208,7 +210,7 @@ export function BoxSections({ props: p, api, focus }: Props) {
               onChange={(n) => setStyle({ opacity: String(n / 100) })}
             />
           </Row>
-          <Row label="Capa" hint="Orden de apilamiento (z-index)">
+          <Row label={t("Layer")} hint={t("Stacking order (z-index)")}>
             <NumberField
               value={p.zIndex}
               onChange={(n) => setStyle({ "z-index": String(n) })}

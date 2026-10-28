@@ -25,7 +25,7 @@ export interface MeasuredBox {
 const SLACK = 2;
 
 function label(b: MeasuredBox): string {
-  return b.name || b.text.slice(0, 30) || "elemento sin nombre";
+  return b.name || b.text.slice(0, 30) || "unnamed element";
 }
 
 /**
@@ -36,8 +36,8 @@ function label(b: MeasuredBox): string {
  * were considered and left out — they need a judgement call about intent, and
  * a warning the agent learns to ignore is worse than no warning at all.
  *
- * Messages are in Spanish: they reach the agent, which answers the user in
- * Spanish, and they quote layer names that are already Spanish.
+ * Messages are in English, like the rest of the system prompt: they reach
+ * only the agent, which answers the user in the UI's language.
  */
 export function findIssues(
   boxes: MeasuredBox[],
@@ -54,50 +54,50 @@ export function findIssues(
 
     if (right <= 0 || bottom <= 0 || b.left >= width || b.top >= height) {
       out.push(
-        `"${name}" no se ve: está completamente fuera del canvas (left ${Math.round(b.left)}px, top ${Math.round(b.top)}px, ${Math.round(b.width)}x${Math.round(b.height)}px).`
+        `"${name}" is not visible: it is entirely outside the canvas (left ${Math.round(b.left)}px, top ${Math.round(b.top)}px, ${Math.round(b.width)}x${Math.round(b.height)}px).`
       );
-      continue; // ya es invisible; el resto de los chequeos no aporta nada
+      continue; // already invisible; the other checks add nothing
     }
 
     if (b.width === 0 || b.height === 0) {
       out.push(
-        `"${name}" tiene ${b.width === 0 ? "ancho" : "altura"} 0px — no se ve.`
+        `"${name}" has ${b.width === 0 ? "width" : "height"} 0px — it is not visible.`
       );
       continue;
     }
 
     if (!hasText && b.childCount === 0 && !b.painted) {
       out.push(
-        `"${name}" está vacío: sin texto, sin fondo y sin hijos. Borralo o ponele contenido.`
+        `"${name}" is empty: no text, no background and no children. Delete it or give it content.`
       );
       continue;
     }
 
-    // ponytail: el desborde parcial se reporta solo con texto. Una forma que
-    // sangra por el borde es diseño deliberado; un texto cortado nunca lo es.
-    // Si algún día hace falta distinguirlas mejor, el dato que falta es si el
-    // elemento es decorativo, y eso hoy nadie lo declara.
+    // ponytail: partial overflow is only reported for text. A shape bleeding
+    // off the edge is deliberate design; cut-off text never is. Telling them
+    // apart better needs to know whether the element is decorative, and
+    // nothing declares that today.
     if (!hasText) continue;
 
     const sides: string[] = [];
-    if (b.left < -SLACK) sides.push(`${Math.round(-b.left)}px por la izquierda`);
-    if (b.top < -SLACK) sides.push(`${Math.round(-b.top)}px por arriba`);
+    if (b.left < -SLACK) sides.push(`${Math.round(-b.left)}px on the left`);
+    if (b.top < -SLACK) sides.push(`${Math.round(-b.top)}px at the top`);
     if (right > width + SLACK)
-      sides.push(`${Math.round(right - width)}px por la derecha`);
+      sides.push(`${Math.round(right - width)}px on the right`);
     if (bottom > height + SLACK)
-      sides.push(`${Math.round(bottom - height)}px por abajo`);
+      sides.push(`${Math.round(bottom - height)}px at the bottom`);
     if (sides.length > 0) {
-      out.push(`"${name}" se sale del canvas: ${sides.join(" y ")}.`);
+      out.push(`"${name}" overflows the canvas: ${sides.join(" and ")}.`);
     }
 
     if (b.scrollWidth > b.width + SLACK) {
       out.push(
-        `"${name}" se corta: el texto mide ${Math.round(b.scrollWidth)}px de ancho y la caja ${Math.round(b.width)}px. Agrandá la caja o achicá la fuente.`
+        `"${name}" is cut off: the text is ${Math.round(b.scrollWidth)}px wide and the box ${Math.round(b.width)}px. Enlarge the box or shrink the font.`
       );
     }
     if (b.scrollHeight > b.height + SLACK) {
       out.push(
-        `"${name}" se corta: el texto mide ${Math.round(b.scrollHeight)}px de alto y la caja ${Math.round(b.height)}px. Agrandá la caja o achicá la fuente.`
+        `"${name}" is cut off: the text is ${Math.round(b.scrollHeight)}px tall and the box ${Math.round(b.height)}px. Enlarge the box or shrink the font.`
       );
     }
   }

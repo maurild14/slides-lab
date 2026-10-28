@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { Lock, RefreshCw } from "lucide-react";
 import type { Box } from "@/lib/canvas-utils";
 
@@ -79,6 +80,7 @@ export function SelectionFrame({
   onHandlePointerDown,
   onRotatePointerDown,
 }: SelectionFrameProps) {
+  const t = useT();
   const showEdges =
     box.width >= EDGE_HANDLE_MIN && box.height >= EDGE_HANDLE_MIN;
   const canResize = interactive && !locked;
@@ -158,7 +160,7 @@ export function SelectionFrame({
       {canResize && !multi && (
         <button
           type="button"
-          aria-label="Rotar"
+          aria-label={t("Rotate")}
           onPointerDown={onRotatePointerDown}
           className="oc-focus absolute flex items-center justify-center rounded-full border border-border bg-surface text-muted-foreground shadow-raised hover:text-foreground active:cursor-grabbing"
           style={{

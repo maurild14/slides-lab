@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { MousePointerClick, RefreshCw, SlidersHorizontal, X } from "lucide-react";
 import { Button, IconButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -49,17 +50,18 @@ export function InspectorPanel({
   onUpload,
   saving,
 }: InspectorPanelProps) {
+  const t = useT();
   const api = useElementStyle(selectedElement, iframeReadyTick, onMutate);
   const props = api.props;
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col" aria-label="Propiedades del elemento">
+    <section className="flex min-h-0 flex-1 flex-col" aria-label={t("Element properties")}>
       {/* The save state is said once, in the footer. A second pulsing dot up
           here said the same thing without ever naming it. */}
       <div className="flex h-control-lg shrink-0 items-center gap-2 border-b border-border px-3">
         <SlidersHorizontal className="h-4 w-4 text-muted-foreground" aria-hidden />
-        <h2 className="flex-1 text-section font-semibold">Propiedades</h2>
-        <IconButton label="Deseleccionar" size="sm" onClick={onClose}>
+        <h2 className="flex-1 text-section font-semibold">{t("Properties")}</h2>
+        <IconButton label={t("Deselect")} size="sm" onClick={onClose}>
           <X className="h-4 w-4" aria-hidden />
         </IconButton>
       </div>
@@ -71,13 +73,13 @@ export function InspectorPanel({
             icon={<MousePointerClick className="h-5 w-5" aria-hidden />}
             title={
               selectionCount > 1
-                ? `${selectionCount} elementos seleccionados`
-                : "No hay nada seleccionado"
+                ? t("{n} elements selected", { n: selectionCount })
+                : t("Nothing is selected")
             }
             hint={
               selectionCount > 1
-                ? "Las propiedades se editan de a un elemento. Alinear, agrupar y ordenar sí funcionan con varios, desde la barra de arriba."
-                : "Hacé clic en cualquier texto, imagen o forma del slide para editarlo."
+                ? t("Properties are edited one element at a time. Align, group and order do work on several, from the bar above.")
+                : t("Click any text, image or shape on the slide to edit it.")
             }
             className="px-6"
           />
@@ -119,14 +121,14 @@ export function InspectorPanel({
           size="sm"
           onClick={onUndo}
           className="gap-1.5 px-2"
-          title="Volver a la versión anterior guardada en el servidor. Para deshacer un paso usá Ctrl Z."
+          title={t("Go back to the previous version saved on the server. To undo one step, use Ctrl Z.")}
         >
           <RefreshCw className="h-3.5 w-3.5" aria-hidden />
-          Versión anterior
+          {t("Previous version")}
         </Button>
         <div className="flex-1" />
         <span className="text-micro text-muted-foreground" aria-live="polite">
-          {saving ? "Guardando…" : "Guardado"}
+          {saving ? t("Saving…") : t("Saved")}
         </span>
       </div>
     </section>

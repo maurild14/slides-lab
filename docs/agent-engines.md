@@ -206,9 +206,11 @@ session" means: clearing the conversation resets them.
 
 ## The system prompt
 
-`buildSystemPrompt(brand, carousel, stylePreset, engineId)` rebuilds it every
-turn, so the agent always sees the carousel's current slides. It contains the
-whole workflow, not just context:
+`buildSystemPrompt(brand, carousel, stylePreset, engineId, locale)` rebuilds it
+every turn, so the agent always sees the carousel's current slides. `locale`
+comes from the browser's `slides-lab-locale` cookie and sets the language the
+agent replies in ([ui.md](ui.md#copy)); the prompt itself stays English. It
+contains the whole workflow, not just context:
 
 1. Decide the design before writing any HTML, and store it in `designPlan`.
 2. Build one slide at a time, editing rather than inventing.

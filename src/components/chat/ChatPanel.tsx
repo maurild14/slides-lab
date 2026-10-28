@@ -9,6 +9,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AlertCircle, Plug } from "lucide-react";
 import type { ChatMessage as Message, ReferenceImage } from "@/types/carousel";
 import type { EngineId, EngineStatus } from "@/lib/agents";
+import { useLocale, useT } from "@/components/locale-provider";
 
 /** ms → "45s" / "3:12", for the how-long-has-this-been-running clock. */
 function formatElapsed(ms: number): string {
@@ -17,12 +18,18 @@ function formatElapsed(ms: number): string {
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
 
-/** 21230 -> "21,2k". The session total is the number people watch. */
-function formatTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(".", ",")}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(".", ",")}k`;
+/** 21230 -> "21.2k" ("21,2k" in Spanish). The session total is the number people watch. */
+function formatTokens(n: number, sep: string): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(".", sep)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(".", sep)}k`;
   return String(n);
 }
+
+/**
+ * Agent status lines arrive in English from the stream parsers ("Writing
+ * x.ts…"); only the leading verb is prose, the rest is a path or a route.
+ */
+const STATUS_VERB = /^(Writing|Viewing|Generating image|Saving image|Searching the web)/;
 
 type Usage = { tokens: number; planUsedPct?: number; planLabel?: string };
 
@@ -64,6 +71,8 @@ export function ChatPanel({
   embedded = false,
   visible = true,
 }: ChatPanelProps) {
+  const t = useT();
+  const { locale } = useLocale();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -245,7 +254,7 @@ export function ChatPanel({
       // What the user sees is what they typed; what the agent gets also
       // carries the selected element's markup.
       const outgoing = context
-        ? `Trabajá sobre este elemento del slide actual:
+        ? `Work on this element of the current slide:
 
 \`\`\`html
 ${context.html}
@@ -276,7 +285,7 @@ ${message}`
           const err = await response.json().catch(() => ({}));
           throw new Error(
             (err as { error?: string }).error ||
-              "No se pudo conectar con el motor de IA."
+              t("Couldn't connect to the AI engine.")
           );
         }
 
@@ -389,7 +398,7 @@ ${message}`
         );
         if (err instanceof Error && err.name === "AbortError") return;
         setError(
-          err instanceof Error ? err.message : "Ocurrió un error inesperado"
+          err instanceof Error ? err.message : t("An unexpected error occurred")
         );
       } finally {
         setIsStreaming(false);
@@ -411,6 +420,7 @@ ${message}`
       onStreamStart,
       onStreamEnd,
       context,
+      t,
     ]
   );
 
@@ -418,15 +428,15 @@ ${message}`
     return (
       <div className="h-full flex flex-col items-center justify-center p-6 text-center">
         <Plug className="h-10 w-10 text-muted-foreground mb-3" />
-        <h3 className="font-semibold text-section mb-1">Conectá un motor de IA</h3>
+        <h3 className="font-semibold text-section mb-1">{t("Connect an AI engine")}</h3>
         <p className="text-label text-muted-foreground max-w-[220px] mb-3">
-          Necesitás al menos una CLI instalada para crear carruseles con IA.
+          {t("You need at least one CLI installed to create carousels with AI.")}
         </p>
         <ul className="text-label text-muted-foreground space-y-1.5 text-left">
           {engines.map((e) => (
             <li key={e.id}>
               <span className="font-medium text-foreground">{e.label}</span>
-              {e.reason ? ` — ${e.reason}` : ""}
+              {e.reason ? ` — ${t(e.reason)}` : ""}
             </li>
           ))}
         </ul>
@@ -437,7 +447,7 @@ ${message}`
             rel="noopener noreferrer"
             className="oc-focus rounded text-accent underline underline-offset-4"
           >
-            Instalar Claude
+            {t("Install Claude")}
           </a>
           <a
             href="https://developers.openai.com/codex/cli"
@@ -445,7 +455,7 @@ ${message}`
             rel="noopener noreferrer"
             className="oc-focus rounded text-accent underline underline-offset-4"
           >
-            Instalar Codex
+            {t("Install Codex")}
           </a>
         </div>
       </div>
@@ -460,7 +470,7 @@ ${message}`
       onClick={() => setConfirmClear(true)}
       className="oc-focus cursor-pointer rounded px-1.5 py-0.5 text-micro text-muted-foreground transition-colors hover:text-destructive"
     >
-      Limpiar la conversación
+      {t("Clear the conversation")}
     </button>
   );
 
@@ -475,10 +485,9 @@ ${message}`
       : Math.max(0, 100 - usage.planUsedPct);
   const usageLine = [
     planLeft !== null &&
-      `Plan ${planLeft.toFixed(planLeft < 10 ? 1 : 0)}% libre${
-        usage.planLabel ? ` (${usage.planLabel})` : ""
-      }`,
-    usage.tokens > 0 && `${formatTokens(usage.tokens)} tokens`,
+      t("Plan {pct}% left", { pct: planLeft.toFixed(planLeft < 10 ? 1 : 0) }) +
+        (usage.planLabel ? ` (${usage.planLabel})` : ""),
+    usage.tokens > 0 && `${formatTokens(usage.tokens, locale === "es" ? "," : ".")} tokens`,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -488,9 +497,9 @@ ${message}`
       <ConfirmDialog
         open={confirmClear}
         onOpenChange={setConfirmClear}
-        title="¿Limpiar la conversación?"
-        description="Se borra el historial de este carrusel y la IA arranca sin memoria de lo hablado. Los slides no se tocan."
-        confirmLabel="Limpiar"
+        title={t("Clear the conversation?")}
+        description={t("This carousel's history is deleted and the AI starts with no memory of what was said. The slides are not touched.")}
+        confirmLabel={t("Clear")}
         variant="destructive"
         onConfirm={handleClearChat}
       />
@@ -499,9 +508,9 @@ ${message}`
         {!embedded && (
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-section font-semibold">Asistente de IA</h2>
+              <h2 className="text-section font-semibold">{t("AI assistant")}</h2>
               <p className="text-label text-muted-foreground">
-                Contale qué carrusel querés armar
+                {t("Tell it what carousel you want to build")}
               </p>
             </div>
             {clearButton}
@@ -521,9 +530,9 @@ ${message}`
         {usageLine && (
           <p
             className="mt-2 text-micro text-muted-foreground tabular-nums"
-            title={`Plan ${engineLabel}: queda ${planLeft?.toFixed(1) ?? "?"}%${
-              usage.planLabel ? ` de la ventana de ${usage.planLabel}` : ""
-            } · ${usage.tokens.toLocaleString("es-AR")} tokens consumidos en esta sesión`}
+            title={t("{engine} plan: {pct}% left", { engine: engineLabel, pct: planLeft?.toFixed(1) ?? "?" }) +
+              (usage.planLabel ? t(" of the {window} window", { window: usage.planLabel }) : "") +
+              t(" · {tokens} tokens used in this session", { tokens: usage.tokens.toLocaleString(locale === "es" ? "es-AR" : "en-US") })}
           >
             {usageLine}
           </p>
@@ -539,9 +548,9 @@ ${message}`
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         {messages.length === 0 && (
           <div className="p-6 text-center text-muted-foreground">
-            <p className="mb-1 text-body">Todavía no hay mensajes</p>
+            <p className="mb-1 text-body">{t("No messages yet")}</p>
             <p className="text-label">
-              Pedile un carrusel, o seleccioná un elemento y pedile un cambio.
+              {t("Ask it for a carousel, or select an element and ask it for a change.")}
             </p>
           </div>
         )}
@@ -578,7 +587,7 @@ ${message}`
             className="h-1.5 w-1.5 rounded-full bg-accent shrink-0 animate-pulse"
             aria-hidden
           />
-          <span className="truncate font-mono">{status.text}</span>
+          <span className="truncate font-mono">{status.text.replace(STATUS_VERB, (v) => t(v))}</span>
           {now - status.at >= 20_000 && (
             <span className="ml-auto shrink-0 font-mono tabular-nums">
               {formatElapsed(now - status.at)}
@@ -590,14 +599,14 @@ ${message}`
       {context && (
         <div className="flex items-center gap-2 border-t border-border bg-accent-soft px-4 py-2">
           <span className="min-w-0 flex-1 truncate text-label text-foreground">
-            Sobre: <strong className="font-medium">{context.label}</strong>
+            {t("About:")} <strong className="font-medium">{context.label}</strong>
           </span>
           <button
             type="button"
             onClick={onClearContext}
             className="oc-focus shrink-0 cursor-pointer rounded px-1.5 py-0.5 text-micro text-muted-foreground hover:text-foreground"
           >
-            Quitar
+            {t("Remove")}
           </button>
         </div>
       )}

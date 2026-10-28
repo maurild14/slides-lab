@@ -22,18 +22,21 @@ import { BrandSetup } from "@/components/brand/BrandSetup";
 import { SlideRenderer } from "@/components/editor/SlideRenderer";
 import { TemplateGallery } from "@/components/templates/TemplateGallery";
 import { cn } from "@/lib/utils";
+import { useLocale, useT } from "@/components/locale-provider";
 import type { AspectRatio, Carousel } from "@/types/carousel";
 import type { BrandConfig } from "@/types/brand";
 
 const TABS = [
-  { id: "carousels", label: "Mis carruseles" },
-  { id: "templates", label: "Plantillas" },
+  { id: "carousels", label: "My carousels" },
+  { id: "templates", label: "Templates" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
 
 export default function DashboardPage() {
   const router = useRouter();
+  const t = useT();
+  const { locale } = useLocale();
   const [carousels, setCarousels] = useState<Carousel[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -85,28 +88,27 @@ export default function DashboardPage() {
   const handleDelete = useCallback((id: string, name: string) => {
     setConfirmState({
       open: true,
-      title: `¿Eliminar «${name}»?`,
-      description:
-        "Se borran el carrusel y todos sus slides. Esto no se puede deshacer.",
+      title: t("Delete “{name}”?", { name }),
+      description: t("The carousel and all its slides are deleted. This can't be undone."),
       onConfirm: async () => {
         setActionError(null);
         const res = await fetch(`/api/carousels/${id}`, { method: "DELETE" });
         if (res.ok) setCarousels((prev) => prev.filter((c) => c.id !== id));
-        else setActionError(`No se pudo eliminar «${name}». Probá de nuevo.`);
+        else setActionError(t("Couldn't delete “{name}”. Try again.", { name }));
       },
     });
-  }, []);
+  }, [t]);
 
   const handleDuplicate = useCallback(async (id: string, name: string) => {
     setActionError(null);
     const res = await fetch(`/api/carousels/${id}/duplicate`, { method: "POST" });
     if (!res.ok) {
-      setActionError(`No se pudo duplicar «${name}». Probá de nuevo.`);
+      setActionError(t("Couldn't duplicate “{name}”. Try again.", { name }));
       return;
     }
     const copy: Carousel = await res.json();
     setCarousels((prev) => [copy, ...prev]);
-  }, []);
+  }, [t]);
 
   const handleCreate = useCallback(
     async (name: string, aspectRatio: AspectRatio) => {
@@ -117,13 +119,13 @@ export default function DashboardPage() {
         body: JSON.stringify({ name, aspectRatio }),
       });
       if (!res.ok) {
-        setActionError("No se pudo crear el carrusel. Probá de nuevo.");
+        setActionError(t("Couldn't create the carousel. Try again."));
         return;
       }
       const carousel = await res.json();
       router.push(`/carousel/${carousel.id}`);
     },
-    [router]
+    [router, t]
   );
 
   return (
@@ -135,7 +137,7 @@ export default function DashboardPage() {
         onOpenChange={(open) => setConfirmState((s) => ({ ...s, open }))}
         title={confirmState.title}
         description={confirmState.description}
-        confirmLabel="Eliminar"
+        confirmLabel={t("Delete")}
         variant="destructive"
         onConfirm={confirmState.onConfirm}
       />
@@ -164,18 +166,18 @@ export default function DashboardPage() {
             <div>
               <h1 className="text-display font-bold">Slides Lab</h1>
               <p className="mt-1 text-body text-muted-foreground">
-                Carruseles de Instagram, con IA y edición directa
+                {t("Instagram carousels, with AI and direct editing")}
               </p>
             </div>
             <Button onClick={() => setShowCreateDialog(true)} variant="accent" size="lg">
               <Plus className="h-4 w-4" aria-hidden />
-              Nuevo carrusel
+              {t("New carousel")}
             </Button>
           </div>
 
           <div
             role="tablist"
-            aria-label="Secciones"
+            aria-label={t("Sections")}
             className="mb-6 flex gap-1 border-b border-border"
           >
             {TABS.map((tab) => (
@@ -189,7 +191,7 @@ export default function DashboardPage() {
                 onClick={() => setActiveTab(tab.id)}
                 onKeyDown={(e) => {
                   if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-                  const i = TABS.findIndex((t) => t.id === activeTab);
+                  const i = TABS.findIndex((x) => x.id === activeTab);
                   const step = e.key === "ArrowRight" ? 1 : TABS.length - 1;
                   const next = TABS[(i + step) % TABS.length];
                   setActiveTab(next.id);
@@ -202,7 +204,7 @@ export default function DashboardPage() {
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 )}
               >
-                {tab.label}
+                {t(tab.label)}
               </button>
             ))}
           </div>
@@ -233,19 +235,19 @@ export default function DashboardPage() {
               <EmptyState
                 tone="error"
                 icon={<AlertTriangle className="h-6 w-6" />}
-                title="No pudimos cargar tus carruseles"
-                hint="Puede que el servidor no esté respondiendo. Revisá la terminal y volvé a intentar."
+                title={t("We couldn't load your carousels")}
+                hint={t("The server may not be responding. Check the terminal and try again.")}
                 action={
                   <Button variant="outline" onClick={retry}>
-                    Reintentar
+                    {t("Retry")}
                   </Button>
                 }
               />
             ) : carousels.length === 0 ? (
               <EmptyState
                 icon={<Layers className="h-6 w-6" />}
-                title="Todavía no hay carruseles"
-                hint="Creá el primero y pedile a la IA que arme los slides, o diseñalos vos mismo en el editor."
+                title={t("No carousels yet")}
+                hint={t("Create the first one and ask the AI to build the slides, or design them yourself in the editor.")}
                 action={
                   <Button
                     onClick={() => setShowCreateDialog(true)}
@@ -253,7 +255,7 @@ export default function DashboardPage() {
                     size="lg"
                   >
                     <Plus className="h-5 w-5" aria-hidden />
-                    Crear mi primer carrusel
+                    {t("Create my first carousel")}
                   </Button>
                 }
               />
@@ -274,7 +276,7 @@ export default function DashboardPage() {
                       ) : (
                         <span className="flex flex-col items-center gap-1 text-micro text-muted-foreground">
                           <Layers className="h-6 w-6 opacity-40" aria-hidden />
-                          Sin slides
+                          {t("No slides")}
                         </span>
                       )}
                     </div>
@@ -298,7 +300,7 @@ export default function DashboardPage() {
                       </Badge>
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" aria-hidden />
-                        {new Date(carousel.updatedAt).toLocaleDateString("es-AR")}
+                        {new Date(carousel.updatedAt).toLocaleDateString(locale === "es" ? "es-AR" : "en-US")}
                       </span>
                       <span className="ml-auto">
                         {carousel.slides.length}{" "}
@@ -310,7 +312,7 @@ export default function DashboardPage() {
                         that only exists on hover does not exist for the keyboard. */}
                     <div className="absolute right-3 top-3 z-10 flex gap-1">
                       <IconButton
-                        label={`Duplicar ${carousel.name}`}
+                        label={t("Duplicate {name}", { name: carousel.name })}
                         size="sm"
                         className="border border-border bg-surface shadow-rest"
                         onClick={() => handleDuplicate(carousel.id, carousel.name)}
@@ -318,7 +320,7 @@ export default function DashboardPage() {
                         <Copy className="h-4 w-4" aria-hidden />
                       </IconButton>
                       <IconButton
-                        label={`Eliminar ${carousel.name}`}
+                        label={t("Delete {name}", { name: carousel.name })}
                         size="sm"
                         className="border border-border bg-surface shadow-rest hover:border-destructive hover:bg-destructive hover:text-white"
                         onClick={() => handleDelete(carousel.id, carousel.name)}

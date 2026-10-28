@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { useEffect, useCallback } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
@@ -30,6 +31,7 @@ export function FullscreenPreview({
   activeIndex,
   onActiveChange,
 }: FullscreenPreviewProps) {
+  const t = useT();
   const slide = slides[activeIndex];
 
   const handleKeyDown = useCallback(
@@ -60,15 +62,14 @@ export function FullscreenPreview({
           data-oc-fade-scale
           className="fixed inset-0 z-(--z-modal) flex items-center justify-center p-8"
         >
-          <Dialog.Title className="sr-only">Vista a pantalla completa</Dialog.Title>
+          <Dialog.Title className="sr-only">{t("Full-screen view")}</Dialog.Title>
           <Dialog.Description className="sr-only">
-            Slide {activeIndex + 1} de {slides.length}. Usá las flechas para
-            moverte y Escape para salir.
+            {t("Slide {n} of {total}. Use the arrows to move and Escape to exit.", { n: activeIndex + 1, total: slides.length })}
           </Dialog.Description>
 
           <Dialog.Close asChild>
             <IconButton
-              label="Salir de pantalla completa"
+              label={t("Exit full screen")}
               size="lg"
               variant="outline"
               className={cn("absolute right-4 top-4 z-10 rounded-full", CHROME)}
@@ -78,7 +79,7 @@ export function FullscreenPreview({
           </Dialog.Close>
 
           <IconButton
-            label="Slide anterior"
+            label={t("Previous slide")}
             size="lg"
             variant="outline"
             onClick={() => onActiveChange(activeIndex - 1)}
@@ -97,7 +98,7 @@ export function FullscreenPreview({
           )}
 
           <IconButton
-            label="Slide siguiente"
+            label={t("Next slide")}
             size="lg"
             variant="outline"
             onClick={() => onActiveChange(activeIndex + 1)}
@@ -113,7 +114,7 @@ export function FullscreenPreview({
                 key={s.id}
                 type="button"
                 onClick={() => onActiveChange(i)}
-                aria-label={`Ir al slide ${i + 1}`}
+                aria-label={t("Go to slide {n}", { n: i + 1 })}
                 aria-current={i === activeIndex}
                 className={cn(
                   "oc-focus h-2 cursor-pointer rounded-full transition-[width,background-color] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)]",

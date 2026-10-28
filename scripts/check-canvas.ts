@@ -56,6 +56,9 @@ import {
   undo,
   MAX_HISTORY,
 } from "../src/lib/slide-history.ts";
+import { es } from "../src/lib/i18n-es.ts";
+import fs from "node:fs";
+import path from "node:path";
 
 const W = 1080;
 const H = 1350;
@@ -515,14 +518,19 @@ const fake = (
     "Hola mundo",
     "text becomes the name"
   );
-  assert.equal(elementLabel(fake("DIV", "   ")), "Forma", "blank text is a shape");
-  assert.equal(elementLabel(fake("IMG", "")), "Imagen", "an image without alt");
+  assert.equal(elementLabel(fake("DIV", "   ")), "Shape", "blank text is a shape");
+  assert.equal(elementLabel(fake("IMG", "")), "Image", "an image without alt");
+  assert.equal(
+    elementLabel(fake("IMG", ""), (s) => (s === "Image" ? "Imagen" : s)),
+    "Imagen",
+    "fallback names go through the caller's translation"
+  );
   assert.equal(
     elementLabel(fake("IMG", "", { alt: "Logo" })),
     "Logo",
     "alt names the image"
   );
-  assert.equal(elementLabel(fake("svg", "")), "Icono", "an svg is an icon");
+  assert.equal(elementLabel(fake("svg", "")), "Icon", "an svg is an icon");
   assert.equal(
     elementLabel(fake("DIV", "x", { "data-oc-name": "Mi capa" })),
     "Mi capa",
@@ -530,7 +538,7 @@ const fake = (
   );
   assert.equal(
     elementLabel(fake("DIV", "", { "data-oc-group": "" })),
-    "Grupo",
+    "Group",
     "a group is named as one"
   );
 
@@ -626,7 +634,7 @@ const fake = (
   for (const prop of forbidden) {
     assert.ok(
       !(STYLE_COPY_PROPS as readonly string[]).includes(prop),
-      `copiar estilo must not carry ${prop}`
+      `copy style must not carry ${prop}`
     );
   }
   // Shorthands stay out: their computed value is a long serialization that
@@ -714,21 +722,21 @@ const fake = (
   // left -171 ends at -31, so none of it is on the slide.
   const gone = findIssues([box({ name: "Cuadrado", left: -171, width: 140 })], W, H);
   assert.equal(gone.length, 1, "an element entirely off-canvas is reported once");
-  assert.match(gone[0], /completamente fuera/);
+  assert.match(gone[0], /entirely outside/);
   assert.match(gone[0], /Cuadrado/, "the warning names the layer");
 
   // The other real one: declared 920px wide, the text needs 932.
   const cut = findIssues([box({ width: 920, scrollWidth: 932 })], W, H);
   assert.equal(cut.length, 1);
-  assert.match(cut[0], /se corta/);
+  assert.match(cut[0], /is cut off/);
   assert.match(cut[0], /932px/, "the warning carries the measured number");
 
-  assert.match(findIssues([box({ height: 0 })], W, H)[0], /altura 0px/);
-  assert.match(findIssues([box({ width: 0 })], W, H)[0], /ancho 0px/);
+  assert.match(findIssues([box({ height: 0 })], W, H)[0], /height 0px/);
+  assert.match(findIssues([box({ width: 0 })], W, H)[0], /width 0px/);
 
   assert.match(
     findIssues([box({ text: "", painted: false, childCount: 0 })], W, H)[0],
-    /vac/,
+    /empty/,
     "a box with no text, no fill and no children is dead weight"
   );
 
@@ -740,7 +748,7 @@ const fake = (
   );
   assert.match(
     findIssues([box({ left: -40 })], W, H)[0],
-    /se sale.*40px por la izquierda/,
+    /overflows.*40px on the left/,
     "text hanging off the edge is always a bug"
   );
 
@@ -782,7 +790,7 @@ const fake = (
       command:
         'const r = await tools.exec_command({"cmd":"Copy-Item -LiteralPath \'C:\\\\Users\\\\m\\\\.codex\\\\generated_images\\\\a\\\\e.png\'"});',
     }),
-    [{ type: "status", text: "Guardando imagen…" }],
+    [{ type: "status", text: "Saving image…" }],
     "copying out of generated_images still reads as saving an image"
   );
 
@@ -793,19 +801,19 @@ const fake = (
       type: "file_change",
       changes: { "C:\\Users\\m\\AppData\\Local\\Temp\\pryzmo-slides.ps1": { type: "add" } },
     }),
-    "Escribiendo pryzmo-slides.ps1…"
+    "Writing pryzmo-slides.ps1…"
   );
   assert.deepEqual(
     statusForSlowItem({
       type: "image_view",
       path: "file:///C:/Users/m/Desktop/Slides%20Lab/public/uploads/magnifier.png",
     }),
-    "Mirando magnifier.png…",
+    "Viewing magnifier.png…",
     "a percent-encoded file:// URL still yields a readable name"
   );
   assert.equal(
     statusForSlowItem({ type: "extension", kind: "image_gen.generation" }),
-    "Generando imagen…"
+    "Generating image…"
   );
   assert.equal(
     statusForSlowItem({ type: "command_execution", command: "ls" }),
@@ -822,7 +830,7 @@ const fake = (
         item: { type: "image_view", path: "/tmp/oc-slide-1.png" },
       })
     ),
-    [{ type: "status", text: "Mirando oc-slide-1.png…" }],
+    [{ type: "status", text: "Viewing oc-slide-1.png…" }],
     "a completed image_view still reports"
   );
 }
@@ -884,6 +892,36 @@ const fake = (
   assert.equal(isUploadImageUrl("/uploads/abc.png"), true, "a plain upload url passes");
 }
 
+// ------------------------------------------------------------------ i18n
+{
+  // English is the key, so a typo in t("…") or a string added without its
+  // Spanish never fails anywhere — it just shows English to a Spanish user.
+  // Scan every literal t("…") / translate(locale, "…") and demand an entry.
+  const files: string[] = [];
+  const walk = (dir: string) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (/\.tsx?$/.test(e.name)) files.push(p);
+    }
+  };
+  walk("src");
+  const used = new Set<string>();
+  const call = /\b(?:t\(|translate\(\s*locale\s*,)\s*"((?:[^"\\]|\\.)*)"/g;
+  for (const f of files) {
+    for (const m of fs.readFileSync(f, "utf8").matchAll(call)) {
+      used.add(JSON.parse(`"${m[1]}"`));
+    }
+  }
+  assert.ok(used.size > 200, "the scan finds the UI strings");
+  const missing = [...used].filter((k) => !(k in es));
+  assert.deepEqual(missing, [], "every t() string has a Spanish entry in i18n-es.ts");
+  for (const [en, translated] of Object.entries(es)) {
+    const vars = (s: string) => (s.match(/\{\w+\}/g) ?? []).sort().join();
+    assert.equal(vars(translated), vars(en), `"${en}" keeps its placeholders in Spanish`);
+  }
+}
+
 console.log(
-  "canvas geometry + history + elements + effects + reflow + audit + status + uploads: all checks passed"
+  "canvas geometry + history + elements + effects + reflow + audit + status + uploads + i18n: all checks passed"
 );

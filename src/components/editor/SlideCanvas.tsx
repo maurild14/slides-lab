@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   angleFromCenter,
@@ -154,6 +155,7 @@ export function SlideCanvas({
   onApplyElementToAll,
   onApplyBackgroundToAll,
 }: SlideCanvasProps) {
+  const t = useT();
   const [overlay, setOverlay] = useState<OverlayState | null>(null);
   const [guides, setGuides] = useState<Box[]>([]);
   const [marquee, setMarquee] = useState<Box | null>(null);
@@ -667,14 +669,14 @@ export function SlideCanvas({
               height: area.height * m.scale,
             });
           }
-          setReadout(`${hits.length} seleccionado${hits.length === 1 ? "" : "s"}`);
+          setReadout(t(hits.length === 1 ? "1 selected" : "{n} selected", { n: hits.length }));
         },
         onEnd: (_e, moved) => {
           latest.current.onSelectionChange(moved ? hits : base);
         },
       });
     },
-    [runGesture, getDoc, viewportRef]
+    [runGesture, getDoc, viewportRef, t]
   );
 
   /* -------------------------------------------------------------- panning */

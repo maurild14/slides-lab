@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import { useId } from "react";
 import type { AspectRatio } from "@/types/carousel";
 import { cn } from "@/lib/utils";
@@ -17,9 +18,9 @@ const RATIOS: {
   label: string;
   icon: { w: number; h: number };
 }[] = [
-  { value: "1:1", label: "Cuadrado", icon: { w: 16, h: 16 } },
-  { value: "4:5", label: "Vertical", icon: { w: 15, h: 19 } },
-  { value: "9:16", label: "Historia", icon: { w: 12, h: 20 } },
+  { value: "1:1", label: "Square", icon: { w: 16, h: 16 } },
+  { value: "4:5", label: "Portrait", icon: { w: 15, h: 19 } },
+  { value: "9:16", label: "Story", icon: { w: 12, h: 20 } },
 ];
 
 /**
@@ -34,6 +35,7 @@ export function AspectRatioSelector({
   className,
 }: AspectRatioSelectorProps) {
   const name = useId();
+  const t = useT();
   return (
     <div
       role="radiogroup"
@@ -45,7 +47,7 @@ export function AspectRatioSelector({
         return (
           <label
             key={ratio.value}
-            title={`${ratio.label} (${ratio.value})`}
+            title={`${t(ratio.label)} (${ratio.value})`}
             // A row, not a stack: stacked it measured 64px and the editor's
             // 40px toolbar clipped it (and grew a scrollbar around it).
             className={cn(

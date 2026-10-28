@@ -5,6 +5,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { IconButton } from "./button";
 import { cn } from "@/lib/utils";
+import { useT } from "@/components/locale-provider";
 
 interface DialogShellProps {
   open: boolean;
@@ -33,6 +34,7 @@ export function DialogShell({
   className,
   children,
 }: DialogShellProps) {
+  const t = useT();
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -63,7 +65,7 @@ export function DialogShell({
               )}
             </div>
             <Dialog.Close asChild>
-              <IconButton label="Cerrar" size="sm" className="-mr-1 -mt-1">
+              <IconButton label={t("Close")} size="sm" className="-mr-1 -mt-1">
                 <X className="h-4 w-4" aria-hidden />
               </IconButton>
             </Dialog.Close>

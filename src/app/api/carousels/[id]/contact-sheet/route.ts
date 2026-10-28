@@ -18,7 +18,7 @@ export async function GET(
   }
   if (carousel.slides.length === 0) {
     return NextResponse.json(
-      { error: "El carrusel no tiene slides todavía" },
+      { error: "The carousel has no slides yet" },
       { status: 400 }
     );
   }

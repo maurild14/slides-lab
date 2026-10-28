@@ -49,7 +49,7 @@ new pure logic gets an `assert` in one of the two `check:*` scripts
 
 | What | Language |
 | --- | --- |
-| UI copy | Spanish (*castellano*, voseo) |
+| UI copy | English in `t("…")`, Spanish in `src/lib/i18n-es.ts` ([docs/ui.md](docs/ui.md#copy)) |
 | Code, comments, `docs/` | English |
 | Commit messages, PR descriptions | Spanish or English |
 

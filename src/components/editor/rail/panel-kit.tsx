@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/locale-provider";
 import * as React from "react";
 import { Search, X } from "lucide-react";
 import { IconButton } from "@/components/ui/button";
@@ -28,6 +29,7 @@ export function PanelShell({
   hidden?: boolean;
   children: React.ReactNode;
 }) {
+  const t = useT();
   return (
     <div
       className={cn(
@@ -42,7 +44,7 @@ export function PanelShell({
             <p className="mt-1 text-label text-muted-foreground">{description}</p>
           )}
         </div>
-        <IconButton label="Cerrar el panel" size="sm" onClick={onClose}>
+        <IconButton label={t("Close the panel")} size="sm" onClick={onClose}>
           <X className="h-4 w-4" aria-hidden />
         </IconButton>
       </div>
@@ -100,6 +102,7 @@ export function SearchInput({
   placeholder: string;
   label: string;
 }) {
+  const t = useT();
   return (
     <div className="oc-field flex h-control items-center gap-2 rounded-md border border-border bg-surface pl-3 pr-1 hover:border-muted-foreground/40 has-[:focus-visible]:shadow-[0_0_0_2px_var(--surface),0_0_0_4px_var(--ring)]">
       <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
@@ -112,7 +115,7 @@ export function SearchInput({
         className="w-full min-w-0 bg-transparent text-body outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden"
       />
       {value && (
-        <IconButton label="Limpiar la búsqueda" size="sm" onClick={() => onChange("")}>
+        <IconButton label={t("Clear the search")} size="sm" onClick={() => onChange("")}>
           <X className="h-4 w-4" aria-hidden />
         </IconButton>
       )}
@@ -164,7 +167,7 @@ export function insertProps(insert: () => void) {
  *
  * Both routes are always live: press and drag to place it where you want, or
  * just click to drop it in the middle of the slide. Making the drag the only
- * way in is exactly what "no anda" means to someone using a trackpad.
+ * way in is exactly what "it doesn't work" means to someone using a trackpad.
  */
 export function InsertTile({
   spec,
@@ -178,11 +181,13 @@ export function InsertTile({
   /** Custom preview. Defaults to a scaled render of the spec's own markup. */
   children?: React.ReactNode;
 }) {
+  const t = useT();
+  const label = t(spec.label);
   return (
     <button
       type="button"
-      title={`${spec.label} — arrastralo o tocalo`}
-      aria-label={`Insertar ${spec.label}`}
+      title={t("{label} — drag it or click it", { label })}
+      aria-label={t("Insert {label}", { label })}
       {...insertProps(() =>
         onInsert({ html: spec.html, width: spec.width, height: spec.height })
       )}
@@ -243,11 +248,13 @@ export function InsertRow({
   sample: React.ReactNode;
   hint?: string;
 }) {
+  const t = useT();
+  const label = t(spec.label);
   return (
     <button
       type="button"
-      title={`${spec.label} — arrastralo o tocalo`}
-      aria-label={`Insertar ${spec.label}`}
+      title={t("{label} — drag it or click it", { label })}
+      aria-label={t("Insert {label}", { label })}
       {...insertProps(() =>
         onInsert({ html: spec.html, width: spec.width, height: spec.height })
       )}

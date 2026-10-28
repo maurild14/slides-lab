@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { useT } from "@/components/locale-provider";
 import { Bot, User } from "lucide-react";
 import type { ChatAttachment } from "./ChatInput";
 
@@ -17,6 +18,7 @@ export function ChatMessage({
   isStreaming,
   attachments,
 }: ChatMessageProps) {
+  const t = useT();
   return (
     <div
       className={cn(
@@ -40,7 +42,7 @@ export function ChatMessage({
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-label font-medium text-muted-foreground mb-1">
-          {role === "user" ? "Vos" : "Asistente"}
+          {role === "user" ? t("You") : t("Assistant")}
         </div>
         {attachments && attachments.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-2">
