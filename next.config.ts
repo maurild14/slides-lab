@@ -8,6 +8,13 @@ const nextConfig: NextConfig = {
     // overhead.
     proxyClientMaxBodySize: "25mb",
   },
+  async rewrites() {
+    return {
+      // Next start only indexes public files at build time. Read all uploads
+      // through the same validated route, including files present at build.
+      beforeFiles: [{ source: "/uploads/:path*", destination: "/api/uploads/:path*" }],
+    };
+  },
   async headers() {
     return [
       {

@@ -100,10 +100,16 @@ path is handed to a shell.
 | `GET/DELETE /api/style-presets/[id]` | A preset is injected into the system prompt when passed to `/api/chat` |
 | `GET /api/fonts` | A curated Google Fonts list, hardcoded — not a live fetch |
 | `POST /api/upload` | `multipart/form-data`, field `file`, max 20 MB |
+| `GET /uploads/[...path]` | Runtime file read via `/api/uploads/[...path]`, including uploads created after a production build |
 
 `/api/upload` validates by **magic bytes**, not by extension or the declared
 MIME type, and accepts images (PNG, JPG, WebP) as well as font files (WOFF2,
 TTF) for custom brand fonts.
+
+`/uploads/…` is rewritten before public-file lookup so `next start` can serve
+new files too. The read route uses `resolveUploadPath` and checks the real path
+to reject traversal and symlinks outside `public/uploads`. Only PNG, JPG/JPEG,
+WebP, WOFF2 and TTF are served, with their content types and the app's usual CSP.
 
 ## Adding a route
 

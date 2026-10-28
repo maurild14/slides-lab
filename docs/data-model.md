@@ -104,3 +104,5 @@ fills every blank; call it on read, always.
 as `.png` — the PNG export inlines that path and silently drops anything else.
 `findUploadRefs()` in `src/lib/upload-paths.ts` is the single parser of how a
 reference can be written; see [export.md](export.md) for why that matters.
+The browser reads `/uploads/…` through a filesystem route at request time, so
+images and fonts created after `next build` also work under `npm start`.
