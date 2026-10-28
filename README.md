@@ -25,6 +25,8 @@
 - [Quickstart (60 seconds)](#-quickstart-60-seconds)
 - [What you can do](#-what-you-can-do)
 - [How the AI agent works](#-how-the-ai-agent-works)
+- [Privacy: what leaves your machine](#-privacy-what-leaves-your-machine)
+- [Costs](#-costs)
 - [Slash commands](#-slash-commands)
 - [Architecture](#-architecture)
 - [Tech stack](#-tech-stack)
@@ -33,7 +35,6 @@
 - [Configuration](#%EF%B8%8F-configuration)
 - [Troubleshooting](#-troubleshooting)
 - [Roadmap](#%EF%B8%8F-roadmap)
-- [Contributing](#-contributing)
 - [Acknowledgments](#-acknowledgments)
 - [License](#-license)
 
@@ -47,7 +48,7 @@ Designing Instagram carousels eats hours. You either:
 - Wrestle Canva templates that everyone else also uses
 - Hand-craft slides in Figma and lose your weekend
 
-**Slides Lab takes a different bet.** You chat with Claude — the same model many designers already trust — and it generates real HTML/CSS slides that get screenshotted to PNGs at exact Instagram dimensions. Slides are unique, on-brand, and pixel-perfect. Everything runs on your laptop. Nothing is sent to a cloud you don't control.
+**Slides Lab takes a different bet.** You chat with Claude — the same model many designers already trust — and it generates real HTML/CSS slides that get screenshotted to PNGs at exact Instagram dimensions. Slides are unique, on-brand, and pixel-perfect. The app, your carousels and your uploads stay on your laptop; what the AI agent sees goes to its provider — see [Privacy](#-privacy-what-leaves-your-machine).
 
 It's open source under MIT. Fork it, tweak the system prompt, ship your own variant. No accounts. No subscriptions. No vendor lock-in.
 
@@ -93,8 +94,10 @@ That's it. Dependencies install, the dev server starts, your browser opens. Now 
 git clone https://github.com/maurild14/slides-lab.git
 cd slides-lab
 npm run setup        # installs deps + seeds /data/
-npm run dev          # starts http://localhost:3000
+npm run dev          # starts http://127.0.0.1:3000
 ```
+
+Requires **Node ≥ 22.18** (`.nvmrc` pins 22). The server listens on `127.0.0.1` only and has no auth — don't expose it to a network ([SECURITY.md](./SECURITY.md)).
 
 The AI chat needs at least one agent CLI installed — [Claude Code](https://docs.anthropic.com/en/docs/claude-code) or [Codex](https://developers.openai.com/codex/cli). Without either, the editor and export still work for static slides.
 
@@ -116,7 +119,7 @@ The AI chat needs at least one agent CLI installed — [Claude Code](https://doc
 - **Fullscreen preview** for the final review.
 - **One-click export** — Puppeteer screenshots each slide HTML at the exact pixel dimensions Instagram expects, zips them, downloads.
 - **Captions + hashtags** generator built into the editor.
-- **All local** — slides, brand, uploads, exports all live in `/data/` and `/public/uploads/`. Nothing is sent to a cloud you don't control. The only network calls are the agent CLI talking to its own provider.
+- **Local storage** — slides, brand, uploads, exports all live in `/data/` and `/public/uploads/`. No database, no account. What does leave the machine is listed under [Privacy](#-privacy-what-leaves-your-machine).
 
 ---
 
@@ -126,8 +129,10 @@ The in-app agent is an **agent CLI spawned as a subprocess** from `/api/chat`. M
 
 | Engine | Runs as | Image generation |
 |---|---|---|
-| **Claude** | `claude -p` with `--allowedTools Bash WebFetch Read` | via `POST /api/images/generate` |
-| **Codex** | `codex exec --json` sandboxed to the workspace | built-in `image_gen` tool |
+| **Claude** | `claude -p` with a curl-only shell, `WebFetch`, `Read` limited to `public/uploads` and a private temp dir, `Write` limited to that temp dir | via `POST /api/images/generate` |
+| **Codex** | `codex exec --json` in the `workspace-write` sandbox (writes to the project and the OS temp dir, network on) | built-in `image_gen` tool |
+
+Claude gets no free shell: `Bash(curl *)` is its only command rule, and anything outside the allowlist is denied because `-p` has no one to ask. The details, and the holes that remain, are in [docs/agent-engines.md](./docs/agent-engines.md) and [SECURITY.md](./SECURITY.md).
 
 Each engine keeps its own conversation, so switching mid-carousel starts a fresh thread rather than confusing the other one.
 
@@ -135,8 +140,9 @@ When you ask for a slide, the agent:
 
 1. Reads your brand config + active carousel state from the system prompt
 2. Writes the slide as a complete HTML/CSS string
-3. POSTs it to `/api/carousels/[id]/slides` via `curl` (using its `Bash` tool)
-4. The new slide appears in your filmstrip seconds later
+3. POSTs it to `/api/carousels/[id]/slides` with `curl`
+4. Renders it, reads the PNG and the layout warnings, and fixes what it sees ([docs/audit.md](./docs/audit.md))
+5. The new slide appears in your filmstrip seconds later
 
 ### Example chat
 
@@ -164,6 +170,25 @@ Slides are stored as **body-level HTML** (no `<html>`/`<head>`/`<!DOCTYPE>`). Th
 - to **Puppeteer (headless Chromium)** for export, screenshot at exact Instagram pixel dimensions, zipped, downloaded
 
 Because the same wrap function feeds both paths, what you see is exactly what you export. No surprises.
+
+---
+
+## 🔒 Privacy: what leaves your machine
+
+Slides Lab has no server of its own and no telemetry. Your carousels, brand and uploads are files on your disk, and the app listens on `127.0.0.1` only. But it is not offline:
+
+- **The agent's provider sees your content.** Every chat turn sends your message and the system prompt — your brand config and the full HTML of every slide in the carousel — to Anthropic (Claude) or OpenAI (Codex). So does every image the agent reads: attachments, reference images, and the renders of your slides. That traffic runs under your own account and that provider's terms.
+- **Google Fonts sees font requests.** Slides load their fonts from `fonts.googleapis.com` / `fonts.gstatic.com`, in the editor and during export.
+- **The agent can browse.** Claude has `WebFetch` and Codex runs with network access, so when it researches a topic it fetches pages from the open web. Those sites see the requests, and what they return lands in the agent's context.
+- **Next.js telemetry.** `next dev` / `next build` send Next.js's anonymous usage telemetry unless you set `NEXT_TELEMETRY_DISABLED=1`.
+
+---
+
+## 💸 Costs
+
+Slides Lab is free; the agent is not. **Every chat turn is billed to the plan or account the CLI is logged into** — your Claude subscription or API key, or your ChatGPT plan for Codex (image generation included). A full carousel built from scratch runs around 250k tokens.
+
+Claude stops a single turn once its estimated cost reaches `CHAT_MAX_BUDGET_USD` (**5 USD** by default; set it in `.env.local`). Codex has no per-turn cap. The chat panel shows how much of the plan's current window you have used and how many tokens the conversation has spent.
 
 ---
 
@@ -222,14 +247,14 @@ flowchart LR
 
 **Why these choices:**
 
-- **Local-first, single-user.** The whole app is a localhost web app talking to local files. No cloud, no auth, no database.
-- **An agent CLI as the agent.** Lets us reuse whatever the user already pays for — no API keys of our own, no cloud account. The subprocess gets shell access (to `curl` the slide-write endpoints) and web access (for research while designing), and nothing else.
+- **Local-first, single-user.** The whole app is a web app bound to `127.0.0.1` talking to local files. No auth, no database. A proxy rejects requests whose `Host` or `Origin` isn't this machine, so other sites can't drive it from your browser.
+- **An agent CLI as the agent.** Lets us reuse whatever the user already pays for — no API keys of our own, no cloud account. The subprocess gets `curl` (to call the slide-write endpoints), web access (for research while designing), and file access scoped to uploads and its own temp dir.
 - **Images from the agent's own subscription.** Codex ships `image_gen` (gpt-image-2) built in and bills it to the user's ChatGPT plan, so image generation needs no third-party service and no `OPENAI_API_KEY`.
 - **Slides as HTML.** Claude already writes great HTML/CSS — way more flexible than canvas, way easier to debug than a JSON DSL. The same HTML powers preview *and* export, so what you see is what you ship.
-- **Sandboxed iframes.** No `<script>` tags allowed (enforced by the iframe `sandbox=""` attribute). Slides can't run code or escape their box.
+- **Sandboxed iframes.** Slide iframes never get `allow-scripts`, so slides can't run code. Export renders them in Puppeteer with JavaScript off and the network limited to Google Fonts.
 - **JSON file storage with async-mutex + atomic writes.** No SQLite, no Postgres. Reads and writes go through [`src/lib/data.ts`](./src/lib/data.ts) with proper locking, and writes are tmp-file + rename to avoid torn JSON.
 
-For more, see [`CLAUDE.md`](./CLAUDE.md) — the architecture doc tuned for AI assistants working on this codebase.
+For more, see [`docs/architecture.md`](./docs/architecture.md).
 
 ---
 
@@ -262,8 +287,9 @@ slides-lab/
 │   └── screenshots/          ← README assets
 ├── public/uploads/           ← user uploads (gitignored): logos, reference images
 ├── scripts/
-│   ├── setup.mjs             ← npm install + seed data dirs + Claude CLI detection (cross-platform)
-│   └── doctor.mjs            ← env diagnostic (zero deps, runs pre-install)
+│   ├── setup.mjs             ← npm install + seed data dirs + engine detection (cross-platform)
+│   ├── doctor.mjs            ← env diagnostic (zero deps, runs pre-install)
+│   └── check-*.ts            ← self-checks (plain node + assert)
 ├── src/
 │   ├── app/
 │   │   ├── api/              ← every backend route (chat, carousels, slides, export, brand, ...)
@@ -287,8 +313,13 @@ slides-lab/
 │   │   ├── canvas-utils.ts          ← slide/screen coordinate math + snapping
 │   │   └── ...
 │   └── types/                ← shared TypeScript types
+├── .github/                  ← CI, Dependabot, issue + PR templates
 ├── AGENTS.md                 ← the contract every AI agent reads: commands, rules, docs map
 ├── CLAUDE.md                 ← Claude Code specifics; imports AGENTS.md
+├── CONTRIBUTING.md           ← checks, conventions, language
+├── SECURITY.md               ← reporting + threat model
+├── CHANGELOG.md
+├── CODE_OF_CONDUCT.md
 ├── LICENSE                   ← MIT
 ├── README.md                 ← you are here
 ├── next.config.ts
@@ -329,14 +360,15 @@ the rules that cost a real bug, and the map into `docs/`.
 
 ### Environment variables (`.env.local`)
 
-Created automatically by `scripts/setup.mjs`, which looks for both engines. You can override either:
+Created by `scripts/setup.mjs`, which looks for both engines. Everything is optional; [`.env.example`](./.env.example) lists it:
 
 ```bash
 CLAUDE_CLI_PATH=/path/to/claude   # set if `which claude` doesn't find it
 CODEX_CLI_PATH=/path/to/codex     # set if `which codex` doesn't find it
+CHAT_MAX_BUDGET_USD=5.00          # Claude's per-turn spend cap
 ```
 
-On Windows, run `where claude` in PowerShell to find the path (typically `C:\Users\<you>\AppData\Roaming\npm\claude.cmd`), then set `CLAUDE_CLI_PATH` in `.env.local`.
+On Windows, run `where claude` in PowerShell to find the path (the native installer puts it at `C:\Users\<you>\.local\bin\claude.exe`, an npm install at `...\AppData\Roaming\npm\claude.cmd`), then set `CLAUDE_CLI_PATH` in `.env.local`.
 
 ### Brand config
 
@@ -354,7 +386,7 @@ Save any carousel as a template via the bookmark icon in the editor toolbar. Tem
 
 ### Reference images
 
-Drop screenshots into the chat panel's "Reference Images" section. Stored under `/public/uploads/`. Claude Code can read them via `WebFetch` of the local URL when designing.
+Drop screenshots into the chat panel's "Reference Images" section. Stored under `/public/uploads/`; the agent opens them with its `Read` tool, which is scoped to that folder and its own temp dir.
 
 ---
 
@@ -364,13 +396,25 @@ Drop screenshots into the chat panel's "Reference Images" section. Stored under 
 The `check:*` scripts run `.ts` files straight through Node, which needs 22.18+, and Puppeteer 25 needs 22. Install via [nodejs.org](https://nodejs.org) or [nvm](https://github.com/nvm-sh/nvm).
 
 **`/start` says "Claude CLI not found."**
-Install [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and authenticate. The setup script searches `~/.local/bin/claude`, `/usr/local/bin/claude`, `/opt/homebrew/bin/claude`, `~/.npm-global/bin/claude`, and `$CLAUDE_CLI_PATH`. If yours lives elsewhere, set `CLAUDE_CLI_PATH` in `.env.local`.
+Install [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and authenticate. The app checks `$CLAUDE_CLI_PATH` first, then `~/.local/bin/claude` (`claude.exe` on Windows), `/usr/local/bin/claude`, `/opt/homebrew/bin/claude`, `~/.npm-global/bin/claude`, `%APPDATA%\npm`, and finally your `PATH`. If yours lives elsewhere, set `CLAUDE_CLI_PATH` in `.env.local`.
 
 **Port 3000 is in use.**
 Run `/stop` to kill whatever's there, or run `/start 3001` to use a different port.
 
+**The page or the API answers `403 Host not allowed` / `Origin not allowed`.**
+You opened it through something other than `localhost:<port>` or `127.0.0.1:<port>` — a LAN IP, a custom hostname, a tunnel. That is the DNS-rebinding guard in `src/proxy.ts`, on purpose: the app has no auth.
+
+**The chat stops with a budget error.**
+The turn hit `CHAT_MAX_BUDGET_USD`. Raise it in `.env.local` and restart the dev server, or ask for less per turn.
+
+**The agent says it can't read a file or run a command.**
+Expected for anything outside its allowlist: `curl`, `WebFetch`, `Read` in `public/uploads` and its private temp dir. If it fails on its own slide renders, file an issue with the chat transcript.
+
+**The chat stream dies mid-build.**
+Something wrote a file inside the project, Fast Refresh reloaded, and the reload killed the stream. [docs/workflows.md](./docs/workflows.md#troubleshooting) covers this and the other engine-level symptoms.
+
 **Export fails or hangs.**
-Likely a Puppeteer/Chromium issue. Try `rm -rf node_modules && npm install` to re-trigger the Chromium download. On Linux you may need `apt install` of common Chromium dependencies (libnss3, libatk1.0-0, libxss1, etc.).
+Likely a Puppeteer/Chromium issue. Try `rm -rf node_modules .next && npm install` to re-trigger the Chromium download. On Linux you may need `apt install` of common Chromium dependencies (libnss3, libatk1.0-0, libxss1, etc.).
 
 **Slides look fine in preview but export looks different.**
 That shouldn't happen — both go through `wrapSlideHtml()`. If it does, file an issue with the slide HTML attached.
@@ -384,7 +428,7 @@ Open the brand setup (gear icon) and confirm your colors and style keywords are 
 
 ## 🗺️ Roadmap
 
-Open ideas — PRs welcome. Tick what you ship, add your own.
+Open ideas — PRs welcome, see [CONTRIBUTING.md](./CONTRIBUTING.md). Tick what you ship, add your own.
 
 - [ ] **Multi-language slide generation** — Spanish-LATAM voice presets so creators don't fight the AI's English defaults
 - [ ] **Reels storyboard mode** — vertical 9:16 with optional text-on-clip annotations
@@ -396,22 +440,9 @@ Open ideas — PRs welcome. Tick what you ship, add your own.
 
 ---
 
-## 🤝 Contributing
-
-PRs welcome. The bar:
-
-- **Run `npm run check:canvas`, `npm run check:agents`, `npm run lint` and `npm run build`** before opening a PR — all four should pass clean. There is no test framework; new pure logic gets an `assert` in one of the two check scripts.
-- **Follow the conventions** in [`AGENTS.md`](./AGENTS.md) — components ≤ 300 lines, types in `src/types/`, libs in `src/lib/`, `cn()` from `src/lib/utils.ts` for class merging, all data writes through `src/lib/data.ts`.
-- **Update the `docs/` page you invalidated**, in the same commit.
-- **Don't touch the slide rendering contract.** `wrapSlideHtml()` in `src/lib/slide-html.ts` is the seam between preview and export. Change it carefully and test the export round-trip.
-- **Animations follow [Emil Kowalski's philosophy](https://animations.dev)** — CSS-first, custom easings (already defined as CSS variables in `globals.css`), respect `prefers-reduced-motion`. See the `oc-*` utility classes already in `globals.css` before authoring new ones.
-
-Good first contributions: roadmap items above, more brand templates, accessibility audits, real screenshots/demos for the README, translations.
-
----
-
 ## 🙏 Acknowledgments
 
+- **[Open Carrusel](https://github.com/Hainrixz/open-carrusel)** — Slides Lab started as a fork of Open Carrusel (MIT). Its copyright notice stays in [LICENSE](./LICENSE).
 - **[Emil Kowalski](https://emilkowal.ski)** — animation philosophy that shaped the whole motion system. The `oc-*` CSS classes encode his design-engineering principles (custom easings, restraint over excess, `@starting-style` over JS for entries).
 - **[Anthropic](https://www.anthropic.com)** — Claude (the model) and Claude Code (the CLI) are the brain of the in-app agent.
 - **[Vercel](https://vercel.com)** — Next.js + Turbopack make local-first React apps feel snappy.
@@ -423,7 +454,7 @@ Good first contributions: roadmap items above, more brand templates, accessibili
 
 ## 📄 License
 
-[MIT](./LICENSE) — do anything you want with it. Attribution appreciated, never required.
+[MIT](./LICENSE). Copies and substantial portions must keep the copyright and permission notice.
 
 ---
 

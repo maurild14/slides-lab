@@ -84,8 +84,9 @@ explains it.
 - Types in `src/types/`, logic in `src/lib/`, components in `src/components/`.
 - Merge classes with `cn()` from `src/lib/utils.ts`. Any new `font-size` token
   added to `globals.css` must also be registered in `cn()`'s class groups.
-- Prose in the UI is Spanish (`castellano`). Code, comments and these docs are
-  English.
+- Prose in the UI is Spanish (`castellano`, voseo). Code, comments and these
+  docs are English. Commits and PRs: Spanish or English
+  ([CONTRIBUTING.md](CONTRIBUTING.md)).
 - Comments explain *why*, and usually name the failure that forced the line.
 
 ## Verification before you call it done

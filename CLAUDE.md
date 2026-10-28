@@ -41,7 +41,9 @@ Prefer these over re-deriving the commands: `/start` already handles the
 
 ## Commit style
 
-Present tense, Spanish subject line describing the user-visible effect
-(`feat: el editor muestra cuánto queda del plan`), body in Spanish explaining
-the *why* and the failure it fixes, and a final line naming the verification
-that was actually run.
+Present tense, subject line describing the user-visible effect
+(`feat: el editor muestra cuánto queda del plan`), body explaining the *why*
+and the failure it fixes, and a final line naming the verification that was
+actually run. Spanish or English — follow the language of the person you are
+working with; the history is mostly Spanish. Full rules in
+[CONTRIBUTING.md](CONTRIBUTING.md).
