@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import archiver from "archiver";
+import { ZipArchive } from "archiver";
 import { getCarousel } from "@/lib/carousels";
 import {
   exportAllSlides,
@@ -21,7 +21,7 @@ function safeName(name: string): string {
 
 function zip(files: { name: string; buffer: Buffer }[]): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const archive = archiver("zip", { zlib: { level: 5 } });
+    const archive = new ZipArchive({ zlib: { level: 5 } });
     const chunks: Buffer[] = [];
     archive.on("data", (chunk: Buffer) => chunks.push(chunk));
     archive.on("end", () => resolve(Buffer.concat(chunks)));
