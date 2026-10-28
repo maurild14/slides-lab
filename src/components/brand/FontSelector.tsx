@@ -13,9 +13,10 @@ interface FontSelectorProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  error?: string;
 }
 
-export function FontSelector({ label, value, onChange }: FontSelectorProps) {
+export function FontSelector({ label, value, onChange, error }: FontSelectorProps) {
   const id = useId();
   const t = useT();
   const [fonts, setFonts] = useState<Font[]>([]);
@@ -37,6 +38,8 @@ export function FontSelector({ label, value, onChange }: FontSelectorProps) {
         <select
           id={id}
           value={value}
+          aria-invalid={!!error}
+          aria-describedby={error ? `${id}-error` : undefined}
           onChange={(e) => onChange(e.target.value)}
           className="oc-focus h-control w-full cursor-pointer appearance-none rounded-md border border-border bg-surface px-3 pr-9 text-body text-foreground hover:border-muted-foreground/40"
         >
@@ -56,6 +59,7 @@ export function FontSelector({ label, value, onChange }: FontSelectorProps) {
           aria-hidden
         />
       </div>
+      {error && <p id={`${id}-error`} role="alert" className="text-label text-destructive">{error}</p>}
       {failed && (
         <p role="alert" className="text-micro text-destructive">
           {t("Couldn't load the font list. You can still type the name.")}

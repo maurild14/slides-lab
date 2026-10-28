@@ -13,6 +13,7 @@ import { FontSelector } from "./FontSelector";
 import { LogoUpload } from "./LogoUpload";
 import type { BrandConfig } from "@/types/brand";
 import { DEFAULT_BRAND } from "@/types/brand";
+import { brandValidationError, type BrandValidationError } from "@/lib/brand-validation";
 
 interface BrandSetupProps {
   open: boolean;
@@ -50,21 +51,37 @@ export function BrandSetup({ open, onComplete, initialBrand }: BrandSetupProps) 
   const [brand, setBrand] = useState<BrandConfig>(initialBrand || DEFAULT_BRAND);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldError, setFieldError] = useState<BrandValidationError | null>(null);
 
   useEffect(() => {
     if (initialBrand) setBrand(initialBrand);
   }, [initialBrand]);
 
   const handleSave = useCallback(async () => {
+    const invalid = brandValidationError(brand);
+    if (invalid) {
+      setFieldError(invalid);
+      setStep(invalid.field.startsWith("colors.") ? 1 : 2);
+      return;
+    }
     setSaving(true);
     setError(null);
+    setFieldError(null);
     try {
       const res = await fetch("/api/brand", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(brand),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const failure = await res.json().catch(() => ({}));
+        if (typeof failure.field === "string" && typeof failure.error === "string") {
+          setFieldError(failure);
+          setStep(failure.field.startsWith("colors.") ? 1 : 2);
+          return;
+        }
+        throw new Error();
+      }
       onComplete();
     } catch {
       setError(t("Couldn't save the brand. Check the server and try again."));
@@ -113,7 +130,13 @@ export function BrandSetup({ open, onComplete, initialBrand }: BrandSetupProps) 
             </Button>
           ) : (
             <Button
-              onClick={() => setStep(step + 1)}
+              onClick={() => {
+                const invalid = brandValidationError(
+                  step === 1 ? { colors: brand.colors } : step === 2 ? { fonts: brand.fonts, customFonts: brand.customFonts } : {}
+                );
+                setFieldError(invalid);
+                if (!invalid) setStep(step + 1);
+              }}
               disabled={step === 0 && !brand.name.trim()}
             >
               {t("Next")}
@@ -161,9 +184,11 @@ export function BrandSetup({ open, onComplete, initialBrand }: BrandSetupProps) 
                 key={key}
                 label={t(label)}
                 value={brand.colors[key]}
-                onChange={(v) =>
-                  setBrand({ ...brand, colors: { ...brand.colors, [key]: v } })
-                }
+                error={fieldError?.field === `colors.${key}` ? t(fieldError.error) : undefined}
+                onChange={(v) => {
+                  setFieldError(null);
+                  setBrand({ ...brand, colors: { ...brand.colors, [key]: v } });
+                }}
               />
             ))}
           </div>
@@ -174,15 +199,24 @@ export function BrandSetup({ open, onComplete, initialBrand }: BrandSetupProps) 
             <FontSelector
               label={t("Heading font")}
               value={brand.fonts.heading}
-              onChange={(v) =>
-                setBrand({ ...brand, fonts: { ...brand.fonts, heading: v } })
-              }
+              error={fieldError?.field === "fonts.heading" ? t(fieldError.error) : undefined}
+              onChange={(v) => {
+                setFieldError(null);
+                setBrand({ ...brand, fonts: { ...brand.fonts, heading: v } });
+              }}
             />
             <FontSelector
               label={t("Body font")}
               value={brand.fonts.body}
-              onChange={(v) => setBrand({ ...brand, fonts: { ...brand.fonts, body: v } })}
+              error={fieldError?.field === "fonts.body" ? t(fieldError.error) : undefined}
+              onChange={(v) => {
+                setFieldError(null);
+                setBrand({ ...brand, fonts: { ...brand.fonts, body: v } });
+              }}
             />
+            {fieldError?.field === "customFonts" && (
+              <p role="alert" className="text-label text-destructive">{t(fieldError.error)}</p>
+            )}
           </div>
         )}
 

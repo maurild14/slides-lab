@@ -60,6 +60,14 @@ straight from `src/lib/*.ts`, which is why `slide-audit-rules.ts` and
 Anything touching rendering, export or the agent loop also needs a real run: one
 carousel, a few slides, an export.
 
+With one server running on :3000, the browser/API regression scripts are:
+`node scripts/check-editor.mjs` (editing, gestures and live agent layers),
+`node scripts/check-uploads.mjs` (runtime files, content types, CSP and paths),
+and `node scripts/check-brand.mjs` (invalid PUTs and field-local wizard errors).
+Run them sequentially; each closes its browser and removes its own fixtures.
+Repeat the upload check after `npm run build` followed by `npm start` to cover
+files that did not exist at build time.
+
 ## Adding a feature — the short checklist
 
 1. Read the `docs/` page for the area first ([README.md](README.md) has the map).

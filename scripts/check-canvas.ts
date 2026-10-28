@@ -1,6 +1,8 @@
 // Self-check for the canvas geometry and history math. Run: npm run check:canvas
 // No framework on purpose — plain asserts, plain node.
 import assert from "node:assert/strict";
+import { brandValidationError } from "../src/lib/brand-validation.ts";
+
 import {
   FILTER_PRESETS,
   TEXT_EFFECTS,
@@ -72,6 +74,23 @@ const near = (a: number, b: number, msg: string, eps = 1e-6) =>
   assert.ok(Math.abs(a - b) < eps, `${msg} (got ${a}, want ${b})`);
 
 /* ----------------------------------------------------------- snapping */
+
+for (const primary of ["#abc", "#ABC", "#14213D", "#000000"]) {
+  assert.equal(brandValidationError({ colors: { primary } }), null);
+}
+for (const primary of ["#1a1a2e#14213D", "red", "", "#12", "#abcd", "#12345678", "#ggg", " #fff"]) {
+  assert.equal(brandValidationError({ colors: { primary } })?.field, "colors.primary");
+}
+for (const heading of ["Inter", "Source Sans 3", "A".repeat(64)]) {
+  assert.equal(brandValidationError({ fonts: { heading } }), null);
+}
+for (const heading of ["", " ", "Inter';color:red", "../Arial", "A".repeat(65), "Inter\n"]) {
+  assert.equal(brandValidationError({ fonts: { heading } })?.field, "fonts.heading");
+}
+assert.equal(brandValidationError({ customFonts: [{ name: "My Font", path: "/uploads/fonts/font-1.woff2" }] }), null);
+for (const fontPath of ["/outside/font.ttf", "/uploads/fonts/../../font.ttf", "/uploads/fonts/font.svg"]) {
+  assert.equal(brandValidationError({ customFonts: [{ name: "Inter", path: fontPath }] })?.field, "customFonts");
+}
 
 // Centre latch: a box whose centre is a few px off the slide centre snaps to it.
 {

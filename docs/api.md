@@ -13,6 +13,8 @@ The agent subprocess is a client of exactly these routes — see
 
 Errors are always `{ "error": "message" }` with a `4xx`/`5xx` status. Success
 shapes are listed per route below.
+Brand value-validation errors also include `field` (for example,
+`colors.primary` or `fonts.heading`) so the wizard can reveal the offending field.
 
 ## Carousels
 
@@ -105,6 +107,11 @@ path is handed to a shell.
 `/api/upload` validates by **magic bytes**, not by extension or the declared
 MIME type, and accepts images (PNG, JPG, WebP) as well as font files (WOFF2,
 TTF) for custom brand fonts.
+
+Brand colours must be `#rgb` or `#rrggbb`. Font families use the renderer's
+1–64 ASCII letters/digits/spaces boundary and cannot be blank. Custom font paths
+must match `/uploads/fonts/<name>.(woff2|ttf)`. Invalid values return 400 without
+writing; the setup wizard uses the same validation on each step and before save.
 
 `/uploads/…` is rewritten before public-file lookup so `next start` can serve
 new files too. The read route uses `resolveUploadPath` and checks the real path

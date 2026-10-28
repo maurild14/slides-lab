@@ -8,9 +8,10 @@ interface ColorPickerProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  error?: string;
 }
 
-export function ColorPicker({ label, value, onChange }: ColorPickerProps) {
+export function ColorPicker({ label, value, onChange, error }: ColorPickerProps) {
   const id = useId();
   const t = useT();
   return (
@@ -42,7 +43,10 @@ export function ColorPicker({ label, value, onChange }: ColorPickerProps) {
           className="h-control-sm font-mono text-label"
           placeholder="#000000"
           spellCheck={false}
+          aria-invalid={!!error}
+          aria-describedby={error ? `${id}-error` : undefined}
         />
+        {error && <p id={`${id}-error`} role="alert" className="text-label text-destructive">{error}</p>}
       </div>
     </div>
   );

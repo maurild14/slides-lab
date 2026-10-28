@@ -98,6 +98,10 @@ you skip fields, so stored colours come back as empty strings — and
 drops, which reads as "the shape tool inserts nothing". `withBrandDefaults()`
 fills every blank; call it on read, always.
 
+New brand writes validate hex colours and font names through
+`src/lib/brand-validation.ts`, shared with the setup wizard. Partial updates
+remain supported; malformed values are rejected before storage.
+
 ## Uploads
 
 `public/uploads/` is the only image location. Generated images always land there

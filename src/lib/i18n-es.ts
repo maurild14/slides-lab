@@ -3,6 +3,9 @@
  * English text passed to `t()`, `{name}` placeholders included.
  */
 export const es: Record<string, string> = {
+  "Use a hex color (#rgb or #rrggbb).": "Usá un color hexadecimal (#rgb o #rrggbb).",
+  "Use a font name with 1–64 letters, numbers or spaces.": "Usá un nombre de fuente de 1 a 64 letras, números o espacios.",
+  "Custom fonts need a valid family name and an uploaded WOFF2 or TTF file.": "Las fuentes personalizadas necesitan un nombre válido y un archivo WOFF2 o TTF subido.",
   "Slides Lab — carousel editor": "Slides Lab — editor de carruseles",
   "AI-powered Instagram carousel editor with direct manipulation.": "Editor de carruseles de Instagram con IA y manipulación directa.",
   "Cancel": "Cancelar",

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBrand, updateBrand } from "@/lib/brand";
+import { brandValidationError } from "@/lib/brand-validation";
 import type { BrandColors, BrandConfig, BrandFonts } from "@/types/brand";
 import { either, isString, isStringArray, oneOf, pickFields, type Check } from "@/lib/pick-fields";
 
@@ -39,6 +40,8 @@ export async function PUT(request: Request) {
     // Nested objects get the same whitelist, or `colors.__anything` would ride along.
     if (updates.colors) updates.colors = pickFields<BrandColors>(updates.colors, COLORS) as BrandColors;
     if (updates.fonts) updates.fonts = pickFields<BrandFonts>(updates.fonts, FONTS) as BrandFonts;
+    const invalid = brandValidationError(updates);
+    if (invalid) return NextResponse.json(invalid, { status: 400 });
     const updated = await updateBrand(updates);
     return NextResponse.json(updated);
   } catch {
