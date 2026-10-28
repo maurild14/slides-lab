@@ -2,7 +2,9 @@
 
 **Read this when** you are adding, changing or calling a route. Everything runs
 at `http://localhost:3000`, bound to `127.0.0.1` only; there is no auth, no
-versioning and no remote host. `src/proxy.ts` guards every `/api/*` route: `403`
+versioning and no remote host. `src/proxy.ts` guards every route except Next's own
+`/_next/static` and `/_next/image` assets (`/uploads/*` included: it is
+rewritten to `/api/uploads` only after the proxy runs): `403`
 unless `Host` is `localhost:<port>` or `127.0.0.1:<port>` (DNS rebinding), and
 `403` on a non-GET/HEAD whose `Origin` is present and not that host (CSRF).
 Requests without `Origin` — the agent's curl — pass. `next.config.ts` adds the

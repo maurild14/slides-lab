@@ -34,6 +34,9 @@ export function proxy(request: NextRequest) {
   return NextResponse.next();
 }
 
+// Every route, not just /api: /uploads/* is rewritten to /api/uploads only after
+// the proxy runs, so an /api-only matcher let a rebinding page read the user's
+// images. Next's own build assets carry nothing private and skip the check.
 export const config = {
-  matcher: "/api/:path*",
+  matcher: "/((?!_next/static|_next/image).*)",
 };

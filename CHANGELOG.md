@@ -54,7 +54,8 @@ First public release.
 ### Security
 
 - The server binds to `127.0.0.1`, and `src/proxy.ts` rejects requests with a
-  foreign `Host` (DNS rebinding) or `Origin` (CSRF).
+  foreign `Host` (DNS rebinding) or `Origin` (CSRF), on every route including
+  `/uploads`.
 - Claude's chat agent runs on an allowlist: `curl` only instead of a free shell.
   `WebFetch` is off unless `CHAT_ALLOW_WEBFETCH=1`, and with it off the prompt
   asks for pasted text instead of fetching URLs.
